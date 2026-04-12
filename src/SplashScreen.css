@@ -1,0 +1,187 @@
+.app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #0d1f12 0%, #1b4d22 42%, #0f1a10 100%);
+  transition: opacity 0.45s ease, visibility 0.45s ease;
+  opacity: 1;
+  visibility: visible;
+  --splash-progress-ms: 5000ms;
+  overflow: hidden;
+}
+
+.app-splash--exit {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.app-splash::before {
+  content: "";
+  position: absolute;
+  inset: -35% -20% auto;
+  height: 60%;
+  background:
+    radial-gradient(55% 70% at 15% 35%, rgba(212, 175, 55, 0.22) 0%, transparent 65%),
+    radial-gradient(55% 70% at 85% 30%, rgba(46, 125, 50, 0.35) 0%, transparent 66%),
+    radial-gradient(60% 75% at 50% 55%, rgba(129, 199, 132, 0.18) 0%, transparent 70%);
+  filter: blur(2px);
+  animation: app-splash-wave-shift 9s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.app-splash__glow {
+  position: absolute;
+  width: min(95vw, 630px);
+  height: min(95vw, 630px);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.22) 0%, transparent 62%);
+  pointer-events: none;
+}
+
+.app-splash__stage {
+  position: relative;
+  z-index: 1;
+  width: min(90vw, 460px);
+  height: min(90vw, 460px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-splash__logo-wrap {
+  position: relative;
+  z-index: 1;
+  width: min(86vw, var(--ui-logo-splash));
+  height: min(86vw, var(--ui-logo-splash));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 12px 32px rgba(0, 0, 0, 0.45));
+}
+
+.app-splash__logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.app-splash__progress-block {
+  position: relative;
+  z-index: 1;
+  margin-top: 24px;
+  width: min(220px, 78vw);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.app-splash__progress-track {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.app-splash__progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(100deg, #e8d48b 0%, #D4AF37 35%, #43a047 68%, #1B5E20 100%);
+  background-size: 220% 100%;
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.45);
+  animation:
+    app-splash-progress var(--splash-progress-ms) linear forwards,
+    app-splash-wave-color 2.2s linear infinite;
+}
+
+.app-splash__loading-label {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(226, 232, 240, 0.85);
+}
+
+.app-splash__footer {
+  position: relative;
+  z-index: 1;
+  margin-top: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: rgba(248, 250, 252, 0.92);
+  font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.app-splash__lock {
+  width: 24px;
+  height: 24px;
+  color: #D4AF37;
+  animation: app-splash-lock-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes app-splash-progress {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes app-splash-lock-pulse {
+  0%,
+  100% {
+    opacity: 0.65;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes app-splash-wave-shift {
+  0% {
+    transform: translate3d(-4%, 0, 0) rotate(-2deg);
+  }
+  100% {
+    transform: translate3d(4%, 6%, 0) rotate(2deg);
+  }
+}
+
+@keyframes app-splash-wave-color {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-splash::before {
+    animation: none;
+  }
+  .app-splash__progress-fill {
+    animation: none;
+    width: 100%;
+  }
+  .app-splash__lock {
+    animation: none;
+    opacity: 0.9;
+  }
+}

@@ -1,0 +1,9 @@
+services:
+  gsms:
+    build:
+      context: .
+      args:
+        VITE_BASE: ${VITE_BASE:-/}
+    ports:
+      - "${PORT:-8080}:80"
+    restart: unless-stopped

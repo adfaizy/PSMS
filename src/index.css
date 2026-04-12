@@ -1,0 +1,96 @@
+/* Minimal reset + theme support for school management app */
+* {
+  box-sizing: border-box;
+}
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+}
+#root {
+  height: 100%;
+  width: 100%;
+}
+
+:root {
+  /* Lock the app to light mode - ignore Windows OS dark/light theme completely */
+  color-scheme: light only;
+}
+
+/* Light theme: PSMS brand — forest green primary, gold accents (see public/app-brand-logo.png) */
+:root[data-theme="light"],
+:root:not([data-theme]) {
+  --bg-body: #e8f0ea;         /* shell / auth / admin — soft green-gray */
+  --ui-canvas-bg: #fafdfb;    /* main content area (#print-section) */
+  --bg-surface: #ffffff;      /* cards / content */
+  --bg-surface-soft: #f1f8f3; /* softer surfaces */
+  --border-subtle: #d1d5db;
+  --text-main: #0f172a;
+  --text-muted: #4b5563;
+  --color-navy: #1B5E20;      /* primary chrome (sidebar / header) — brand green */
+  --color-navy-soft: #e8f5e9; /* light brand tint */
+  --color-gold: #D4AF37;      /* accent gold */
+  --color-green: #2e7d32;
+  --color-red: #dc2626;
+  --color-gray: #6b7280;
+  --color-gray-soft: #f3f4f6;
+  --break-main: #fbbf24;
+  --break-soft: #fef3c7;
+  --ui-logo-splash: 192px;
+}
+
+/* Dark theme: dark background, brand-aligned accents */
+:root[data-theme="dark"] {
+  --bg-body: #1a1f1a;
+  --ui-canvas-bg: #141814;
+  --bg-surface: #262626;
+  --bg-surface-soft: #1f1f1f;
+  --border-subtle: #404040;
+  --text-main: #ffffff;
+  --text-muted: #a3a3a3;
+  --color-navy: #81c784;
+  --color-navy-soft: #1b2e1d;
+  --color-gold: #e6c35c;
+  --color-green: #66bb6a;
+  --color-red: #f97373;
+  --color-gray: #a3a3a3;
+  --color-gray-soft: #1f1f1f;
+  --break-main: #facc15;
+  --break-soft: #292524;
+}
+
+body {
+  background: var(--bg-body);
+  color: var(--text-main);
+  font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+@media print {
+  @page {
+    size: landscape;
+    margin: 10mm;
+  }
+
+  /* Force background colors to print so headers remain navy with white text */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .timetable-pdf-export {
+    border-collapse: collapse !important;
+    border: 1.5px solid #000 !important;
+  }
+  
+  .timetable-pdf-export th {
+    border: 1px solid #000 !important;
+    color: #fff !important;
+    background-color: var(--color-navy) !important;
+  }
+  
+  .timetable-pdf-export td {
+    border: 1px solid #000 !important;
+    color: #000 !important;
+  }
+}
