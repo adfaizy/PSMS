@@ -21,6 +21,10 @@ export const UI = {
   textMuted: "var(--text-muted)",
   /** Brand logo in header, auth, admin, mobile drawer */
   logoApp: 88,
+  /** Header hamburger — compact but ≥44px for touch */
+  mobileMenuBtn: 44,
+  /** Lucide Menu (three lines) inside hamburger */
+  iconMenu: 20,
   /** Splash / boot screen emblem */
   logoSplash: 192,
   /** Sidebar route emojis (desktop + mobile) */

@@ -6,8 +6,14 @@ import {
 import { createPortal } from "react-dom";
 import * as XLSX from "./xlsxClient.js";
 import JSZip from "./jszipClient.js";
-import { jsPDF } from "jspdf";
+import jsPDFModule from "jspdf";
 import autoTable from "jspdf-autotable";
+
+/** Vite `needsInterop` can wrap `jspdf` so `{ jsPDF }` is not the constructor; default + fallbacks are reliable. */
+const jsPDF =
+  typeof jsPDFModule === "function"
+    ? jsPDFModule
+    : jsPDFModule?.jsPDF ?? jsPDFModule?.default;
 import html2canvas from "html2canvas";
 import { X, Plus, Edit2, Trash2, Upload, Download, Menu, Settings, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import { AboutUsPage } from "./AboutUsPage";
@@ -828,6 +834,47 @@ function getStaffInPortion(settings,timetable,portion,staffProfiles){
     return false;
   });
 }
+const DEFAULT_PRINT_PORTION_MASK={primary:true,middle:true,high:true};
+function isPortionMaskFull(mask){
+  return !!(mask&&mask.primary&&mask.middle&&mask.high);
+}
+function formatPortionMaskLabel(mask){
+  if(isPortionMaskFull(mask)) return "Full";
+  const parts=[];
+  if(mask.primary) parts.push("Primary");
+  if(mask.middle) parts.push("Middle");
+  if(mask.high) parts.push("High");
+  return parts.join(" + ")||"—";
+}
+/** Union of classes in every selected portion (Primary / Middle / High). All three = full list. */
+function getClassesByPortionMask(classes,mask){
+  if(!Array.isArray(classes)) return [];
+  if(!mask||isPortionMaskFull(mask)) return classes;
+  const map=new Map();
+  if(mask.primary) getClassesByPortion(classes,"primary").forEach(c=>map.set(c.id,c));
+  if(mask.middle) getClassesByPortion(classes,"middle").forEach(c=>map.set(c.id,c));
+  if(mask.high) getClassesByPortion(classes,"high").forEach(c=>map.set(c.id,c));
+  return Array.from(map.values());
+}
+function getStaffInPortionMask(settings,timetable,mask,staffProfiles){
+  const staff=teachingStaffList(settings,staffProfiles);
+  if(!staff.length) return [];
+  if(!mask||isPortionMaskFull(mask)) return staff;
+  const portionClasses=getClassesByPortionMask(settings.classes||[],mask);
+  const classIds=new Set(portionClasses.map(c=>c.id));
+  if(classIds.size===0) return [];
+  const {rows}=calcTimes(settings,"Monday");
+  const pRows=rows.filter(r=>!r.isBreak);
+  return staff.filter(teacher=>{
+    for(let pi=0;pi<pRows.length;pi++){
+      for(const classId of classIds){
+        const cell=getTT(timetable,classId,"Monday",pi);
+        if(cell&&cell.teacher===teacher.name) return true;
+      }
+    }
+    return false;
+  });
+}
 
 // ─── ALL CLASSES VIEW ─────────────────────────────────────────────────────────
 function AllClassesView({settings,staffProfiles,timetable,setTimetable,day,classes:classesOverride}){
@@ -1347,29 +1394,38 @@ function ByTeacherView({settings,timetable,selT,suppressPrintHeader}){
 }
 
 // ─── TIMETABLE PAGE ───────────────────────────────────────────────────────────
-const PRINT_PORTION_OPTIONS=[{value:"full",label:"Full"},{value:"high",label:"High"},{value:"middle",label:"Middle"},{value:"primary",label:"Primary"}];
 function TimetablePage({settings,staffProfiles,timetable,setTimetable,currentSession,setBarSubtitle}){
   const [view,setView]=useState("allClasses");
   const [byClassCls,setByClassCls]=useState(settings.classes[0]?.id||"__all_classes__");
   const [byTeacherName,setByTeacherName]=useState(teachingStaffList(settings,staffProfiles)[0]?.name||"__all_staff__");
-  const [printPortion,setPrintPortion]=useState("full");
+  const [printPortionMask,setPrintPortionMask]=useState(()=>({...DEFAULT_PRINT_PORTION_MASK}));
   const timetableTableRef=useRef(null);
 
   const views=[{id:"allClasses",label:"Classes"},{id:"teachers",label:"Faculty"},{id:"byClass",label:"Class Planner"},{id:"byTeacher",label:"Teacher Planner"}];
   const tableNames={allClasses:"ALL CLASSES — TIMETABLE",teachers:"TEACHERS TIMETABLE",byClass:"CLASS TIMETABLE",byTeacher:"TEACHER TIMETABLE"};
-  const portionLabel=PRINT_PORTION_OPTIONS.find(p=>p.value===printPortion)?.label||printPortion;
+  const portionLabel=formatPortionMaskLabel(printPortionMask);
+  const portionFilterActive=!isPortionMaskFull(printPortionMask);
   const currentTableName=view==="byClass"&&byClassCls!=="__all_classes__"
     ? `${settings.classes.find(c=>c.id===byClassCls)?.name||""} — CLASS TIMETABLE`
     : view==="byTeacher"&&byTeacherName!=="__all_staff__"
       ? `${byTeacherName} — TEACHER TIMETABLE`
-      : view==="allClasses"&&printPortion!=="full"
+      : view==="allClasses"&&portionFilterActive
         ? `ALL CLASSES — TIMETABLE (${portionLabel})`
-        : view==="teachers"&&printPortion!=="full"
+        : view==="teachers"&&portionFilterActive
           ? `TEACHERS TIMETABLE (${portionLabel})`
           : tableNames[view]||"TIMETABLE";
-  const classesForView=view==="allClasses"?getClassesByPortion(settings.classes,printPortion):settings.classes;
+  const classesForView=view==="allClasses"?getClassesByPortionMask(settings.classes,printPortionMask):settings.classes;
   const teachingStaff=teachingStaffList(settings,staffProfiles);
-  const staffForView=view==="teachers"?getStaffInPortion(settings,timetable,printPortion,staffProfiles):teachingStaff;
+  const staffForView=view==="teachers"?getStaffInPortionMask(settings,timetable,printPortionMask,staffProfiles):teachingStaff;
+
+  const togglePrintPortion=(key)=>{
+    setPrintPortionMask((m)=>{
+      const next={...m,[key]:!m[key]};
+      if(!next.primary&&!next.middle&&!next.high) return m;
+      return next;
+    });
+  };
+  const portionChkStyle={display:"inline-flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,fontWeight:600,color:C.navy,userSelect:"none"};
 
   useEffect(()=>{
     if(!setBarSubtitle) return;
@@ -1383,23 +1439,36 @@ function TimetablePage({settings,staffProfiles,timetable,setTimetable,currentSes
   },[teachingStaff,byTeacherName]);
 
   const doExportTimetable=(format)=>{
+    const tableEl=timetableTableRef.current?.querySelector("table.timetable-pdf-export")||timetableTableRef.current?.querySelector("table");
     const {headers,rows}=getTableDataFromElement(timetableTableRef.current);
-    if(!headers.length&&!rows.length){ alert("No table data to export. Select a view with a timetable."); return; }
+    const hasDom=tableEl&&tableEl.rows&&tableEl.rows.length>0;
+    const hasMatrix=(Array.isArray(headers)&&headers.length>0)||(Array.isArray(rows)&&rows.length>0);
+    if(!hasDom&&!hasMatrix){ alert("No table data to export. Select a view with a timetable."); return; }
     const baseName="Timetable_"+String(currentTableName).replace(/\s*—\s*/g,"_").replace(/\s+/g,"_").slice(0,40);
-    if(format==="pdf") void exportTableToPdf(settings,currentSession,currentTableName,headers,rows,baseName+".pdf").catch(()=>alert("PDF export failed."));
+    if(format==="pdf") void exportTableToPdf(settings,currentSession,currentTableName,headers,rows,baseName+".pdf",hasDom?tableEl:undefined).catch((e)=>alert("PDF export failed: "+(e?.message||String(e))));
   };
 
   const handleTimetablePdf=()=>{
-    // For “All staff” / “All classes” where export may not work reliably, use browser print
-    if((view==="byClass"&&byClassCls==="__all_classes__")||(view==="byTeacher"&&byTeacherName==="__all_staff__")){
+    // All classes / all staff: browser print (multi tables). Force A4 landscape @page so tables fit; clear on afterprint.
+    const batchPlannerPrint=
+      (view==="byClass"&&byClassCls==="__all_classes__")||
+      (view==="byTeacher"&&byTeacherName==="__all_staff__");
+    if(batchPlannerPrint){
+      const id="psms-timetable-batch-print-override";
+      let tag=document.getElementById(id);
+      if(!tag){ tag=document.createElement("style"); tag.id=id; }
+      document.body.appendChild(tag);
+      tag.textContent="@media print{@page{size:A4 landscape;margin:8mm}}";
+      const clear=()=>{ tag.textContent=""; window.removeEventListener("afterprint",clear); };
+      window.addEventListener("afterprint",clear,{once:true});
       window.print();
-    }else{
-      doExportTimetable("pdf");
+      return;
     }
+    doExportTimetable("pdf");
   };
 
-  return <div className="timetable-page timetable-print-area">
-    <div className="no-print timetable-toolbar" style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap",padding:"10px 14px",background:"#fff",borderRadius:8,boxShadow:"0 1px 4px rgba(0,0,0,0.08)"}}>
+  return <div className="timetable-page timetable-print-area" style={{width:"100%",maxWidth:"100%",minWidth:0,boxSizing:"border-box"}}>
+    <div className="no-print timetable-toolbar" style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap",padding:"10px 14px",background:"#fff",borderRadius:8,boxShadow:"0 1px 4px rgba(0,0,0,0.08)",width:"100%",maxWidth:"100%",boxSizing:"border-box"}}>
       <div style={{display:"flex",gap:4,minWidth:0}}>
         {views.map(v=>(
           <button
@@ -1427,12 +1496,26 @@ function TimetablePage({settings,staffProfiles,timetable,setTimetable,currentSes
       </div>
       <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
         {(view==="allClasses"||view==="teachers")&&(
-          <>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
             <span style={{fontSize:12,fontWeight:600,color:C.gray}}>Portion:</span>
-            <select value={printPortion} onChange={e=>setPrintPortion(e.target.value)} style={{padding:"5px 10px",borderRadius:5,border:"1px solid #d1d5db",background:"#fff",fontSize:12,fontWeight:600,color:C.navy,cursor:"pointer"}}>
-              {PRINT_PORTION_OPTIONS.map(p=><option key={p.value} value={p.value}>{p.label}</option>)}
-            </select>
-          </>
+            <label style={portionChkStyle}>
+              <input type="checkbox" checked={printPortionMask.primary} onChange={()=>togglePrintPortion("primary")}/>
+              Primary
+            </label>
+            <label style={portionChkStyle}>
+              <input type="checkbox" checked={printPortionMask.middle} onChange={()=>togglePrintPortion("middle")}/>
+              Middle
+            </label>
+            <label style={portionChkStyle}>
+              <input type="checkbox" checked={printPortionMask.high} onChange={()=>togglePrintPortion("high")}/>
+              High
+            </label>
+            {portionFilterActive&&(
+              <button type="button" className="no-print" onClick={()=>setPrintPortionMask({...DEFAULT_PRINT_PORTION_MASK})} style={{fontSize:11,fontWeight:600,color:C.navy,background:"transparent",border:"none",cursor:"pointer",textDecoration:"underline",padding:0}}>
+                All portions
+              </button>
+            )}
+          </div>
         )}
         {view==="byClass"&&<Sel value={byClassCls} onChange={setByClassCls} options={[{value:"__all_classes__",label:"All classes"},...settings.classes.map(c=>({value:c.id,label:formatClassDisplay(c)}))]}/>}
         {view==="byTeacher"&&<Sel value={byTeacherName} onChange={setByTeacherName} options={[{value:"__all_staff__",label:"All staff"},...teachingStaff.map(st=>({value:st.name,label:st.name}))]}/>}
@@ -1440,9 +1523,9 @@ function TimetablePage({settings,staffProfiles,timetable,setTimetable,currentSes
       </div>
     </div>
 
-    <div className="timetable-main-content" ref={timetableTableRef}>
-    {view==="allClasses"&&(classesForView.length>0?<AllClassesView settings={settings} staffProfiles={staffProfiles} timetable={timetable} setTimetable={setTimetable} day="Monday" classes={classesForView}/>:<div className="no-print" style={{padding:20,textAlign:"center",color:C.gray,fontSize:13}}>No classes in {portionLabel} portion. Choose Full or another portion.</div>)}
-    {view==="teachers"&&(staffForView.length>0?<TeachersView settings={settings} timetable={timetable} day="Monday" staff={staffForView} suppressPrintHeader/>:<div className="no-print" style={{padding:20,textAlign:"center",color:C.gray,fontSize:13}}>No teachers in {portionLabel} portion. Choose Full or another portion.</div>)}
+    <div className="timetable-main-content" ref={timetableTableRef} style={{width:"100%",maxWidth:"100%",minWidth:0,boxSizing:"border-box"}}>
+    {view==="allClasses"&&(classesForView.length>0?<AllClassesView settings={settings} staffProfiles={staffProfiles} timetable={timetable} setTimetable={setTimetable} day="Monday" classes={classesForView}/>:<div className="no-print" style={{padding:20,textAlign:"center",color:C.gray,fontSize:13}}>No classes for <strong>{portionLabel}</strong>. Tick another portion or use &quot;All portions&quot;.</div>)}
+    {view==="teachers"&&(staffForView.length>0?<TeachersView settings={settings} timetable={timetable} day="Monday" staff={staffForView} suppressPrintHeader/>:<div className="no-print" style={{padding:20,textAlign:"center",color:C.gray,fontSize:13}}>No teachers for <strong>{portionLabel}</strong>. Tick another portion or use &quot;All portions&quot;.</div>)}
     {view==="byClass"&&byClassCls!=="__all_classes__"&&<div className="by-class-single"><ByClassView settings={settings} timetable={timetable} selCls={byClassCls} suppressPrintHeader/></div>}
     {view==="byClass"&&byClassCls==="__all_classes__"&&<div className="all-classes-batch-print">
       {classesForView.map((c, i) => (
@@ -1614,7 +1697,28 @@ async function exportTableToExcel(settings, session, tableName, columnHeaders, d
   XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
   await downloadExcel(wb, filename || "export.xlsx");
 }
-async function exportTableToPdf(settings, session, tableName, columnHeaders, dataRows, filename){
+/** Ensure autotable cells are strings or { content, colSpan?, rowSpan? } (no undefined / bad objects). */
+function sanitizePdfCell(val) {
+  if (val == null) return "";
+  if (typeof val === "object" && !Array.isArray(val)) {
+    const content = val.content != null ? String(val.content) : "";
+    const out = { content };
+    const cs = Number(val.colSpan);
+    const rs = Number(val.rowSpan);
+    if (cs > 1) out.colSpan = cs;
+    if (rs > 1) out.rowSpan = rs;
+    return out;
+  }
+  return String(val);
+}
+function sanitizePdfTableRows(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map((row) => (Array.isArray(row) ? row.map(sanitizePdfCell) : []));
+}
+/**
+ * @param {HTMLTableElement} [htmlTableEl] — when set for timetable exports, use autotable `html` mode (fixes colspan/rowspan vs manual matrix).
+ */
+async function exportTableToPdf(settings, session, tableName, columnHeaders, dataRows, filename, htmlTableEl){
   const meta = getExportHeaderMeta(settings, session, tableName);
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
@@ -1623,9 +1727,9 @@ async function exportTableToPdf(settings, session, tableName, columnHeaders, dat
   const right = pageW - 10;
   const hdr = await addPdfBrandingLogoRow(doc, settings?.logo, left, yTop);
   doc.setFontSize(14);
-  doc.setFont(undefined, "bold");
+  doc.setFont("helvetica", "bold");
   doc.text(meta.schoolName, hdr.textX, yTop + 10);
-  doc.setFont(undefined, "normal");
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(100, 100, 100);
   doc.text(meta.subtitle || meta.tableName, hdr.textX, yTop + 18);
@@ -1637,40 +1741,98 @@ async function exportTableToPdf(settings, session, tableName, columnHeaders, dat
   const titleStr = String(tableName || "");
   const isTimetableGridExport = /\bTIMETABLE\b/i.test(titleStr);
   const isExamConsolidated = titleStr.includes("Consolidated");
-  const smallTableFont = isTimetableGridExport || isExamConsolidated;
-  autoTable(doc, {
-    head: Array.isArray(columnHeaders[0]) ? columnHeaders : [columnHeaders],
-    body: dataRows,
-    startY: y,
-    theme: "grid",
-    ...(isTimetableGridExport ? { tableWidth: "auto" } : {}),
-    headStyles: {
-      fillColor: [26, 58, 107],
-      textColor: [255, 255, 255],
-      fontStyle: "bold",
-      halign: "center",
-      valign: "middle",
-      cellPadding: smallTableFont ? 2 : 4,
-      fontSize: smallTableFont ? (isTimetableGridExport ? 7 : 8) : undefined,
-    },
-    bodyStyles: {
-      halign: "center",
-      valign: "middle",
-      cellPadding: smallTableFont ? 2 : 4,
-      fontSize: smallTableFont ? (isTimetableGridExport ? 7 : 8) : undefined,
-      overflow: "linebreak",
-    },
-    styles: {
-      halign: "center",
-      valign: "middle",
-      lineWidth: 0.2,
-      lineColor: [0, 0, 0],
-      overflow: "linebreak",
-      fontSize: smallTableFont ? (isTimetableGridExport ? 7 : undefined) : undefined,
-    },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
-    margin: { left: left, right: 10 },
-  });
+  /** Timetable PDFs (Classes / Faculty / Class planner / Teacher planner): black/white table, solid borders. */
+  const timetablePdfTable = isTimetableGridExport
+    ? {
+        headStyles: {
+          fillColor: [0, 0, 0],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          halign: "center",
+          valign: "middle",
+          cellPadding: 2,
+          fontSize: 7,
+        },
+        bodyStyles: {
+          halign: "center",
+          valign: "middle",
+          cellPadding: 2,
+          fontSize: 7,
+          overflow: "linebreak",
+          textColor: 0,
+          fillColor: false,
+        },
+        styles: {
+          halign: "center",
+          valign: "middle",
+          lineWidth: { top: 0.35, right: 0.35, bottom: 0.35, left: 0.35 },
+          lineColor: [0, 0, 0],
+          textColor: 0,
+          overflow: "linebreak",
+          fontSize: 7,
+        },
+        alternateRowStyles: { fillColor: false, textColor: 0 },
+      }
+    : {
+        headStyles: {
+          fillColor: [26, 58, 107],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          halign: "center",
+          valign: "middle",
+          cellPadding: isExamConsolidated ? 2 : 4,
+          fontSize: isExamConsolidated ? 8 : undefined,
+        },
+        bodyStyles: {
+          halign: "center",
+          valign: "middle",
+          cellPadding: isExamConsolidated ? 2 : 4,
+          fontSize: isExamConsolidated ? 8 : undefined,
+          overflow: "linebreak",
+        },
+        styles: {
+          halign: "center",
+          valign: "middle",
+          lineWidth: 0.2,
+          lineColor: [0, 0, 0],
+          overflow: "linebreak",
+          fontSize: isExamConsolidated ? 8 : undefined,
+        },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+      };
+  const margin = { left: left, right: 10 };
+  try {
+    if (
+      isTimetableGridExport &&
+      htmlTableEl &&
+      typeof htmlTableEl.rows === "object" &&
+      htmlTableEl.rows &&
+      htmlTableEl.rows.length > 0
+    ) {
+      autoTable(doc, {
+        html: htmlTableEl,
+        startY: y,
+        theme: "grid",
+        ...timetablePdfTable,
+        margin,
+      });
+    } else {
+      const head = Array.isArray(columnHeaders[0]) ? columnHeaders : [columnHeaders];
+      const headSan = sanitizePdfTableRows(head);
+      const bodySan = sanitizePdfTableRows(Array.isArray(dataRows) ? dataRows : []);
+      autoTable(doc, {
+        head: headSan,
+        body: bodySan,
+        startY: y,
+        theme: "grid",
+        ...timetablePdfTable,
+        margin,
+      });
+    }
+  } catch (err) {
+    console.error("exportTableToPdf", err);
+    throw err;
+  }
   doc.save(filename || "export.pdf");
 }
 
@@ -6305,6 +6467,9 @@ const PRINT_CSS=[
   "  #print-section .timetable-print-area{page:landscape}",
   "  #print-section .timetable-print-area .print-header-universal{margin-bottom:10px}",
   "  #print-section .timetable-print-area .timetable-main-content{margin:0;padding:0}",
+  "  #print-section .all-classes-batch-print,#print-section .all-teachers-batch-print{page:landscape;width:281mm!important;max-width:100%!important;min-height:0;box-sizing:border-box}",
+  "  #print-section .all-classes-batch-print > div,#print-section .all-teachers-batch-print > div{page:landscape;max-width:281mm!important;box-sizing:border-box!important}",
+  "  #print-section .all-classes-batch-print table,#print-section .all-teachers-batch-print table{width:100%!important;max-width:100%!important;table-layout:fixed!important}",
   "  body.printing-all-classes-portion,body.printing-all-classes,body.printing-by-class-single,body.printing-teachers-portion{page:landscape}",
   "  html:has(body.printing-all-classes-portion),html:has(body.printing-all-classes),html:has(body.printing-by-class-single),html:has(body.printing-teachers-portion){page:landscape}",
   "  body.printing-by-class-single #print-section .by-class-single{page:landscape}",
@@ -6383,6 +6548,10 @@ const PRINT_CSS=[
 ].join("\n");
 
 const MOBILE_CSS = [
+  "/* Header hamburger: hide by default; never use inline display:none (breaks show rules in some engines). */",
+  ".mobile-menu-btn{display:none!important}",
+  ".app-page-timetable .timetable-print-area,.app-page-timetable .timetable-main-content{min-width:0;max-width:100%;box-sizing:border-box;}",
+  ".app-page-timetable .timetable-main-content > div{max-width:100%;box-sizing:border-box;}",
   "@media (max-width:1199px){",
   "  .app-right-sidebar{display:none!important}",
   "}",
@@ -6396,7 +6565,7 @@ const MOBILE_CSS = [
   "  .app-body-row{flex-direction:column!important}",
   "  .app-sidebar{display:none!important}",
   "  .app-main{flex:1 1 100%!important;min-width:0;width:100%!important}",
-  "  .mobile-menu-btn{display:flex!important;align-items:center!important;justify-content:center!important}",
+  "  .mobile-menu-btn{display:flex!important;align-items:center!important;justify-content:center!important;width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;touch-action:manipulation!important;-webkit-tap-highlight-color:transparent!important}",
   "  .mobile-menu-backdrop{position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:10000;-webkit-tap-highlight-color:transparent}",
   "  .mobile-menu-panel{position:fixed;top:0;left:0;bottom:0;width:min(300px,88vw);max-width:100vw;background:linear-gradient(180deg,#0f172a 0%,#1e293b 100%);color:#f9fafb;z-index:10001;box-shadow:8px 0 32px rgba(0,0,0,0.35);display:flex;flex-direction:column;overflow:hidden;padding-bottom:env(safe-area-inset-bottom,0);animation:mobile-nav-drawer-in 0.22s ease-out}",
   "  @keyframes mobile-nav-drawer-in{from{transform:translateX(-100%);opacity:0.9}to{transform:translateX(0);opacity:1}}",
@@ -6408,8 +6577,16 @@ const MOBILE_CSS = [
   "  .mobile-menu-panel .mobile-menu-footer{padding:12px 16px;border-top:1px solid rgba(148,163,184,0.35);font-size:11px;opacity:0.9;line-height:1.45;flex-shrink:0;background:rgba(15,23,42,0.5)}",
   "  .hide-on-mobile{display:none!important}",
   "}",
-  "@media (min-width:769px){",
-  "  .mobile-menu-btn{display:none!important}",
+  "/* Timetable: hide sidebars + edge padding when width is tight; menu button stays available (769–1280). */",
+  "@media (max-width:1400px){",
+  "  .app-page-timetable .app-right-sidebar{display:none!important}",
+  "}",
+  "@media (max-width:1280px){",
+  "  .app-page-timetable .app-sidebar{display:none!important}",
+  "  .app-page-timetable .app-body-row{gap:4px!important}",
+  "  .app-page-timetable .app-main{flex:1 1 auto!important;min-width:0!important;width:100%!important;max-width:100%!important}",
+  "  .app-page-timetable #print-section{padding:8px max(4px, env(safe-area-inset-left)) 8px max(4px, env(safe-area-inset-right))!important;max-width:100%!important;box-sizing:border-box!important}",
+  "  .app-page-timetable .mobile-menu-btn{display:flex!important;align-items:center!important;justify-content:center!important;width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;touch-action:manipulation!important}",
   "}"
 ].join("\n");
 
@@ -9227,12 +9404,12 @@ function App(){
     <>
       <style>{PRINT_CSS}</style>
     <style>{MOBILE_CSS}</style>
-    <div className="app-layout" style={{display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",fontFamily:UI.fontApp,background:UI.shellBg,padding:"0 10px 10px",boxSizing:"border-box"}}>
+    <div className={page==="timetable"?"app-layout app-page-timetable":"app-layout"} style={{display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",fontFamily:UI.fontApp,background:UI.shellBg,padding:page==="timetable"?"0 max(6px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left))":"0 10px 10px",boxSizing:"border-box"}}>
       <header className="app-header no-print" style={{flexShrink:0,zIndex:20,margin:"8px 0 0",background:"#ffffff",borderBottom:"1px solid #e5e7eb",boxShadow:"0 1px 4px rgba(15,23,42,0.06)",borderRadius:12}}>
         <div className="app-topbar-grid" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,auto) minmax(0,1fr)",alignItems:"center",gap:12,padding:"10px 16px",maxWidth:"100%"}}>
           <div className="app-topbar-left" style={{display:"flex",alignItems:"center",gap:12,minWidth:0}}>
-            <button type="button" className="mobile-menu-btn" aria-label="Open menu" style={{display:"none",alignItems:"center",justifyContent:"center",width:UI.logoApp,height:UI.logoApp,padding:0,border:"none",background:C.navy,color:"#fff",borderRadius:UI.radiusControl,cursor:"pointer",flexShrink:0}} onClick={()=>setMobileMenuOpen(true)}>
-              <Menu size={UI.iconNav} strokeWidth={2.25} aria-hidden />
+            <button type="button" className="mobile-menu-btn" aria-label="Open menu" aria-expanded={mobileMenuOpen} style={{alignItems:"center",justifyContent:"center",width:UI.mobileMenuBtn,height:UI.mobileMenuBtn,minWidth:UI.mobileMenuBtn,minHeight:UI.mobileMenuBtn,padding:0,border:"none",background:C.navy,color:"#fff",borderRadius:UI.radiusControl,cursor:"pointer",flexShrink:0,touchAction:"manipulation",WebkitTapHighlightColor:"transparent",position:"relative",zIndex:30,pointerEvents:"auto"}} onClick={()=>setMobileMenuOpen(true)}>
+              <Menu size={UI.iconMenu} strokeWidth={2} aria-hidden />
             </button>
             <img src={APP_BRAND_LOGO} alt="" className="app-topbar-logo" style={{width:UI.logoApp/2,height:UI.logoApp/2,objectFit:"contain",flexShrink:0}} />
             <div className="app-topbar-brandtext" style={{display:"flex",flexDirection:"column",minWidth:0,justifyContent:"center"}}>

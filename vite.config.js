@@ -71,7 +71,8 @@ export default defineConfig(({ mode }) => {
      * `react` / `react-dom` to load in the browser (no `createContext` / `createRoot`).
      */
     optimizeDeps: {
-      needsInterop: ["jszip", "jspdf", "jspdf-autotable", "html2canvas"],
+      // jspdf / jspdf-autotable ship ESM; forcing needsInterop breaks `import { jsPDF }` / constructor binding.
+      needsInterop: ["jszip", "html2canvas"],
     },
     build: {
       chunkSizeWarningLimit: 2500,
