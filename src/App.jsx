@@ -792,9 +792,10 @@ function TTCell(props){
   >
     {hasAssign
       ? (
-        <div style={{textAlign:"center"}}>
-          <div style={{fontWeight:700,fontSize:12}}>{subject}</div>
-          <div style={{fontSize:10,marginTop:1}}>{teacher||""}</div>
+        <div style={{textAlign:"center",width:"100%"}}>
+          <div style={{fontWeight:700,fontSize:12,color:"#000"}}>{subject}</div>
+          <br />
+          <div style={{fontSize:10,color:"#000",fontWeight:400}}>{teacher||""}</div>
         </div>
       )
       : (
@@ -1184,10 +1185,11 @@ function TeachersView({settings,timetable,day,staff:staffOverride,printSubtitle,
             {pRows.map((_,pi)=>{
               const assigned=getAssignment(teacher.name,pi);
               return [
-                <td key={`tc${pi}`} style={{padding:2,border:"1px solid #9ca3af",textAlign:"center",minWidth:80,fontSize:9}}>
-                  {assigned?(<div style={{background:"#dbeafe",borderRadius:4,padding:"2px 3px"}}>
+                <td key={`tc${pi}`} style={{padding:2,border:"1px solid #9ca3af",textAlign:"center",minWidth:80,fontSize:9,verticalAlign:"middle"}}>
+                  {assigned?(<div style={{background:"#dbeafe",borderRadius:4,padding:"2px 3px",textAlign:"center"}}>
                     <div style={{fontWeight:700,color:"#000",fontSize:9}}>{assigned.subject}</div>
-                    <div style={{fontSize:8,color:"#000"}}>{assigned.className}</div>
+                    <br />
+                    <div style={{fontSize:8,color:"#000",fontWeight:400}}>{assigned.className}</div>
                   </div>):<span style={{color:"#d1d5db",fontSize:8}}>Free</span>}
                 </td>,
                 pi===brAfterIdx&&<td key={`tb${pi}`} style={{background:C.breakL,textAlign:"center",fontWeight:700,fontSize:8,color:"#92400e",padding:2}}>BREAK</td>
@@ -1240,8 +1242,14 @@ function ByClassView({settings,timetable,selCls,suppressPrintHeader}){
                 {dp.map((_,pi)=>{
                   const cell=getTT(timetable,selCls,day,pi);
                   return [
-                    <td key={`byc${pi}`} style={{padding:4,border:"1px solid #9ca3af",textAlign:"center",minWidth:80}}>
-                      {cell.subject?<><div style={{fontWeight:700,color:"#000",fontSize:11}}>{cell.subject}</div><div style={{fontSize:10,color:"#000"}}>{cell.teacher}</div></>:<span style={{color:"#d1d5db",fontSize:10}}>—</span>}
+                    <td key={`byc${pi}`} style={{padding:4,border:"1px solid #9ca3af",textAlign:"center",minWidth:80,verticalAlign:"middle"}}>
+                      {cell.subject?(
+                        <div style={{textAlign:"center"}}>
+                          <div style={{fontWeight:700,color:"#000",fontSize:11}}>{cell.subject}</div>
+                          <br />
+                          <div style={{fontSize:10,color:"#000",fontWeight:400}}>{cell.teacher||""}</div>
+                        </div>
+                      ):(<span style={{color:"#d1d5db",fontSize:10}}>—</span>)}
                     </td>,
                     pi===brAfterIdx&&<td key={`bycb${pi}`} style={{background:C.breakL,textAlign:"center",fontWeight:700,fontSize:10,color:"#92400e",padding:2}}>BREAK</td>
                   ];
@@ -1307,14 +1315,6 @@ function ByTeacherView({settings,timetable,selT,suppressPrintHeader}){
               <th colSpan={2} style={{padding:"5px 8px",textAlign:"center",borderLeft:"1px solid #2563eb"}}>FRIDAY</th>
               <th style={{padding:"5px 8px",textAlign:"center",borderLeft:"1px solid #2563eb",minWidth:120}}>CLASS–SUBJECT</th>
             </tr>
-            <tr style={{background:"#e8edf8"}}>
-              <th style={{padding:"4px 8px",fontWeight:700,color:"#000"}}>Periods</th>
-              <th style={{padding:"4px 8px",fontWeight:600,color:"#000",textAlign:"center"}}>S.Time</th>
-              <th style={{padding:"4px 8px",fontWeight:600,color:"#000",textAlign:"center"}}>E.Time</th>
-              <th style={{padding:"4px 8px",fontWeight:600,color:"#000",textAlign:"center"}}>S.Time</th>
-              <th style={{padding:"4px 8px",fontWeight:600,color:"#000",textAlign:"center"}}>E.Time</th>
-              <th style={{padding:"4px 8px",fontWeight:600,color:"#000",textAlign:"center"}}>CLASS–SUBJECT</th>
-            </tr>
           </thead>
           <tbody>
             {/* Assembly */}
@@ -1346,10 +1346,11 @@ function ByTeacherView({settings,timetable,selT,suppressPrintHeader}){
                   <td style={{padding:"4px 8px",textAlign:"center"}}>{fmtMin(mp.end)}</td>
                   <td style={{padding:"4px 8px",textAlign:"center"}}>{fp?fmtMin(fp.start):"—"}</td>
                   <td style={{padding:"4px 8px",textAlign:"center"}}>{fp?fmtMin(fp.end):"—"}</td>
-                  <td style={{padding:"4px 8px",textAlign:"center"}}>
-                    {monAssign?(<div style={{background:"#f3f4ff",borderRadius:6,padding:"3px 9px",display:"inline-block",minWidth:120}}>
-                      <span style={{fontWeight:700,color:"#000",fontSize:11}}>{monAssign.className}</span><br/>
-                      <span style={{fontSize:10,color:"#000"}}>{monAssign.subject}</span>
+                  <td style={{padding:"4px 8px",textAlign:"center",verticalAlign:"middle"}}>
+                    {monAssign?(<div style={{background:"#f3f4ff",borderRadius:6,padding:"3px 9px",display:"inline-block",minWidth:120,textAlign:"center"}}>
+                      <div style={{fontWeight:700,color:"#000",fontSize:11}}>{monAssign.subject}</div>
+                      <br />
+                      <div style={{fontSize:10,color:"#000",fontWeight:400}}>{monAssign.className}</div>
                     </div>):<span style={{color:"#d1d5db"}}>—</span>}
                   </td>
                 </tr>
@@ -1439,33 +1440,31 @@ function TimetablePage({settings,staffProfiles,timetable,setTimetable,currentSes
   },[teachingStaff,byTeacherName]);
 
   const doExportTimetable=(format)=>{
-    const tableEl=timetableTableRef.current?.querySelector("table.timetable-pdf-export")||timetableTableRef.current?.querySelector("table");
-    const {headers,rows}=getTableDataFromElement(timetableTableRef.current);
+    const container=timetableTableRef.current;
+    const batchPlannerPdf=
+      (view==="byClass"&&byClassCls==="__all_classes__")||
+      (view==="byTeacher"&&byTeacherName==="__all_staff__");
+    const baseName="Timetable_"+String(currentTableName).replace(/\s*—\s*/g,"_").replace(/\s+/g,"_").slice(0,40);
+    if(format==="pdf"&&batchPlannerPdf){
+      const tables=[...(container?.querySelectorAll("table.timetable-pdf-export")||[])];
+      if(!tables.length){ alert("No table data to export. Select a view with a timetable."); return; }
+      const sections=
+        view==="byClass"
+          ? classesForView.map((c,i)=>({tableName:`${formatClassDisplay(c)||c.name||"Class"} — CLASS TIMETABLE`,htmlTableEl:tables[i]})).filter((s)=>s.htmlTableEl)
+          : staffForView.map((st,i)=>({tableName:`${st.name} — TEACHER TIMETABLE`,htmlTableEl:tables[i]})).filter((s)=>s.htmlTableEl);
+      if(!sections.length){ alert("No table data to export. Select a view with a timetable."); return; }
+      void exportTimetableBatchPlannerPdf(settings,currentSession,sections,baseName+".pdf").catch((e)=>alert("PDF export failed: "+(e?.message||String(e))));
+      return;
+    }
+    const tableEl=container?.querySelector("table.timetable-pdf-export")||container?.querySelector("table");
+    const {headers,rows}=getTableDataFromElement(container);
     const hasDom=tableEl&&tableEl.rows&&tableEl.rows.length>0;
     const hasMatrix=(Array.isArray(headers)&&headers.length>0)||(Array.isArray(rows)&&rows.length>0);
     if(!hasDom&&!hasMatrix){ alert("No table data to export. Select a view with a timetable."); return; }
-    const baseName="Timetable_"+String(currentTableName).replace(/\s*—\s*/g,"_").replace(/\s+/g,"_").slice(0,40);
     if(format==="pdf") void exportTableToPdf(settings,currentSession,currentTableName,headers,rows,baseName+".pdf",hasDom?tableEl:undefined).catch((e)=>alert("PDF export failed: "+(e?.message||String(e))));
   };
 
-  const handleTimetablePdf=()=>{
-    // All classes / all staff: browser print (multi tables). Force A4 landscape @page so tables fit; clear on afterprint.
-    const batchPlannerPrint=
-      (view==="byClass"&&byClassCls==="__all_classes__")||
-      (view==="byTeacher"&&byTeacherName==="__all_staff__");
-    if(batchPlannerPrint){
-      const id="psms-timetable-batch-print-override";
-      let tag=document.getElementById(id);
-      if(!tag){ tag=document.createElement("style"); tag.id=id; }
-      document.body.appendChild(tag);
-      tag.textContent="@media print{@page{size:A4 landscape;margin:8mm}}";
-      const clear=()=>{ tag.textContent=""; window.removeEventListener("afterprint",clear); };
-      window.addEventListener("afterprint",clear,{once:true});
-      window.print();
-      return;
-    }
-    doExportTimetable("pdf");
-  };
+  const handleTimetablePdf=()=>{ doExportTimetable("pdf"); };
 
   return <div className="timetable-page timetable-print-area" style={{width:"100%",maxWidth:"100%",minWidth:0,boxSizing:"border-box"}}>
     <div className="no-print timetable-toolbar" style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap",padding:"10px 14px",background:"#fff",borderRadius:8,boxShadow:"0 1px 4px rgba(0,0,0,0.08)",width:"100%",maxWidth:"100%",boxSizing:"border-box"}}>
@@ -1519,7 +1518,7 @@ function TimetablePage({settings,staffProfiles,timetable,setTimetable,currentSes
         )}
         {view==="byClass"&&<Sel value={byClassCls} onChange={setByClassCls} options={[{value:"__all_classes__",label:"All classes"},...settings.classes.map(c=>({value:c.id,label:formatClassDisplay(c)}))]}/>}
         {view==="byTeacher"&&<Sel value={byTeacherName} onChange={setByTeacherName} options={[{value:"__all_staff__",label:"All staff"},...teachingStaff.map(st=>({value:st.name,label:st.name}))]}/>}
-        <Btn small outline onClick={handleTimetablePdf}>📄 PDF</Btn>
+        <Btn small outline onClick={handleTimetablePdf}>Export PDF</Btn>
       </div>
     </div>
 
@@ -1682,6 +1681,16 @@ function getExportHeaderMeta(settings, session, tableName){
     subtitle: [session, tableName].filter(Boolean).join(" - "),
   };
 }
+
+/** Safe fragment for PDF download filenames (class name, etc.). */
+function sanitizePdfFilenamePart(raw) {
+  const s = String(raw || "export")
+    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, "_")
+    .replace(/\s+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+  return (s || "export").slice(0, 72);
+}
 async function exportTableToExcel(settings, session, tableName, columnHeaders, dataRows, filename) {
   await yieldToMain();
   const meta = getExportHeaderMeta(settings, session, tableName);
@@ -1715,29 +1724,149 @@ function sanitizePdfTableRows(rows) {
   if (!Array.isArray(rows)) return [];
   return rows.map((row) => (Array.isArray(row) ? row.map(sanitizePdfCell) : []));
 }
+
+/** Same summary blocks as `ByTeacherView` footer — for teacher planner PDF only (not Faculty / TEACHERS). */
+function teacherPlannerFooterColumns(settings) {
+  const ppd = Number(settings.periodsPerDay) || 8;
+  const friEnd = 4;
+  return [
+    {
+      label: "Monday to Thursday and Saturday",
+      rows: [
+        ["Assembly", `${settings.assemblyTime} minutes`],
+        [getPeriodLabel(0, settings), `${settings.firstPeriodTime} minutes`],
+        [`${getPeriodLabel(1, settings)} to ${getPeriodLabel(ppd - 1, settings)}`, `${settings.otherPeriodTime} minutes`],
+        ["Break", settings.breakRequired ? `${settings.breakDuration} minutes` : "No Break"],
+      ],
+    },
+    {
+      label: "Friday",
+      rows: [
+        ["Assembly", `${settings.assemblyTime} minutes`],
+        [getPeriodLabel(0, settings), `${settings.firstPeriodTime} minutes`],
+        [`${getPeriodLabel(1, settings)} to ${getPeriodLabel(friEnd, settings)}`, `${settings.otherPeriodTime} minutes`],
+        ["Break", settings.fridayBreak ? `${settings.fridayBreakDuration} minutes` : "0 minutes"],
+      ],
+    },
+  ];
+}
+
+function drawTeacherPlannerFooterColumn(doc, x, colW, y0, col) {
+  const lh = 4.2;
+  let y = y0;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  const titleLines = doc.splitTextToSize(col.label, colW);
+  titleLines.forEach((ln) => {
+    doc.text(ln, x, y);
+    y += lh;
+  });
+  y += 1;
+  doc.setFontSize(9);
+  col.rows.forEach(([k, val]) => {
+    const isBreak = k === "Break";
+    doc.setFont("helvetica", isBreak ? "bold" : "normal");
+    doc.setTextColor(0, 0, 0);
+    doc.text(String(k), x, y);
+    doc.text(String(val), x + colW, y, { align: "right" });
+    y += lh;
+    doc.setDrawColor(229, 231, 235);
+    doc.setLineWidth(0.15);
+    doc.line(x, y - lh * 0.35, x + colW, y - lh * 0.35);
+  });
+  return y;
+}
+
+/** Schedule summary + school hours note under the teacher planner table in exported PDFs. */
+function appendTeacherPlannerScheduleFooterPdf(doc, settings, tableEndY) {
+  if (!settings) return;
+  const pageH = doc.internal.pageSize.getHeight();
+  const pageW = doc.internal.pageSize.getWidth();
+  const left = 10;
+  const right = pageW - 10;
+  const gutter = 4;
+  const colW = (right - left - gutter) / 2;
+  const xL = left;
+  const xR = left + colW + gutter;
+  const cols = teacherPlannerFooterColumns(settings);
+  const estH = 52;
+  let yTop = tableEndY + 5;
+  if (yTop + estH > pageH - 8) {
+    doc.addPage();
+    yTop = 14;
+  }
+  doc.setDrawColor(229, 231, 235);
+  doc.setLineWidth(0.25);
+  doc.line(left, yTop, right, yTop);
+  const yBase = yTop + 4;
+  const yEndL = drawTeacherPlannerFooterColumn(doc, xL, colW, yBase, cols[0]);
+  const yEndR = drawTeacherPlannerFooterColumn(doc, xR, colW, yBase, cols[1]);
+  let y = Math.max(yEndL, yEndR) + 3;
+  doc.setDrawColor(229, 231, 235);
+  doc.line(left, y, right, y);
+  y += 4;
+  const sh = settings.schoolHours || {};
+  const mth = sh.mondayToThursday || {};
+  const fri = sh.friday || {};
+  const note = `The teacher will arrive 15 minutes before school starts. School: Mon–Thu ${mth.start || "—"}–${mth.end || "—"} | Friday ${fri.start || "—"}–${fri.end || "—"}`;
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(8.5);
+  doc.setTextColor(0, 0, 0);
+  const noteLines = doc.splitTextToSize(note, right - left);
+  noteLines.forEach((ln) => {
+    doc.text(ln, (left + right) / 2, y, { align: "center" });
+    y += 3.8;
+  });
+  doc.setFont("helvetica", "normal");
+}
+
+function isTeacherPlannerTimetablePdfTitle(tableName) {
+  return /\bTEACHER\s+TIMETABLE\b/i.test(String(tableName || ""));
+}
+
 /**
+ * Appends branding header + one table to the current page of `doc` (used by single-file export and multi-section timetable batch PDF).
  * @param {HTMLTableElement} [htmlTableEl] — when set for timetable exports, use autotable `html` mode (fixes colspan/rowspan vs manual matrix).
+ * @param {{ subtitleOverride?: string }} [exportPdfOptions] — optional PDF header subtitle (e.g. class-first attendance titles).
  */
-async function exportTableToPdf(settings, session, tableName, columnHeaders, dataRows, filename, htmlTableEl){
+async function appendExportTablePdfSection(doc, settings, session, tableName, columnHeaders, dataRows, htmlTableEl, exportPdfOptions) {
   const meta = getExportHeaderMeta(settings, session, tableName);
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const yTop = 10;
   const left = 10;
   const right = pageW - 10;
   const hdr = await addPdfBrandingLogoRow(doc, settings?.logo, left, yTop);
+  const headTextMaxW = Math.max(40, right - hdr.textX - 2);
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.text(meta.schoolName, hdr.textX, yTop + 10);
+  doc.setTextColor(0, 0, 0);
+  const schoolLines = doc.splitTextToSize(String(meta.schoolName || "School Name"), headTextMaxW);
+  let leftY = yTop + 10;
+  schoolLines.forEach((ln) => {
+    doc.text(ln, hdr.textX, leftY);
+    leftY += 5.2;
+  });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.setTextColor(100, 100, 100);
-  doc.text(meta.subtitle || meta.tableName, hdr.textX, yTop + 18);
   doc.setTextColor(0, 0, 0);
+  const subLine =
+    exportPdfOptions?.subtitleOverride != null && String(exportPdfOptions.subtitleOverride).trim() !== ""
+      ? String(exportPdfOptions.subtitleOverride).trim()
+      : meta.subtitle || meta.tableName;
+  const subLines = doc.splitTextToSize(subLine, headTextMaxW);
+  let subY = leftY + 2;
+  subLines.forEach((ln) => {
+    doc.text(ln, hdr.textX, subY);
+    subY += 4.2;
+  });
   doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
   doc.text("Date: " + meta.dateStr, right, yTop + 10, { align: "right" });
   doc.text("Time: " + meta.timeStr, right, yTop + 18, { align: "right" });
-  let y = hdr.tableStartY;
+  // Table must start below subtitle and below logo-derived tableStartY (subtitle is not in tableStartY).
+  const yAfterSubtitle = subY + 5;
+  let y = Math.max(hdr.tableStartY + 2, yAfterSubtitle);
   const titleStr = String(tableName || "");
   const isTimetableGridExport = /\bTIMETABLE\b/i.test(titleStr);
   const isExamConsolidated = titleStr.includes("Consolidated");
@@ -1789,6 +1918,8 @@ async function exportTableToPdf(settings, session, tableName, columnHeaders, dat
           cellPadding: isExamConsolidated ? 2 : 4,
           fontSize: isExamConsolidated ? 8 : undefined,
           overflow: "linebreak",
+          textColor: [0, 0, 0],
+          fillColor: false,
         },
         styles: {
           halign: "center",
@@ -1797,8 +1928,9 @@ async function exportTableToPdf(settings, session, tableName, columnHeaders, dat
           lineColor: [0, 0, 0],
           overflow: "linebreak",
           fontSize: isExamConsolidated ? 8 : undefined,
+          textColor: [0, 0, 0],
         },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
+        alternateRowStyles: { fillColor: [248, 250, 252], textColor: [0, 0, 0] },
       };
   const margin = { left: left, right: 10 };
   try {
@@ -1809,6 +1941,8 @@ async function exportTableToPdf(settings, session, tableName, columnHeaders, dat
       htmlTableEl.rows &&
       htmlTableEl.rows.length > 0
     ) {
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "normal");
       autoTable(doc, {
         html: htmlTableEl,
         startY: y,
@@ -1816,10 +1950,16 @@ async function exportTableToPdf(settings, session, tableName, columnHeaders, dat
         ...timetablePdfTable,
         margin,
       });
+      if (isTeacherPlannerTimetablePdfTitle(tableName)) {
+        const endY = doc.lastAutoTable?.finalY ?? y;
+        appendTeacherPlannerScheduleFooterPdf(doc, settings, endY);
+      }
     } else {
       const head = Array.isArray(columnHeaders[0]) ? columnHeaders : [columnHeaders];
       const headSan = sanitizePdfTableRows(head);
       const bodySan = sanitizePdfTableRows(Array.isArray(dataRows) ? dataRows : []);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "normal");
       autoTable(doc, {
         head: headSan,
         body: bodySan,
@@ -1830,9 +1970,29 @@ async function exportTableToPdf(settings, session, tableName, columnHeaders, dat
       });
     }
   } catch (err) {
-    console.error("exportTableToPdf", err);
+    console.error("appendExportTablePdfSection", err);
     throw err;
   }
+}
+
+/** Class planner (all classes) / Teacher planner (all staff): one PDF, one section per class or staff member. */
+async function exportTimetableBatchPlannerPdf(settings, session, sections, filename) {
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  for (let i = 0; i < sections.length; i++) {
+    if (i > 0) doc.addPage();
+    const { tableName, htmlTableEl } = sections[i];
+    await appendExportTablePdfSection(doc, settings, session, tableName, [], [], htmlTableEl);
+  }
+  doc.save(filename || "export.pdf");
+}
+
+/**
+ * @param {HTMLTableElement} [htmlTableEl] — when set for timetable exports, use autotable `html` mode (fixes colspan/rowspan vs manual matrix).
+ * @param {{ subtitleOverride?: string }} [exportPdfOptions] — optional PDF header subtitle.
+ */
+async function exportTableToPdf(settings, session, tableName, columnHeaders, dataRows, filename, htmlTableEl, exportPdfOptions) {
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  await appendExportTablePdfSection(doc, settings, session, tableName, columnHeaders, dataRows, htmlTableEl, exportPdfOptions);
   doc.save(filename || "export.pdf");
 }
 
@@ -3996,8 +4156,21 @@ function AttendancePage({settings,students,currentSession,activeSchoolId,setBarS
   const openUpload=(sid)=>{ const el=document.createElement("input"); el.type="file"; el.accept="image/*,.pdf,.doc,.docx"; el.onchange=e=>handleUpload(sid,e); el.click(); };
   const isImage=(m)=>m&&m.startsWith("image/");
   const isPdf=(m)=>m==="application/pdf";
-  const tableTitle=()=>{ const clsName=getClassLabel(settings,selCls); return `Attendance — ${clsName} — ${date}`; };
-  const doExportAttendance=()=>{ const {headers,rows}=getTableDataFromElement(attendanceTableRef.current); if(!headers.length){ alert("No data to export. Select a class with students."); return; } const h=headers.slice(0,-1); const r=rows.map(row=>row.slice(0,-1)); const name=`Attendance_${selCls}_${date}`; void exportTableToPdf(settings,currentSession,tableTitle(),h,r,name+".pdf").catch(()=>alert("PDF export failed.")); };
+  const tableTitle=()=>{ const clsName=getClassLabel(settings,selCls); return `${clsName} — Attendance — ${date}`; };
+  const attendancePdfSubtitle=()=>{
+    const clsName=getClassLabel(settings,selCls);
+    return [clsName, currentSession, `Attendance — ${date}`].filter(Boolean).join(" — ");
+  };
+  const doExportAttendance=()=>{
+    const {headers,rows}=getTableDataFromElement(attendanceTableRef.current);
+    if(!headers.length){ alert("No data to export. Select a class with students."); return; }
+    const markExportCols=Math.min(4, headers.length);
+    const h=headers.slice(0,markExportCols);
+    const r=rows.map((row)=>row.slice(0,markExportCols));
+    const clsName=getClassLabel(settings,selCls);
+    const name=`${sanitizePdfFilenamePart(clsName)}_Attendance_${date}`;
+    void exportTableToPdf(settings,currentSession,tableTitle(),h,r,name+".pdf",undefined,{subtitleOverride:attendancePdfSubtitle()}).catch(()=>alert("PDF export failed."));
+  };
 
   const [y, m] = registerMonth.split("-").map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
@@ -4013,18 +4186,33 @@ function AttendancePage({settings,students,currentSession,activeSchoolId,setBarS
   const registerTitle = () => {
     const clsName = getClassLabel(settings, selCls);
     const monthName = new Date(y, m - 1, 1).toLocaleString("en-PK", { month: "long", year: "numeric" });
-    return `Attendance Register — ${clsName} — ${monthName}`;
+    return `${clsName} — Attendance Register — ${monthName}`;
+  };
+  const registerPdfSubtitle = () => {
+    const clsName = getClassLabel(settings, selCls);
+    const monthName = new Date(y, m - 1, 1).toLocaleString("en-PK", { month: "long", year: "numeric" });
+    return [clsName, currentSession, `Attendance Register — ${monthName}`].filter(Boolean).join(" — ");
   };
   const doExportRegister = (format) => {
-    const headers = ["Roll No", "Name", "Father's Name", ...registerDates.map(d => d.slice(8))];
-    const rows = cs.map(s => [
-      s.rollNo,
-      s.name,
-      s.fatherName,
-      ...registerDates.map(d => getStatusForDate(s.id, d)),
-    ]);
-    const name = `Attendance_Register_${selCls}_${registerMonth}`;
-    if (format === "pdf") void exportTableToPdf(settings, currentSession, registerTitle(), headers, rows, name + ".pdf").catch(()=>alert("PDF export failed."));
+    const clsName = getClassLabel(settings, selCls);
+    const monthName = new Date(y, m - 1, 1).toLocaleString("en-PK", { month: "long", year: "numeric" });
+    const concatHdr = `P/A/L (${monthName}, days 1–${registerDates.length}; – = unmarked)`;
+    const name = `${sanitizePdfFilenamePart(clsName)}_Attendance_Register_${registerMonth}`;
+    if (format === "pdf") {
+      const pdfHeaders = ["Roll No", "Name", "Father's Name", concatHdr];
+      const pdfRows = cs.map((s) => [
+        s.rollNo,
+        s.name,
+        s.fatherName,
+        registerDates
+          .map((d) => getStatusForDate(s.id, d))
+          .map((st) => (st === "—" ? "–" : String(st).charAt(0)))
+          .join(""),
+      ]);
+      void exportTableToPdf(settings, currentSession, registerTitle(), pdfHeaders, pdfRows, name + ".pdf", undefined, {
+        subtitleOverride: registerPdfSubtitle(),
+      }).catch(() => alert("PDF export failed."));
+    }
   };
 
   useEffect(()=>{
@@ -5958,9 +6146,8 @@ function StudentsPage({settings:settingsProp,students:studentsProp,setStudents,e
     doc.text(meta.schoolName,hdr.textX,yTop+10);
     doc.setFont(undefined,"normal");
     doc.setFontSize(10);
-    doc.setTextColor(100,100,100);
-    doc.text(meta.subtitle||meta.tableName,hdr.textX,yTop+18);
     doc.setTextColor(0,0,0);
+    doc.text(meta.subtitle||meta.tableName,hdr.textX,yTop+18);
     doc.setFontSize(9);
     doc.text("Date: "+meta.dateStr,right,yTop+10,{align:"right"});
     doc.text("Time: "+meta.timeStr,right,yTop+18,{align:"right"});
