@@ -36,7 +36,7 @@ const APP_MAIN_NAV = [
   { id: "examination", l: "Examination", i: "📝" },
   { id: "paper", l: "Paper Generator", i: "📄" },
   { id: "card", l: "Card Generator", i: "💳" },
-  { id: "book-bank", l: "Book Bank", i: "📚" },
+  { id: "book-bank", l: "PTBB Books", i: "📚" },
   { id: "library", l: "Library", i: "📖" },
   { id: "about", l: "About Us", i: "ℹ️" },
   { id: "settings", l: "Settings", i: "⚙️" },
@@ -196,6 +196,19 @@ function getPeriodLabel(idx,settings){
   const n=idx+1;
   const prefix=settings&&settings.periodLabelPrefix!=null?settings.periodLabelPrefix:"P-";
   return `${prefix}${n}`;
+}
+/**
+ * Two-line period + time for timetable `<th>` cells.
+ * jspdf-autotable `parseCellContent` strips literal `\n` from innerHTML; only `<br>` survives as a PDF line break.
+ */
+function timetablePdfPeriodCell(label, timeRange) {
+  return (
+    <>
+      {String(label)}
+      <br />
+      {String(timeRange)}
+    </>
+  );
 }
 
 function formatGradeLabel(grade) { return systemSettingsService?.formatGradeLabel?.(grade) || ""; }
@@ -790,14 +803,18 @@ function TTCell(props){
     role="button"
     tabIndex={0}
     onKeyDown={e=>e.key==="Enter"&&onOpen?.()}
-    style={{padding:"3px 2px",minHeight:38,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}
+    style={{padding:"2px 2px",minHeight:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}
   >
     {hasAssign
       ? (
-        <div style={{textAlign:"center",width:"100%"}}>
-          <div style={{fontWeight:700,fontSize:12,color:"#000"}}>{subject}</div>
-          <br />
-          <div style={{fontSize:10,color:"#000",fontWeight:400}}>{teacher||""}</div>
+        <div className="tt-cell-stack" style={{textAlign:"center",width:"100%",lineHeight:1.15}}>
+          <div style={{fontWeight:700,fontSize:12,color:"#000",lineHeight:1.15}}>{subject}</div>
+          {String(teacher || "").trim() ? (
+            <>
+              <br />
+              <div style={{fontSize:10,color:"#000",fontWeight:400,lineHeight:1.15}}>{teacher}</div>
+            </>
+          ) : null}
         </div>
       )
       : (
@@ -1032,13 +1049,12 @@ function AllClassesView({settings,staffProfiles,timetable,setTimetable,day,class
     <table className="timetable-pdf-export" style={{borderCollapse:"collapse",fontSize:11,minWidth:900}}>
       <thead>
         <tr>
-          <th style={{background:C.navy,color:"#fff",padding:"6px 8px",minWidth:88,position:"sticky",left:0,zIndex:2,fontSize:12}}>Class</th>
+          <th style={{background:"#15803d",color:"#fff",padding:"6px 8px",minWidth:88,position:"sticky",left:0,zIndex:2,fontSize:12}}>Class</th>
           {pRows.map((p,i)=>[
-            <th key={`ph${i}`} style={{background:C.navy,color:"#fff",padding:"4px 5px",minWidth:88,textAlign:"center"}}>
-              <div style={{fontWeight:700}}>{getPeriodLabel(i,settings)}</div>
-              <div style={{fontSize:9,fontWeight:400,opacity:0.85}}>{fmtMin(p.start)}–{fmtMin(p.end)}</div>
+            <th key={`ph${i}`} style={{background:"#15803d",color:"#fff",padding:"4px 5px",minWidth:88,textAlign:"center",whiteSpace:"pre-line",fontWeight:700}}>
+              {timetablePdfPeriodCell(getPeriodLabel(i, settings), `${fmtMin(p.start)}–${fmtMin(p.end)}`)}
             </th>,
-            i===brAfterIdx&&brRow&&<th key={`bh${i}`} style={{background:C.breakC,color:"#78350f",padding:"4px 5px",minWidth:58,textAlign:"center",fontWeight:700,fontSize:10}}>Break<br/><span style={{fontWeight:400,fontSize:9}}>{fmtMin(brRow.start)}–{fmtMin(brRow.end)}</span></th>
+            i===brAfterIdx&&brRow&&<th key={`bh${i}`} className="timetable-pdf-break-th" style={{background:C.breakC,color:"#78350f",padding:"4px 5px",minWidth:58,textAlign:"center",fontWeight:700,fontSize:10,whiteSpace:"pre-line"}}>{timetablePdfPeriodCell("Break", `${fmtMin(brRow.start)}–${fmtMin(brRow.end)}`)}</th>
           ])}
         </tr>
       </thead>
@@ -1099,13 +1115,12 @@ function AllClassesAllDaysView({settings,staffProfiles,timetable,setTimetable}){
     <table className="timetable-pdf-export" style={{borderCollapse:"collapse",fontSize:11,minWidth:900}}>
       <thead>
         <tr>
-          <th style={{background:C.navy,color:"#fff",padding:"6px 8px",minWidth:88,position:"sticky",left:0,zIndex:2,fontSize:12}}>Class</th>
+          <th style={{background:"#15803d",color:"#fff",padding:"6px 8px",minWidth:88,position:"sticky",left:0,zIndex:2,fontSize:12}}>Class</th>
           {pRows.map((p,i)=>[
-            <th key={`ph${i}`} style={{background:C.navy,color:"#fff",padding:"4px 5px",minWidth:88,textAlign:"center"}}>
-              <div style={{fontWeight:700}}>{getPeriodLabel(i,settings)}</div>
-              <div style={{fontSize:9,fontWeight:400,opacity:0.85}}>{fmtMin(p.start)}–{fmtMin(p.end)}</div>
+            <th key={`ph${i}`} style={{background:"#15803d",color:"#fff",padding:"4px 5px",minWidth:88,textAlign:"center",whiteSpace:"pre-line",fontWeight:700}}>
+              {timetablePdfPeriodCell(getPeriodLabel(i, settings), `${fmtMin(p.start)}–${fmtMin(p.end)}`)}
             </th>,
-            i===brAfterIdx&&brRow&&<th key={`bh${i}`} style={{background:C.breakC,color:"#78350f",padding:"4px 5px",minWidth:58,textAlign:"center",fontWeight:700,fontSize:10}}>Break<br/><span style={{fontWeight:400,fontSize:9}}>{fmtMin(brRow.start)}–{fmtMin(brRow.end)}</span></th>
+            i===brAfterIdx&&brRow&&<th key={`bh${i}`} className="timetable-pdf-break-th" style={{background:C.breakC,color:"#78350f",padding:"4px 5px",minWidth:58,textAlign:"center",fontWeight:700,fontSize:10,whiteSpace:"pre-line"}}>{timetablePdfPeriodCell("Break", `${fmtMin(brRow.start)}–${fmtMin(brRow.end)}`)}</th>
           ])}
         </tr>
       </thead>
@@ -1145,6 +1160,7 @@ function TeachersView({settings,timetable,day,staff:staffOverride,printSubtitle,
   const staffList=staffOverride!=null&&Array.isArray(staffOverride)?staffOverride:settings.staff;
   const {rows} = calcTimes(settings,day);
   const pRows = rows.filter(r=>!r.isBreak);
+  const brRow = rows.find((r) => r.isBreak);
   const brAfterIdx = settings.breakRequired ? settings.breakAfterPeriod-1 : -1;
 
   function getAssignment(tName,pi){
@@ -1165,15 +1181,14 @@ function TeachersView({settings,timetable,day,staff:staffOverride,printSubtitle,
     <table className="timetable-pdf-export" style={{borderCollapse:"collapse",fontSize:9,minWidth:700}}>
       <thead>
         <tr>
-          <th style={{background:C.navy,color:"#fff",padding:"4px 6px",minWidth:100,position:"sticky",left:0,zIndex:2,fontSize:9}}>Teacher</th>
+          <th style={{background:"#15803d",color:"#fff",padding:"4px 6px",minWidth:100,position:"sticky",left:0,zIndex:2,fontSize:9}}>Teacher</th>
           {pRows.map((p,i)=>[
-            <th key={`th${i}`} style={{background:C.navy,color:"#fff",padding:"3px 4px",minWidth:80,textAlign:"center",fontSize:9}}>
-              <div>{getPeriodLabel(i,settings)}</div>
-              <div style={{fontSize:8,fontWeight:400}}>{fmtMin(p.start)}–{fmtMin(p.end)}</div>
+            <th key={`th${i}`} style={{background:"#15803d",color:"#fff",padding:"3px 4px",minWidth:80,textAlign:"center",fontSize:9,whiteSpace:"pre-line",fontWeight:700}}>
+              {timetablePdfPeriodCell(getPeriodLabel(i, settings), `${fmtMin(p.start)}–${fmtMin(p.end)}`)}
             </th>,
-            i===brAfterIdx&&<th key={`tbh${i}`} style={{background:C.breakC,color:"#78350f",padding:"3px 4px",minWidth:55,textAlign:"center",fontWeight:700,fontSize:8}}>Break</th>
+            i===brAfterIdx&&brRow&&<th key={`tbh${i}`} className="timetable-pdf-break-th" style={{background:C.breakC,color:"#78350f",padding:"3px 4px",minWidth:55,textAlign:"center",fontWeight:700,fontSize:8,whiteSpace:"pre-line"}}>{timetablePdfPeriodCell("Break", `${fmtMin(brRow.start)}–${fmtMin(brRow.end)}`)}</th>
           ])}
-          <th style={{background:C.navy,color:"#fff",padding:"4px 6px",minWidth:65,textAlign:"center",fontSize:9}}>Periods/Day</th>
+          <th style={{background:"#15803d",color:"#fff",padding:"4px 6px",minWidth:65,textAlign:"center",fontSize:9}}>Periods/Day</th>
         </tr>
       </thead>
       <tbody>
@@ -1188,10 +1203,10 @@ function TeachersView({settings,timetable,day,staff:staffOverride,printSubtitle,
               const assigned=getAssignment(teacher.name,pi);
               return [
                 <td key={`tc${pi}`} style={{padding:2,border:"1px solid #9ca3af",textAlign:"center",minWidth:80,fontSize:9,verticalAlign:"middle"}}>
-                  {assigned?(<div style={{background:"#dbeafe",borderRadius:4,padding:"2px 3px",textAlign:"center"}}>
-                    <div style={{fontWeight:700,color:"#000",fontSize:9}}>{assigned.subject}</div>
+                  {assigned?(<div style={{background:"#dbeafe",borderRadius:4,padding:"2px 3px",textAlign:"center",lineHeight:1.15}}>
+                    <div style={{fontWeight:700,color:"#000",fontSize:9,lineHeight:1.15}}>{assigned.subject}</div>
                     <br />
-                    <div style={{fontSize:8,color:"#000",fontWeight:400}}>{assigned.className}</div>
+                    <div style={{fontSize:8,color:"#000",fontWeight:400,lineHeight:1.15}}>{assigned.className}</div>
                   </div>):<span style={{color:"#d1d5db",fontSize:8}}>Free</span>}
                 </td>,
                 pi===brAfterIdx&&<td key={`tb${pi}`} style={{background:C.breakL,textAlign:"center",fontWeight:700,fontSize:8,color:"#92400e",padding:2}}>BREAK</td>
@@ -1365,17 +1380,16 @@ function ByClassView({settings,staffProfiles,timetable,setTimetable,selCls,suppr
       <table className="timetable-pdf-export" style={{borderCollapse:"collapse",fontSize:11,width:"100%"}}>
           <thead>
             <tr>
-              <th style={{background:C.navy,color:"#fff",padding:"6px 10px",minWidth:80}}>Day</th>
-              {pRows.map((_,i)=>[
-                <th key={`bch${i}`} style={{background:C.navy,color:"#fff",padding:"4px 6px",minWidth:80,textAlign:"center"}}>{getPeriodLabel(i,settings)}</th>,
-                i===brAfterIdx&&<th key={`bcbh${i}`} style={{background:C.breakC,color:"#78350f",padding:"4px 6px",minWidth:50,fontWeight:700,fontSize:10,textAlign:"center"}}>Break</th>
-              ])}
-            </tr>
-            <tr>
-              <th style={{background:"#e8edf8",padding:"4px 10px",color:"#000",fontSize:11}}>Time</th>
-              {pRows.map((p,i)=>[
-                <th key={`bct${i}`} style={{background:"#e8edf8",padding:"3px 5px",textAlign:"center",fontSize:10,fontWeight:600,color:"#000"}}>{fmtMin(p.start)}–{fmtMin(p.end)}</th>,
-                i===brAfterIdx&&brRow&&<th key={`bcbt${i}`} style={{background:C.breakL,padding:"3px 5px",textAlign:"center",fontSize:10,fontWeight:600,color:"#92400e"}}>{fmtMin(brRow.start)}–{fmtMin(brRow.end)}</th>
+              <th style={{background:"#15803d",color:"#fff",padding:"6px 10px",minWidth:80,whiteSpace:"pre-line",textAlign:"center",fontWeight:700}}>{timetablePdfPeriodCell("Day", "Time")}</th>
+              {pRows.map((p, i) => [
+                <th key={`bch${i}`} style={{background:"#15803d",color:"#fff",padding:"4px 6px",minWidth:80,textAlign:"center",whiteSpace:"pre-line",fontWeight:700}}>
+                  {timetablePdfPeriodCell(getPeriodLabel(i, settings), `${fmtMin(p.start)}–${fmtMin(p.end)}`)}
+                </th>,
+                i === brAfterIdx && (
+                  <th key={`bcbh${i}`} className="timetable-pdf-break-th" style={{background:C.breakC,color:"#78350f",padding:"4px 6px",minWidth:50,fontWeight:700,fontSize:10,textAlign:"center",whiteSpace:"pre-line"}}>
+                    {timetablePdfPeriodCell("Break", brRow ? `${fmtMin(brRow.start)}–${fmtMin(brRow.end)}` : "—")}
+                  </th>
+                ),
               ])}
             </tr>
           </thead>
@@ -1395,10 +1409,14 @@ function ByClassView({settings,staffProfiles,timetable,setTimetable,selCls,suppr
                       {editable
                         ? <TTCell subject={cell.subject} teacher={cell.teacher} isCommon={isCommon} busy={busy} onOpen={()=>openEditor(day,pi)}/>
                         : (cell.subject?(
-                          <div style={{textAlign:"center",padding:"4px 2px"}}>
-                            <div style={{fontWeight:700,color:"#000",fontSize:11}}>{cell.subject}</div>
-                            <br />
-                            <div style={{fontSize:10,color:"#000",fontWeight:400}}>{cell.teacher||""}</div>
+                          <div style={{textAlign:"center",padding:"3px 2px",lineHeight:1.15}}>
+                            <div style={{fontWeight:700,color:"#000",fontSize:11,lineHeight:1.15}}>{cell.subject}</div>
+                            {String(cell.teacher || "").trim() ? (
+                              <>
+                                <br />
+                                <div style={{fontSize:10,color:"#000",fontWeight:400,lineHeight:1.15}}>{cell.teacher}</div>
+                              </>
+                            ) : null}
                           </div>
                         ):(<span style={{color:"#d1d5db",fontSize:10}}>—</span>))}
                     </td>,
@@ -1461,11 +1479,11 @@ function ByTeacherView({settings,timetable,selT,suppressPrintHeader}){
       <div style={{overflowX:"auto"}}>
         <table className="timetable-pdf-export" style={{borderCollapse:"collapse",fontSize:11,width:"100%"}}>
           <thead>
-            <tr style={{background:C.navy,color:"#fff"}}>
+            <tr style={{background:"#15803d",color:"#fff"}}>
               <th style={{padding:"5px 8px",textAlign:"left",minWidth:70}}>Periods</th>
-              <th colSpan={2} style={{padding:"5px 8px",textAlign:"center",borderLeft:"1px solid #2563eb"}}>MONDAY TO THURSDAY</th>
-              <th colSpan={2} style={{padding:"5px 8px",textAlign:"center",borderLeft:"1px solid #2563eb"}}>FRIDAY</th>
-              <th style={{padding:"5px 8px",textAlign:"center",borderLeft:"1px solid #2563eb",minWidth:120}}>CLASS–SUBJECT</th>
+              <th colSpan={2} style={{padding:"5px 8px",textAlign:"center",borderLeft:"1px solid #86efac"}}>MONDAY TO THURSDAY</th>
+              <th colSpan={2} style={{padding:"5px 8px",textAlign:"center",borderLeft:"1px solid #86efac"}}>FRIDAY</th>
+              <th style={{padding:"5px 8px",textAlign:"center",borderLeft:"1px solid #86efac",minWidth:120}}>CLASS–SUBJECT</th>
             </tr>
           </thead>
           <tbody>
@@ -1499,10 +1517,10 @@ function ByTeacherView({settings,timetable,selT,suppressPrintHeader}){
                   <td style={{padding:"4px 8px",textAlign:"center"}}>{fp?fmtMin(fp.start):"—"}</td>
                   <td style={{padding:"4px 8px",textAlign:"center"}}>{fp?fmtMin(fp.end):"—"}</td>
                   <td style={{padding:"4px 8px",textAlign:"center",verticalAlign:"middle"}}>
-                    {monAssign?(<div style={{background:"#f3f4ff",borderRadius:6,padding:"3px 9px",display:"inline-block",minWidth:120,textAlign:"center"}}>
-                      <div style={{fontWeight:700,color:"#000",fontSize:11}}>{monAssign.subject}</div>
+                    {monAssign?(<div style={{background:"#f3f4ff",borderRadius:6,padding:"3px 9px",display:"inline-block",minWidth:120,textAlign:"center",lineHeight:1.15}}>
+                      <div style={{fontWeight:700,color:"#000",fontSize:11,lineHeight:1.15}}>{monAssign.subject}</div>
                       <br />
-                      <div style={{fontSize:10,color:"#000",fontWeight:400}}>{monAssign.className}</div>
+                      <div style={{fontSize:10,color:"#000",fontWeight:400,lineHeight:1.15}}>{monAssign.className}</div>
                     </div>):<span style={{color:"#d1d5db"}}>—</span>}
                   </td>
                 </tr>
@@ -2089,17 +2107,18 @@ async function appendExportTablePdfSection(doc, settings, session, tableName, co
   const titleStr = String(tableName || "");
   const isTimetableGridExport = /\bTIMETABLE\b/i.test(titleStr);
   const isExamConsolidated = titleStr.includes("Consolidated");
-  /** Timetable PDFs (Classes / Faculty / Class planner / Teacher planner): black/white table, solid borders. */
+  /** Timetable PDFs (Classes / Faculty / Class planner / Teacher planner): green header, solid borders. */
   const timetablePdfTable = isTimetableGridExport
     ? {
         headStyles: {
-          fillColor: [0, 0, 0],
+          fillColor: [21, 128, 61],
           textColor: [255, 255, 255],
           fontStyle: "bold",
           halign: "center",
           valign: "middle",
           cellPadding: 2,
           fontSize: 7,
+          overflow: "linebreak",
         },
         bodyStyles: {
           halign: "center",

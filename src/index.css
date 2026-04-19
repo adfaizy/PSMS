@@ -86,7 +86,12 @@ body {
   .timetable-pdf-export th {
     border: 1px solid #000 !important;
     color: #fff !important;
-    background-color: var(--color-navy) !important;
+    background-color: #15803d !important;
+  }
+
+  .timetable-pdf-export th.timetable-pdf-break-th {
+    color: #78350f !important;
+    background-color: #fcd34d !important;
   }
   
   .timetable-pdf-export td {
