@@ -513,6 +513,8 @@ function calcTimes(settings, day){
 
 function getTT(tt,cls,day,pi){ return tt?.[cls]?.[day]?.[pi]||{subject:"",teacher:""}; }
 function setTT(setFn,cls,day,pi,val){ setFn(p=>{ const c=p[cls]||{}, n={...c}; ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].forEach(d=>n[d]={...(c[d]||{}),[pi]:val}); return {...p,[cls]:n}; }); }
+/** Update one weekday only (Class Planner); `setTT` mirrors the same slot to all days (Classes grid). */
+function setTTSingleDay(setFn,cls,day,pi,val){ setFn(p=>{ const c=p[cls]||{}, n={...c}; n[day]={...(c[day]||{}),[pi]:val}; return {...p,[cls]:n}; }); }
 function parseABVariantSubject(subject){
   const s=String(subject||"").trim();
   if(!s) return null;
@@ -1204,12 +1206,156 @@ function TeachersView({settings,timetable,day,staff:staffOverride,printSubtitle,
 }
 
 // ─── BY CLASS VIEW ────────────────────────────────────────────────────────────
-function ByClassView({settings,timetable,selCls,suppressPrintHeader}){
+function ByClassView({settings,staffProfiles,timetable,setTimetable,selCls,suppressPrintHeader}){
   const {rows:monRows} = calcTimes(settings,"Monday");
   const pRows = monRows.filter(r=>!r.isBreak);
   const brRow = monRows.find(r=>r.isBreak);
   const brAfterIdx = settings.breakRequired ? settings.breakAfterPeriod-1 : -1;
   const cls=settings.classes.find(c=>c.id===selCls);
+  const classes=settings.classes||[];
+  const editable=typeof setTimetable==="function";
+
+  const [editCell,setEditCell]=useState(null);
+  const [editSubject,setEditSubject]=useState("");
+  const [editTeacher,setEditTeacher]=useState("");
+
+  function teacherBusy(teacher,day,pi,excludeCls){
+    if(!teacher) return false;
+    return classes.some(c=>c.id!==excludeCls&&getTT(timetable,c.id,day,pi).teacher===teacher);
+  }
+  function subjectUsed(cid,day,subj,excludePi){
+    if(!subj) return false;
+    return pRows.some((_,i)=>i!==excludePi&&getTT(timetable,cid,day,i).subject===subj);
+  }
+  function applyCommon(cid,day,pi,subject,teacher){
+    const rowCls=classes.find(c=>c.id===cid); if(!rowCls) return;
+    const common=settings.commonTeachers?.[rowCls.grade]||{};
+    const normSubj=(subject||"").trim();
+    if(!normSubj||!common[normSubj]||!teacher) return;
+    classes.filter(c=>c.grade===rowCls.grade&&c.id!==cid).forEach(sc=>{
+      if(getClassSubjects(settings,sc.id,"timetable").some(s=>(s||"").trim()===normSubj)){
+        const existing=getTT(timetable,sc.id,day,pi);
+        if(!existing.subject && !existing.teacher){
+          setTTSingleDay(setTimetable,sc.id,day,pi,{subject:normSubj,teacher,isCommon:true});
+        }
+      }
+    });
+  }
+  const openEditor=(day,pi)=>{
+    if(!editable) return;
+    const cell=getTT(timetable,selCls,day,pi);
+    setEditCell({day,pi});
+    setEditSubject(cell.subject||"");
+    setEditTeacher(cell.teacher||"");
+  };
+  const closeEditor=()=>{ setEditCell(null); };
+  const saveEditor=()=>{
+    if(!editCell||!editable) return;
+    if(!editSubject){ alert("Please select a subject before saving this period."); return; }
+    if(!editTeacher){ alert("Please select a teacher before saving this period."); return; }
+    const {day,pi}=editCell;
+    if(teacherBusy(editTeacher,day,pi,selCls)){
+      alert("This teacher is already assigned in the same period for another class. Please select a different teacher.");
+      return;
+    }
+    const counterpartMismatches=[];
+    pRows.forEach((_,i)=>{
+      if(i===pi) return;
+      const cell=getTT(timetable,selCls,day,i);
+      if(!isABCounterpartSubject(cell.subject,editSubject)) return;
+      if(cell.teacher&&cell.teacher!==editTeacher){
+        counterpartMismatches.push({period:i,teacher:cell.teacher});
+      }
+    });
+    if(counterpartMismatches.length){
+      const details=counterpartMismatches
+        .map(item=>`${getPeriodLabel(item.period,settings)}: ${item.teacher}`)
+        .join(", ");
+      alert("Warning: This class already has a different teacher for the A/B pair ("+details+").\n\nThe system will now auto-match both parts to "+editTeacher+".");
+    }
+    const next={subject:editSubject,teacher:editTeacher};
+    setTTSingleDay(setTimetable,selCls,day,pi,next);
+    pRows.forEach((_,i)=>{
+      if(i===pi) return;
+      const cell=getTT(timetable,selCls,day,i);
+      if(isABCounterpartSubject(cell.subject,editSubject)){
+        setTTSingleDay(setTimetable,selCls,day,i,{...cell,teacher:editTeacher});
+      }
+    });
+    applyCommon(selCls,day,pi,next.subject,next.teacher);
+    setEditCell(null);
+  };
+
+  const renderModal=()=>{
+    if(!editCell||!editable) return null;
+    const {day,pi}=editCell;
+    const subjects=getClassSubjects(settings,selCls,"timetable");
+    const {rows}=calcTimes(settings,day);
+    const dp=rows.filter(r=>!r.isBreak);
+    const period=dp[pi];
+    const currentCell=getTT(timetable,selCls,day,pi);
+    const subjectOptions=subjects.filter(s=>!subjectUsed(selCls,day,s,pi)||s===currentCell.subject);
+    const gradeCommon=settings.commonTeachers?.[cls?.grade]||{};
+    const teacherOptions=teachingStaffList(settings,staffProfiles).filter(st=>{
+      const isCurrent=st.name===currentCell.teacher;
+      if(isCurrent) return true;
+      return !teacherBusy(st.name,day,pi,selCls);
+    });
+    return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={closeEditor}>
+      <div style={{background:"#fff",borderRadius:10,width:"100%",maxWidth:420,maxHeight:"90vh",overflow:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}} onClick={e=>e.stopPropagation()}>
+        <div style={{background:C.navy,color:"#fff",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontWeight:700,fontSize:14}}>Assign Period</span>
+          <button type="button" onClick={closeEditor} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>×</button>
+        </div>
+        <div style={{padding:16,fontSize:14}}>
+          <div style={{marginBottom:8,color:"#000"}}>
+            <div><strong>Class:</strong> {cls?formatClassDisplay(cls):""}</div>
+            <div><strong>Day:</strong> {day}</div>
+            <div><strong>Period:</strong> {getPeriodLabel(pi,settings)} ({period?`${fmtMin(period.start)}–${fmtMin(period.end)}`:""})</div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr",gap:8,marginBottom:12}}>
+            <div>
+              <label style={{fontSize:11,fontWeight:700,color:"#000",display:"block",marginBottom:4}}>Subject</label>
+              <select value={editSubject} onChange={e=>setEditSubject(e.target.value)} style={{width:"100%",padding:"6px 8px",border:"1.5px solid #d1d5db",borderRadius:5,fontSize:13}}>
+                <option value="">— Select subject —</option>
+                {subjectOptions.map(s=>{
+                  const isCommon = !!gradeCommon[(s||"").trim()];
+                  return <option key={s} value={s}>{isCommon?"★ ":""}{s}</option>;
+                })}
+              </select>
+            </div>
+            <div>
+              <label style={{fontSize:11,fontWeight:700,color:"#000",display:"block",marginBottom:4}}>Teacher</label>
+              <select value={editTeacher} onChange={e=>setEditTeacher(e.target.value)} disabled={!editSubject} style={{width:"100%",padding:"6px 8px",border:"1.5px solid #d1d5db",borderRadius:5,fontSize:13,background:editSubject?"#fff":"#f3f4f6",opacity:editSubject?1:0.7}}>
+                <option value="">— Select teacher —</option>
+                {teacherOptions.map(st=><option key={st.id} value={st.name}>{st.name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <button
+              type="button"
+              onClick={()=>{
+                if(!editCell) return;
+                const {day,pi}=editCell;
+                setEditSubject("");
+                setEditTeacher("");
+                setTTSingleDay(setTimetable,selCls,day,pi,{subject:"",teacher:""});
+                setEditCell(null);
+              }}
+              style={{background:"none",border:"none",color:C.red,fontSize:12,cursor:"pointer"}}
+            >
+              Clear
+            </button>
+            <div style={{display:"flex",gap:8}}>
+              <Btn outline color={C.gray} onClick={closeEditor}>Cancel</Btn>
+              <Btn onClick={saveEditor}>Save</Btn>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>;
+  };
 
   return <div>
     {!suppressPrintHeader&&<div className="print-only" style={{display:"none",marginBottom:8}}>
@@ -1241,15 +1387,20 @@ function ByClassView({settings,timetable,selCls,suppressPrintHeader}){
                 <td style={{padding:"5px 10px",fontWeight:700,color:"#000",background:di%2===0?"#e8edf8":"#eef2fc"}}>{day}</td>
                 {dp.map((_,pi)=>{
                   const cell=getTT(timetable,selCls,day,pi);
+                  const gradeCommon=settings.commonTeachers?.[cls?.grade]||{};
+                  const isCommon=!!(cell.subject&&gradeCommon[cell.subject]);
+                  const busy=teacherBusy(cell.teacher,day,pi,selCls);
                   return [
-                    <td key={`byc${pi}`} style={{padding:4,border:"1px solid #9ca3af",textAlign:"center",minWidth:80,verticalAlign:"middle"}}>
-                      {cell.subject?(
-                        <div style={{textAlign:"center"}}>
-                          <div style={{fontWeight:700,color:"#000",fontSize:11}}>{cell.subject}</div>
-                          <br />
-                          <div style={{fontSize:10,color:"#000",fontWeight:400}}>{cell.teacher||""}</div>
-                        </div>
-                      ):(<span style={{color:"#d1d5db",fontSize:10}}>—</span>)}
+                    <td key={`byc${pi}`} style={{padding:2,border:"1px solid #9ca3af",textAlign:"center",minWidth:80,verticalAlign:"top"}}>
+                      {editable
+                        ? <TTCell subject={cell.subject} teacher={cell.teacher} isCommon={isCommon} busy={busy} onOpen={()=>openEditor(day,pi)}/>
+                        : (cell.subject?(
+                          <div style={{textAlign:"center",padding:"4px 2px"}}>
+                            <div style={{fontWeight:700,color:"#000",fontSize:11}}>{cell.subject}</div>
+                            <br />
+                            <div style={{fontSize:10,color:"#000",fontWeight:400}}>{cell.teacher||""}</div>
+                          </div>
+                        ):(<span style={{color:"#d1d5db",fontSize:10}}>—</span>))}
                     </td>,
                     pi===brAfterIdx&&<td key={`bycb${pi}`} style={{background:C.breakL,textAlign:"center",fontWeight:700,fontSize:10,color:"#92400e",padding:2}}>BREAK</td>
                   ];
@@ -1259,6 +1410,7 @@ function ByClassView({settings,timetable,selCls,suppressPrintHeader}){
           </tbody>
         </table>
       </div>
+    {renderModal()}
   </div>;
 }
 
@@ -1466,11 +1618,77 @@ function TimetablePage({settings,staffProfiles,timetable,setTimetable,currentSes
 
   const handleTimetablePdf=()=>{ doExportTimetable("pdf"); };
 
+  const teachersWithSubjects = useMemo(() => {
+    return teachingStaff.filter(st => {
+      const subj = String(st.subj || "").trim();
+      return subj.length > 0;
+    }).map(st => ({
+      name: st.name,
+      subjects: (String(st.subj || "")).split(/[,;]/).map(s => s.trim().toLowerCase()).filter(Boolean)
+    }));
+  }, [teachingStaff]);
+
+  const autoGenerateTimetable = () => {
+    if (!settings?.classes?.length || !teachersWithSubjects.length) {
+      alert("No classes or teachers with subject qualifications found.");
+      return;
+    }
+    if (!confirm("This will replace the current timetable. Continue?")) return;
+
+    const newTimetable = {};
+    const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const { rows: periodRows } = calcTimes(settings, "Monday");
+    const teachingPeriods = periodRows.filter(r => !r.isBreak);
+    const subjectNorm = (s) => String(s || "").trim().toLowerCase();
+
+    for (const cls of settings.classes) {
+      const classSubjects = getClassSubjects(settings, cls.id, "timetable").map(subjectNorm).filter(Boolean);
+      if (!classSubjects.length) continue;
+
+      newTimetable[cls.id] = {};
+
+      for (const day of weekdays) {
+        newTimetable[cls.id][day] = {};
+
+        const usedTeachers = new Set();
+
+        for (let pi = 0; pi < teachingPeriods.length; pi++) {
+          let assignedSubject = "";
+          let assignedTeacher = "";
+
+          for (const subjNorm of classSubjects) {
+            const originalSubject = getClassSubjects(settings, cls.id, "timetable").find(cs => subjectNorm(cs) === subjNorm) || "";
+
+            const candidates = teachersWithSubjects.filter(t =>
+              t.subjects.some(ts => ts === subjNorm || ts.includes(subjNorm) || subjNorm.includes(ts)) &&
+              !usedTeachers.has(t.name)
+            );
+
+            if (candidates.length > 0) {
+              assignedSubject = originalSubject;
+              assignedTeacher = candidates[0].name;
+              usedTeachers.add(assignedTeacher);
+              break;
+            }
+          }
+
+          if (assignedSubject && assignedTeacher) {
+            newTimetable[cls.id][day][pi] = { subject: assignedSubject, teacher: assignedTeacher };
+          }
+        }
+      }
+    }
+
+    setTimetable(newTimetable);
+    alert("Timetable auto-generated successfully!");
+  };
+
   return <div className="timetable-page timetable-print-area" style={{width:"100%",maxWidth:"100%",minWidth:0,boxSizing:"border-box"}}>
     <div className="no-print timetable-toolbar" style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap",padding:"10px 14px",background:"#fff",borderRadius:8,boxShadow:"0 1px 4px rgba(0,0,0,0.08)",width:"100%",maxWidth:"100%",boxSizing:"border-box"}}>
       <div style={{display:"flex",gap:4,minWidth:0}}>
         {views.map(v=>(
           <button
+            type="button"
             key={v.id}
             onClick={()=>setView(v.id)}
             style={{
@@ -1518,6 +1736,7 @@ function TimetablePage({settings,staffProfiles,timetable,setTimetable,currentSes
         )}
         {view==="byClass"&&<Sel value={byClassCls} onChange={setByClassCls} options={[{value:"__all_classes__",label:"All classes"},...settings.classes.map(c=>({value:c.id,label:formatClassDisplay(c)}))]}/>}
         {view==="byTeacher"&&<Sel value={byTeacherName} onChange={setByTeacherName} options={[{value:"__all_staff__",label:"All staff"},...teachingStaff.map(st=>({value:st.name,label:st.name}))]}/>}
+        <Btn small onClick={autoGenerateTimetable}>Auto Generate</Btn>
         <Btn small outline onClick={handleTimetablePdf}>Export PDF</Btn>
       </div>
     </div>
@@ -1525,11 +1744,11 @@ function TimetablePage({settings,staffProfiles,timetable,setTimetable,currentSes
     <div className="timetable-main-content" ref={timetableTableRef} style={{width:"100%",maxWidth:"100%",minWidth:0,boxSizing:"border-box"}}>
     {view==="allClasses"&&(classesForView.length>0?<AllClassesView settings={settings} staffProfiles={staffProfiles} timetable={timetable} setTimetable={setTimetable} day="Monday" classes={classesForView}/>:<div className="no-print" style={{padding:20,textAlign:"center",color:C.gray,fontSize:13}}>No classes for <strong>{portionLabel}</strong>. Tick another portion or use &quot;All portions&quot;.</div>)}
     {view==="teachers"&&(staffForView.length>0?<TeachersView settings={settings} timetable={timetable} day="Monday" staff={staffForView} suppressPrintHeader/>:<div className="no-print" style={{padding:20,textAlign:"center",color:C.gray,fontSize:13}}>No teachers for <strong>{portionLabel}</strong>. Tick another portion or use &quot;All portions&quot;.</div>)}
-    {view==="byClass"&&byClassCls!=="__all_classes__"&&<div className="by-class-single"><ByClassView settings={settings} timetable={timetable} selCls={byClassCls} suppressPrintHeader/></div>}
+    {view==="byClass"&&byClassCls!=="__all_classes__"&&<div className="by-class-single"><ByClassView settings={settings} staffProfiles={staffProfiles} timetable={timetable} setTimetable={setTimetable} selCls={byClassCls} suppressPrintHeader/></div>}
     {view==="byClass"&&byClassCls==="__all_classes__"&&<div className="all-classes-batch-print">
       {classesForView.map((c, i) => (
         <div key={c.id} style={{ pageBreakAfter: i < classesForView.length - 1 ? 'always' : 'auto', breakAfter: i < classesForView.length - 1 ? 'page' : 'auto', marginBottom: i < classesForView.length - 1 ? 40 : 0 }}>
-          <ByClassView settings={settings} timetable={timetable} selCls={c.id} suppressPrintHeader={false}/>
+          <ByClassView settings={settings} staffProfiles={staffProfiles} timetable={timetable} setTimetable={setTimetable} selCls={c.id} suppressPrintHeader={false}/>
         </div>
       ))}
     </div>}
@@ -2433,6 +2652,7 @@ function SettingsPage({settings,setSettings,setSchools,students,setStudents,scho
         const classSubjectsTimetable = {};
         const conflicts = [];
         const byId = {};
+        const classTeachersMap = {};
         dataRows.forEach(row => {
           const id = String(row[0] || "").trim();
           const name = String(row[1] || "").trim();
@@ -2440,6 +2660,7 @@ function SettingsPage({settings,setSettings,setSchools,students,setStudents,scho
           const section = String(row[3] || "").trim();
           const examSubjsStr = String(row[4] || "").trim();
           const ttSubjsStr = String(row[5] || "").trim();
+          const classTeacherStr = String(row[6] || "").trim();
           if (!id && !name && !grade) return;
           const cid = id || (grade ? `${grade}-${section || name}` : name) || genId();
           // Make class name consistent with manual Add Class (e.g. 10TH-BS)
@@ -2462,6 +2683,7 @@ function SettingsPage({settings,setSettings,setSchools,students,setStudents,scho
           if (!prev) {
             byId[cid] = norm;
           }
+          if(classTeacherStr) classTeachersMap[cid]=classTeacherStr;
           const examSubjs = examSubjsStr ? examSubjsStr.split(",").map(s => s.trim()).filter(Boolean) : [];
           const ttSubjs = ttSubjsStr
             ? ttSubjsStr.split(",").map(s => s.trim()).filter(Boolean)
@@ -2476,7 +2698,7 @@ function SettingsPage({settings,setSettings,setSchools,students,setStudents,scho
           });
         });
         const classes = Object.entries(byId).map(([id, norm]) => ({ id, ...norm }));
-        if (classes.length) {
+        if(classes.length) {
           importedClasses = classes;
           setSettings(s => ({
             ...s,
@@ -2538,6 +2760,24 @@ function SettingsPage({settings,setSettings,setSchools,students,setStudents,scho
             );
             msg.push(profiles.length + " staff profile(s)");
           }
+        }
+        // Update timetable with class teachers if imported from Classes sheet
+        if (Object.keys(classTeachersMap || {}).length > 0 && setSchools && activeSchoolId) {
+          setSchools(prev => prev.map(s => {
+            if (s.id !== activeSchoolId) return s;
+            const nextTimetable = { ...(s.timetable || {}) };
+            Object.entries(classTeachersMap).forEach(([cid, teacher]) => {
+              if (teacher) {
+                if (!nextTimetable[cid]) nextTimetable[cid] = {};
+                ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].forEach(day => {
+                  if (!nextTimetable[cid][day]) nextTimetable[cid][day] = {};
+                  nextTimetable[cid][day][0] = { subject: "", teacher };
+                });
+              }
+            });
+            return { ...s, timetable: nextTimetable };
+          }));
+          if (Object.keys(classTeachersMap).length) msg.push(Object.keys(classTeachersMap).length + " class teacher(s)");
         }
       }
       if (sheets.ClassSheets && sheets.ClassSheets.length) {
@@ -2768,14 +3008,15 @@ function SettingsPage({settings,setSettings,setSchools,students,setStudents,scho
     await yieldToMain();
     const wb = XLSX.utils.book_new();
     const wsClasses = XLSX.utils.aoa_to_sheet([
-      ["Class ID","Class Name","Grade","Section","Subjects for Examination","Subjects for Timetable"],
+      ["Class ID","Class Name","Grade","Section","Subjects for Examination","Subjects for Timetable","Class Teacher"],
       ...(settings.classes||[]).map(c => [
         c.id,
         formatClassDisplay(c),
         c.grade,
         c.section,
         getClassSubjects(settings,c.id,"exam").join(", "),
-        getClassSubjects(settings,c.id,"timetable").join(", ")
+        getClassSubjects(settings,c.id,"timetable").join(", "),
+        ((timetable||{})[c.id]?.["Monday"]?.[0]?.teacher)||""
       ]),
     ]);
     const staffExportHeaders = STAFF_PROFILE_SHEET_HEADERS.filter(h=>h.id!=="photo").map(h=>h.label);
@@ -3050,8 +3291,8 @@ function SettingsPage({settings,setSettings,setSchools,students,setStudents,scho
         const wb=XLSX.read(reader.result,{type:"array"});
         const msg=[];
         const getSheet=(name)=>wb.Sheets[name]?XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:""}):null;
-        const sheetsClasses=getSheet("Classes");
-        const sheetsStaff=getSheet("Staff");
+        const sheetsClasses=getSheet("Class")||getSheet("Classes")||getSheet("Classes & Subjects");
+        const sheetsStaff=getSheet("Teacher")||getSheet("Teachers")||getSheet("Staff")||getSheet("Staff Profiles");
         let nextClasses=settings.classes;
         let nextClassSubjectsExam={...(settings.classSubjectsExam||settings.classSubjects||{})};
         let nextClassSubjectsTimetable={...(settings.classSubjectsTimetable||settings.classSubjects||{})};
@@ -3069,6 +3310,7 @@ function SettingsPage({settings,setSettings,setSchools,students,setStudents,scho
             const section=String(row[3]||"").trim();
             const examSubjsStr=String(row[4]||"").trim();
             const ttSubjsStr=String(row[5]||"").trim();
+            const classTeacherName=String(row[6]||"").trim();
             if(!id&&!name&&!grade) return;
             const cid=id||(grade?`${grade}-${section||name}`:name)||genId();
             let autoName=name;
@@ -3079,7 +3321,8 @@ function SettingsPage({settings,setSettings,setSchools,students,setStudents,scho
             const norm={name:autoName,grade:grade||"",section:section||""};
             const prev=byId[cid];
             if(prev&&(prev.name!==norm.name||prev.grade!==norm.grade||prev.section!==norm.section)){ conflicts.push(cid); return; }
-            if(!prev) byId[cid]=norm;
+            if(!prev) byId[cid]={...norm,classTeacher:classTeacherName};
+            else if(classTeacherName) byId[cid].classTeacher=classTeacherName;
             const examSubjs=examSubjsStr?examSubjsStr.split(",").map(s=>s.trim()).filter(Boolean):[];
             const ttSubjs=ttSubjsStr?ttSubjsStr.split(",").map(s=>s.trim()).filter(Boolean):examSubjs;
             if(!classSubjectsExam[cid]) classSubjectsExam[cid]=[];
@@ -3087,25 +3330,45 @@ function SettingsPage({settings,setSettings,setSchools,students,setStudents,scho
             examSubjs.forEach(s=>{ if(!classSubjectsExam[cid].includes(s)) classSubjectsExam[cid].push(s); });
             ttSubjs.forEach(s=>{ if(!classSubjectsTimetable[cid].includes(s)) classSubjectsTimetable[cid].push(s); });
           });
-          const classes=Object.entries(byId).map(([id,norm])=>({id,...norm}));
+          const classes=Object.entries(byId).map(([id,norm])=>{
+            const {classTeacher,...rest}=norm;
+            return {id,...rest};
+          });
+          const classTeachersMap=Object.fromEntries(Object.entries(byId).filter(([_,v])=>v.classTeacher).map(([k,v])=>[k,v.classTeacher]));
           if(classes.length){
             nextClasses=[...settings.classes.filter(c=>!classes.find(n=>n.id===c.id)),...classes];
             nextClassSubjectsExam={...(settings.classSubjectsExam||settings.classSubjects||{}),...classSubjectsExam};
             nextClassSubjectsTimetable={...(settings.classSubjectsTimetable||settings.classSubjects||{}),...classSubjectsTimetable};
             msg.push(classes.length+" class(es)");
+            if(Object.keys(classTeachersMap).length) msg.push(Object.keys(classTeachersMap).length+" class teacher(s)");
           }
           if(conflicts.length) msg.push("Skipped duplicate class IDs: "+[...new Set(conflicts)].join(", "));
         }
+        let nextTimetable={...timetable};
+        if(sheetsClasses&&sheetsClasses.length>=2){
+          const [,...dataRows]=sheetsClasses;
+          dataRows.forEach(row=>{
+            const cid=String(row[0]||"").trim()||(String(row[2]||"").trim()?`${String(row[2]||"").trim()}-${String(row[3]||"").trim()||String(row[1]||"").trim()}`:null);
+            const classTeacherName=String(row[6]||"").trim();
+            if(!cid||!classTeacherName) return;
+            if(!nextTimetable[cid]) nextTimetable[cid]={};
+            ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].forEach(day=>{
+              if(!nextTimetable[cid][day]) nextTimetable[cid][day]={};
+              nextTimetable[cid][day][0]={subject:"",teacher:classTeacherName};
+            });
+          });
+        }
         if(sheetsStaff&&sheetsStaff.length>=2){
           const [,...dataRows]=sheetsStaff;
-          newStaffProfiles=dataRows.map((row,i)=>{ const name=String(row[0]||"").trim(); const designation=String(row[1]||"").trim(); if(!name) return null; return {id:genId(),staffCategory:normalizeStaffCategory(designation),name:name||"Staff "+(i+1),designation:designation||"",photo:null}; }).filter(Boolean);
+          newStaffProfiles=dataRows.map((row,i)=>{ const name=String(row[0]||"").trim(); const designation=String(row[1]||"").trim(); const subj=String(row[2]||"").trim(); if(!name) return null; return {id:genId(),staffCategory:normalizeStaffCategory(designation),name:name||"Staff "+(i+1),designation:designation||"",subj:subj||"",photo:null}; }).filter(Boolean);
           if(newStaffProfiles.length) msg.push(newStaffProfiles.length+" staff profile(s)");
         }
         if(msg.length){
           setSettings(s=>({...s,classes:nextClasses,classSubjects:nextClassSubjectsExam,classSubjectsExam:nextClassSubjectsExam,classSubjectsTimetable:nextClassSubjectsTimetable}));
           if(newStaffProfiles.length) setSchools(prev=>prev.map(s=>s.id===activeSchoolId?{...s,staffProfiles:[...(s.staffProfiles||[]),...newStaffProfiles]}:s));
+          if(Object.keys(nextTimetable).length>0) setSchools(prev=>prev.map(s=>s.id===activeSchoolId?{...s,timetable:nextTimetable}:s));
         }
-        if(!msg.length) alert("No 'Classes' or 'Staff' sheets with data found.");
+        if(!msg.length) alert("No class or staff sheet with data found.\n\nExpected one of: Class, Classes, Classes & Subjects — and one of: Teacher, Staff, Staff Profiles.");
         else alert("Imported: "+msg.join(". "));
       }catch(err){ alert("Failed to import: "+err.message); }
       e.target.value="";
@@ -3415,7 +3678,6 @@ function SettingsPage({settings,setSettings,setSchools,students,setStudents,scho
       {tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"7px 16px",borderRadius:5,border:"none",background:tab===t.id?C.navy:"#e5e7eb",color:tab===t.id?"#fff":"#374151",fontWeight:600,cursor:"pointer",fontSize:13}}>{t.label}</button>)}
     </div>
     <input ref={settingsExcelRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={importFromExcel}/>
-    <input ref={classesAndStaffExcelRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={importClassesAndStaffExcel}/>
     <input ref={studentImportRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={importStudentsFromExcel}/>
 
     {tab==="general"&&<div style={{maxWidth:520}}>
@@ -3434,11 +3696,19 @@ function SettingsPage({settings,setSettings,setSchools,students,setStudents,scho
       <div style={{marginBottom:18,padding:14,borderRadius:10,background:"#f9fafb",border:"1px solid #e5e7eb"}}>
         <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:6}}>Data Workbook</label>
         <p style={{margin:"0 0 10px",fontSize:11,color:C.gray}}>
-          <strong>Export Data</strong> backs up all data. <strong>Import Data</strong> restores classes and subjects, staff profiles, and students in each class from a previously exported file.
+          <strong>Export Data</strong> backs up all data (classes, teachers with subjects, class teachers, students). <strong>Import Data</strong> restores from previously exported file. <strong>Template</strong> downloads a blank Excel with Class and Teacher sheets for quick data entry. Teacher subjects are used for auto-generate timetable.
         </p>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <Btn small outline onClick={()=>settingsExcelRef.current?.click()}>Import Data</Btn>
           <Btn small outline onClick={() => void exportData()}>Export Data</Btn>
+          <Btn small outline onClick={async()=>{
+            const wb=XLSX.utils.book_new();
+            const classesSheet=XLSX.utils.aoa_to_sheet([["ID","Name","Grade","Section","Exam Subjects","Timetable Subjects","Class Teacher"],["1","Class 1-A","1","A","Math, Urdu","Math, Urdu",""],["2","Class 2-A","2","A","English, Math","English, Math",""]]);
+            XLSX.utils.book_append_sheet(wb,classesSheet,"Class");
+            const staffSheet=XLSX.utils.aoa_to_sheet([["Name","Designation","Subject"],["Ali Khan","Teaching","Mathematics, Physics"],["Sara","Teaching","English, Urdu"]]);
+            XLSX.utils.book_append_sheet(wb,staffSheet,"Teacher");
+            await downloadExcel(wb,"Class_Teacher_Template.xlsx");
+          }}>Template</Btn>
         </div>
         <div style={{marginTop:10,padding:"8px 12px",background:"#e8f0fe",borderRadius:7,fontSize:12,color:"#1f3b73",display:"flex",gap:16,flexWrap:"wrap"}}>
           <span>📊 <strong>Students in system:</strong> {(students||[]).length}</span>
