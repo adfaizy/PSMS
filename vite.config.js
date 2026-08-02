@@ -3,6 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import { punjabEduNewsPlugin } from "./scripts/punjabEduNewsApi.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -37,9 +39,7 @@ function patchManifestScope(base) {
       if (!fs.existsSync(file)) return;
       const data = JSON.parse(fs.readFileSync(file, "utf8"));
       data.start_url = base;
-      data.scope = base;
-      data.id = base;
-      const root = base === "/" ? "" : base.replace(/\/$/, "");
+      const root = base.replace(/\/$/, "") || "";
       if (Array.isArray(data.icons)) {
         data.icons = data.icons.map((icon) => {
           const src = icon.src;
@@ -62,16 +62,17 @@ export default defineConfig(({ mode }) => {
           presets: [["@babel/preset-react", { runtime: "automatic" }]],
         },
       }),
+      tailwindcss(),
       patchHtmlPublicLinks(base),
       patchManifestScope(base),
+      punjabEduNewsPlugin(),
     ],
-    /**
-     * Dev dependency pre-bundling needs esbuild (default). Disabling esbuild globally
-     * or using `optimizeDeps.noDiscovery: true` without full `include` caused raw CJS
-     * `react` / `react-dom` to load in the browser (no `createContext` / `createRoot`).
-     */
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
+    },
     optimizeDeps: {
-      // jspdf / jspdf-autotable ship ESM; forcing needsInterop breaks `import { jsPDF }` / constructor binding.
       needsInterop: ["jszip", "html2canvas"],
     },
     build: {
