@@ -22,15 +22,25 @@ import { LibraryPage } from "./LibraryPage";
 import * as feeCore from "./modules/fee/feeCore";
 import { feeService, systemSettingsService, dashboardService } from "./services";
 import PWAInstallBanner from "./PWAInstallBanner";
+import SchoolStaffPage from "./SchoolStaffPage";
 import { APP_BRAND_LOGO_URL } from "./branding.js";
 import { yieldToMain } from "./yieldToMain.js";
 import { UI } from "./uiTokens.js";
+import { Button } from "./components/ui/button.jsx";
+import { cn } from "./lib/utils.js";
 import signImg from "./assets/sign.png";
+import {
+  inferClassLevel,
+  schoolStaffToTimetableStaff,
+  syncSchoolStaffFromProfiles,
+  teacherCoversClassLevel,
+} from "./modules/schoolStaff/schoolStaffCore.js";
 
 /** Main shell navigation (left sidebar). */
 const APP_MAIN_NAV = [
   { id: "dashboard", l: "Dashboard", i: "🏠" },
   { id: "timetable", l: "Timetable", i: "📅" },
+  { id: "staff-profiles", l: "Staff Profiles", i: "🪪" },
   { id: "attendance", l: "Attendance", i: "📋" },
   { id: "fees", l: "Fees", i: "💳" },
   { id: "examination", l: "Examination", i: "📝" },
@@ -548,89 +558,64 @@ function isABCounterpartSubject(a,b){
   return pa.base===pb.base&&pa.variant!==pb.variant;
 }
 
-// ─── UI PRIMITIVES ────────────────────────────────────────────────────────────
-function Btn({children,onClick,color,small,danger,outline,disabled,style:sx,type}){
-  const bg=danger?C.red:outline?"transparent":(color||C.navy);
-  const tc=outline?(color||C.navy):"#fff";
-  const bd=outline?`1.5px solid ${color||C.navy}`:"none";
-  const radius=8;
-  return <button
-    type={type||"button"}
-    onClick={onClick}
-    disabled={disabled}
-    style={{
-      background:bg,
-      color:tc,
-      border:bd,
-      borderRadius:radius,
-      padding:small?"5px 12px":"8px 18px",
-      fontSize:small?12:13,
-      cursor:disabled?"not-allowed":"pointer",
-      fontWeight:600,
-      opacity:disabled?0.55:1,
-      whiteSpace:"nowrap",
-      boxShadow:outline||disabled?"none":"0 8px 18px rgba(15,23,42,0.18)",
-      transform:"translateY(0)",
-      transition:"background 0.18s ease,box-shadow 0.18s ease,transform 0.1s ease",
-      ...sx
-    }}
-    onMouseEnter={e=>{ if(disabled) return; e.currentTarget.style.transform="translateY(-1px)"; e.currentTarget.style.boxShadow=outline?"0 0 0 1px rgba(148,163,184,0.7)":"0 10px 22px rgba(15,23,42,0.22)"; }}
-    onMouseLeave={e=>{ if(disabled) return; e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow=outline||disabled?"none":"0 8px 18px rgba(15,23,42,0.18)"; }}
-  >
-    {children}
-  </button>;
+// ─── UI PRIMITIVES (shadcn Button) ────────────────────────────────────────────
+function Btn({children,onClick,color,small,danger,outline,disabled,style:sx,type,className}){
+  const variant = danger ? "destructive" : outline ? "outline" : "default";
+  const size = small ? "sm" : "default";
+  return (
+    <Button
+      type={type || "button"}
+      variant={variant}
+      size={size}
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(className)}
+      style={{
+        ...(color && !danger && !outline
+          ? { background: color, borderColor: color }
+          : null),
+        ...(color && outline ? { color, borderColor: color } : null),
+        ...sx,
+      }}
+    >
+      {children}
+    </Button>
+  );
 }
 function Sel({label,value,onChange,options,width,className,selectClassName,touchFriendly}){
   const fullW=width==="100%";
-  return <div className={className||undefined} style={{display:"flex",flexDirection:"column",gap:3,minWidth:fullW?0:undefined,width:fullW?"100%":undefined}}>
-    {label&&<label style={{fontSize:11,fontWeight:700,color:C.gray,textTransform:"uppercase",letterSpacing:0.4}}>{label}</label>}
+  return <div className={cn("flex flex-col gap-1", className)} style={{minWidth:fullW?0:undefined,width:fullW?"100%":undefined}}>
+    {label&&<label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</label>}
     <select
-      className={selectClassName||undefined}
+      className={cn(
+        "flex w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+        touchFriendly ? "min-h-11 py-2.5 text-base" : "h-8 py-1",
+        selectClassName,
+      )}
       value={value}
       onChange={e=>onChange(e.target.value)}
-      style={{
-        padding:touchFriendly?"10px 12px":"4px 10px",
-        height:touchFriendly?undefined:28,
-        minHeight:touchFriendly?44:undefined,
-        border:"1.5px solid #d1d5db",
-        borderRadius:7,
-        fontSize:touchFriendly?16:13,
-        lineHeight:touchFriendly?1.25:undefined,
-        background:"#fff",
-        width:width||"auto",
-        maxWidth:fullW?"100%":undefined,
-        boxSizing:"border-box",
-        cursor:"pointer",
-        boxShadow:"0 1px 2px rgba(15,23,42,0.06)",
-        transition:"border-color 0.18s ease,box-shadow 0.18s ease",
-        ...(touchFriendly?{WebkitAppearance:"menulist"}:{})
-      }}
-      onFocus={e=>{e.currentTarget.style.borderColor=C.navy; e.currentTarget.style.boxShadow="0 0 0 3px rgba(37,99,235,0.25)";}}
-      onBlur={e=>{e.currentTarget.style.borderColor="#d1d5db"; e.currentTarget.style.boxShadow="0 1px 2px rgba(15,23,42,0.06)";}}
+      style={{ width: fullW ? "100%" : (width || undefined) }}
     >
-      {options.map(o=><option key={typeof o==="string"?o:o.value} value={typeof o==="string"?o:o.value}>{typeof o==="string"?o:o.label}</option>)}
+      {(options||[]).map(o=>{
+        const val = typeof o === "string" ? o : o.value;
+        const lab = typeof o === "string" ? o : o.label;
+        return <option key={val} value={val}>{lab}</option>;
+      })}
     </select>
   </div>;
 }
-function Inp({label,value,onChange,type="text",width,...rest}){
-  return <div style={{display:"flex",flexDirection:"column",gap:3}}>
-    {label&&<label style={{fontSize:11,fontWeight:700,color:C.gray,textTransform:"uppercase",letterSpacing:0.4}}>{label}</label>}
+function Inp({label,value,onChange,type="text",width,className,...rest}){
+  return <div className="flex flex-col gap-1">
+    {label&&<label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</label>}
     <input
       type={type}
       value={value}
       onChange={e=>onChange(e.target.value)}
-      style={{
-        padding:"7px 10px",
-        border:"1.5px solid #d1d5db",
-        borderRadius:7,
-        fontSize:13,
-        width:width||"auto",
-        boxSizing:"border-box",
-        boxShadow:"0 1px 2px rgba(15,23,42,0.06)",
-        transition:"border-color 0.18s ease,box-shadow 0.18s ease"
-      }}
-      onFocus={e=>{e.currentTarget.style.borderColor=C.navy; e.currentTarget.style.boxShadow="0 0 0 3px rgba(37,99,235,0.25)";}}
-      onBlur={e=>{e.currentTarget.style.borderColor="#d1d5db"; e.currentTarget.style.boxShadow="0 1px 2px rgba(15,23,42,0.06)";}}
+      className={cn(
+        "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+        className,
+      )}
+      style={{ width: width || undefined }}
       {...rest}
     />
   </div>;
@@ -795,6 +780,74 @@ function ResultCardHeader({ settings, sessionLabel, examLabel, className }) {
 }
 
 // ─── TIMETABLE CELL ───────────────────────────────────────────────────────────
+/** Shared screen styles so Classes / Faculty / planners fill width evenly. */
+const TT_TABLE_STYLE = {
+  borderCollapse: "collapse",
+  fontSize: 11,
+  width: "100%",
+  tableLayout: "fixed",
+  border: "1px solid #9ca3af",
+};
+const TT_TH_STYLE = {
+  background: "#15803d",
+  color: "#fff",
+  padding: "6px 6px",
+  textAlign: "center",
+  fontWeight: 700,
+  whiteSpace: "pre-line",
+  verticalAlign: "middle",
+  wordBreak: "break-word",
+};
+const TT_STICKY_TH = {
+  ...TT_TH_STYLE,
+  position: "sticky",
+  left: 0,
+  zIndex: 2,
+  width: "10%",
+  minWidth: 96,
+};
+const TT_STICKY_TD = (alt) => ({
+  padding: "5px 6px",
+  fontWeight: 700,
+  color: "#000",
+  background: alt ? "#e8edf8" : "#eef2fc",
+  position: "sticky",
+  left: 0,
+  zIndex: 1,
+  textAlign: "center",
+  verticalAlign: "middle",
+  wordBreak: "break-word",
+  fontSize: 12,
+});
+const TT_TD_STYLE = {
+  padding: 2,
+  border: "1px solid #9ca3af",
+  textAlign: "center",
+  verticalAlign: "middle",
+  wordBreak: "break-word",
+};
+const TT_BREAK_TH = {
+  background: C.breakC,
+  color: "#78350f",
+  padding: "4px 4px",
+  width: "6%",
+  minWidth: 52,
+  textAlign: "center",
+  fontWeight: 700,
+  fontSize: 10,
+  whiteSpace: "pre-line",
+  verticalAlign: "middle",
+};
+const TT_BREAK_TD = {
+  background: C.breakL,
+  textAlign: "center",
+  fontWeight: 700,
+  fontSize: 10,
+  color: "#92400e",
+  padding: "3px 2px",
+  verticalAlign: "middle",
+};
+
 function TTCell(props){
   const {subject,teacher,onOpen}=props;
   const hasAssign=!!(subject||teacher);
@@ -803,16 +856,16 @@ function TTCell(props){
     role="button"
     tabIndex={0}
     onKeyDown={e=>e.key==="Enter"&&onOpen?.()}
-    style={{padding:"2px 2px",minHeight:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}
+    style={{padding:"4px 2px",minHeight:40,height:"100%",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",boxSizing:"border-box"}}
   >
     {hasAssign
       ? (
-        <div className="tt-cell-stack" style={{textAlign:"center",width:"100%",lineHeight:1.15}}>
-          <div style={{fontWeight:700,fontSize:12,color:"#000",lineHeight:1.15}}>{subject}</div>
+        <div className="tt-cell-stack" style={{textAlign:"center",width:"100%",lineHeight:1.2}}>
+          <div style={{fontWeight:700,fontSize:12,color:"#000",lineHeight:1.2}}>{subject}</div>
           {String(teacher || "").trim() ? (
             <>
               <br />
-              <div style={{fontSize:10,color:"#000",fontWeight:400,lineHeight:1.15}}>{teacher}</div>
+              <div style={{fontSize:10,color:"#000",fontWeight:400,lineHeight:1.2}}>{teacher}</div>
             </>
           ) : null}
         </div>
@@ -913,7 +966,8 @@ function AllClassesView({settings,staffProfiles,timetable,setTimetable,day,class
   }
   function subjectUsed(cid,subj,excludePi){
     if(!subj) return false;
-    return pRows.some((_,i)=>i!==excludePi&&getTT(timetable,cid,day,i).subject===subj);
+    const target=String(subj).trim().toLowerCase();
+    return pRows.some((_,i)=>i!==excludePi&&String(getTT(timetable,cid,day,i).subject||"").trim().toLowerCase()===target);
   }
   function applyCommon(cid,pi,subject,teacher){
     const cls=classes.find(c=>c.id===cid); if(!cls) return;
@@ -983,6 +1037,7 @@ function AllClassesView({settings,staffProfiles,timetable,setTimetable,day,class
     const subjects=getClassSubjects(settings,cid,"timetable");
     const period=pRows[pi];
     const currentCell=getTT(timetable,cid,day,pi);
+    // Subject already taken in another period today → hide from dropdown (keep current selection).
     const subjectOptions=subjects.filter(s=>!subjectUsed(cid,s,pi)||s===currentCell.subject);
     const gradeCommon=settings.commonTeachers?.[cls?.grade]||{};
     const teacherOptions=teachingStaffList(settings,staffProfiles).filter(st=>{
@@ -1045,16 +1100,16 @@ function AllClassesView({settings,staffProfiles,timetable,setTimetable,day,class
     </div>;
   };
 
-  return <div style={{overflowX:"auto"}}>
-    <table className="timetable-pdf-export" style={{borderCollapse:"collapse",fontSize:11,minWidth:900}}>
+  return <div style={{overflowX:"auto",width:"100%"}}>
+    <table className="timetable-pdf-export" style={TT_TABLE_STYLE}>
       <thead>
         <tr>
-          <th style={{background:"#15803d",color:"#fff",padding:"6px 8px",minWidth:88,position:"sticky",left:0,zIndex:2,fontSize:12}}>Class</th>
+          <th style={TT_STICKY_TH}>Class</th>
           {pRows.map((p,i)=>[
-            <th key={`ph${i}`} style={{background:"#15803d",color:"#fff",padding:"4px 5px",minWidth:88,textAlign:"center",whiteSpace:"pre-line",fontWeight:700}}>
+            <th key={`ph${i}`} style={TT_TH_STYLE}>
               {timetablePdfPeriodCell(getPeriodLabel(i, settings), `${fmtMin(p.start)}–${fmtMin(p.end)}`)}
             </th>,
-            i===brAfterIdx&&brRow&&<th key={`bh${i}`} className="timetable-pdf-break-th" style={{background:C.breakC,color:"#78350f",padding:"4px 5px",minWidth:58,textAlign:"center",fontWeight:700,fontSize:10,whiteSpace:"pre-line"}}>{timetablePdfPeriodCell("Break", `${fmtMin(brRow.start)}–${fmtMin(brRow.end)}`)}</th>
+            i===brAfterIdx&&brRow&&<th key={`bh${i}`} className="timetable-pdf-break-th" style={TT_BREAK_TH}>{timetablePdfPeriodCell("Break", `${fmtMin(brRow.start)}–${fmtMin(brRow.end)}`)}</th>
           ])}
         </tr>
       </thead>
@@ -1062,18 +1117,18 @@ function AllClassesView({settings,staffProfiles,timetable,setTimetable,day,class
         {classes.map((cls,ri)=>{
           const gradeCommon=settings.commonTeachers?.[cls.grade]||{};
           return <tr key={cls.id} style={{background:ri%2===0?"#f9fafb":"#fff"}}>
-            <td style={{padding:"4px 8px",fontWeight:700,color:"#000",background:ri%2===0?"#e8edf8":"#eef2fc",position:"sticky",left:0,zIndex:1,fontSize:12,whiteSpace:"nowrap"}}>{formatClassDisplay(cls)}</td>
+            <td style={TT_STICKY_TD(ri%2===0)}>{formatClassDisplay(cls)}</td>
             {pRows.map((p,pi)=>{
               const cell=getTT(timetable,cls.id,day,pi);
               const busy=teacherBusy(cell.teacher,pi,cls.id);
               const isCommon=!!(cell.subject&&gradeCommon[cell.subject]);
               return [
-                <td key={`c${pi}`} style={{padding:2,minWidth:88,border:"1px solid #9ca3af",verticalAlign:"top"}}>
+                <td key={`c${pi}`} style={TT_TD_STYLE}>
                   <TTCell subject={cell.subject} teacher={cell.teacher}
                     isCommon={isCommon} busy={busy}
                     onOpen={()=>openEditor(cls.id,pi)}/>
                 </td>,
-                pi===brAfterIdx&&<td key={`b${pi}`} style={{background:C.breakL,textAlign:"center",fontWeight:700,fontSize:10,color:"#92400e",padding:"3px 2px",minWidth:58}}>BREAK</td>
+                pi===brAfterIdx&&<td key={`b${pi}`} style={TT_BREAK_TD}>BREAK</td>
               ];
             })}
           </tr>;
@@ -1111,16 +1166,16 @@ function AllClassesAllDaysView({settings,staffProfiles,timetable,setTimetable}){
     if(field==="teacher"||field==="subject") applyCommon(cid,day,pi,next.subject,next.teacher);
   }
 
-  return <div style={{overflowX:"auto"}}>
-    <table className="timetable-pdf-export" style={{borderCollapse:"collapse",fontSize:11,minWidth:900}}>
+  return <div style={{overflowX:"auto",width:"100%"}}>
+    <table className="timetable-pdf-export" style={TT_TABLE_STYLE}>
       <thead>
         <tr>
-          <th style={{background:"#15803d",color:"#fff",padding:"6px 8px",minWidth:88,position:"sticky",left:0,zIndex:2,fontSize:12}}>Class</th>
+          <th style={TT_STICKY_TH}>Class</th>
           {pRows.map((p,i)=>[
-            <th key={`ph${i}`} style={{background:"#15803d",color:"#fff",padding:"4px 5px",minWidth:88,textAlign:"center",whiteSpace:"pre-line",fontWeight:700}}>
+            <th key={`ph${i}`} style={TT_TH_STYLE}>
               {timetablePdfPeriodCell(getPeriodLabel(i, settings), `${fmtMin(p.start)}–${fmtMin(p.end)}`)}
             </th>,
-            i===brAfterIdx&&brRow&&<th key={`bh${i}`} className="timetable-pdf-break-th" style={{background:C.breakC,color:"#78350f",padding:"4px 5px",minWidth:58,textAlign:"center",fontWeight:700,fontSize:10,whiteSpace:"pre-line"}}>{timetablePdfPeriodCell("Break", `${fmtMin(brRow.start)}–${fmtMin(brRow.end)}`)}</th>
+            i===brAfterIdx&&brRow&&<th key={`bh${i}`} className="timetable-pdf-break-th" style={TT_BREAK_TH}>{timetablePdfPeriodCell("Break", `${fmtMin(brRow.start)}–${fmtMin(brRow.end)}`)}</th>
           ])}
         </tr>
       </thead>
@@ -1174,45 +1229,45 @@ function TeachersView({settings,timetable,day,staff:staffOverride,printSubtitle,
     return pRows.reduce((acc,_,pi)=>acc+(getAssignment(tName,pi)?1:0),0);
   }
 
-  return <div style={{overflowX:"auto"}}>
+  return <div style={{overflowX:"auto",width:"100%"}}>
     {!suppressPrintHeader&&<div className="print-only" style={{display:"none",marginBottom:8}}>
       <SchoolHeader settings={settings} subtitle={printSubtitle||"TEACHERS TIMETABLE"}/>
     </div>}
-    <table className="timetable-pdf-export" style={{borderCollapse:"collapse",fontSize:9,minWidth:700}}>
+    <table className="timetable-pdf-export" style={TT_TABLE_STYLE}>
       <thead>
         <tr>
-          <th style={{background:"#15803d",color:"#fff",padding:"4px 6px",minWidth:100,position:"sticky",left:0,zIndex:2,fontSize:9}}>Teacher</th>
+          <th style={TT_STICKY_TH}>Teacher</th>
           {pRows.map((p,i)=>[
-            <th key={`th${i}`} style={{background:"#15803d",color:"#fff",padding:"3px 4px",minWidth:80,textAlign:"center",fontSize:9,whiteSpace:"pre-line",fontWeight:700}}>
+            <th key={`th${i}`} style={TT_TH_STYLE}>
               {timetablePdfPeriodCell(getPeriodLabel(i, settings), `${fmtMin(p.start)}–${fmtMin(p.end)}`)}
             </th>,
-            i===brAfterIdx&&brRow&&<th key={`tbh${i}`} className="timetable-pdf-break-th" style={{background:C.breakC,color:"#78350f",padding:"3px 4px",minWidth:55,textAlign:"center",fontWeight:700,fontSize:8,whiteSpace:"pre-line"}}>{timetablePdfPeriodCell("Break", `${fmtMin(brRow.start)}–${fmtMin(brRow.end)}`)}</th>
+            i===brAfterIdx&&brRow&&<th key={`tbh${i}`} className="timetable-pdf-break-th" style={TT_BREAK_TH}>{timetablePdfPeriodCell("Break", `${fmtMin(brRow.start)}–${fmtMin(brRow.end)}`)}</th>
           ])}
-          <th style={{background:"#15803d",color:"#fff",padding:"4px 6px",minWidth:65,textAlign:"center",fontSize:9}}>Periods/Day</th>
+          <th style={{...TT_TH_STYLE,width:"7%",minWidth:64}}>Periods/Day</th>
         </tr>
       </thead>
       <tbody>
         {staffList.map((teacher,ri)=>{
           const count=countPeriods(teacher.name);
           return <tr key={teacher.id} style={{background:ri%2===0?"#f9fafb":"#fff"}}>
-            <td style={{padding:"3px 6px",fontWeight:700,color:"#000",background:ri%2===0?"#e8edf8":"#eef2fc",position:"sticky",left:0,zIndex:1,whiteSpace:"nowrap",fontSize:9}}>
-              <div>{teacher.name}</div>
-              <div style={{fontSize:8,color:"#000",fontWeight:400}}>{teacher.designation}</div>
+            <td style={TT_STICKY_TD(ri%2===0)}>
+              <div style={{lineHeight:1.2}}>{teacher.name}</div>
+              <div style={{fontSize:10,color:"#475569",fontWeight:500,lineHeight:1.2,marginTop:2}}>{teacher.designation}</div>
             </td>
             {pRows.map((_,pi)=>{
               const assigned=getAssignment(teacher.name,pi);
               return [
-                <td key={`tc${pi}`} style={{padding:2,border:"1px solid #9ca3af",textAlign:"center",minWidth:80,fontSize:9,verticalAlign:"middle"}}>
-                  {assigned?(<div style={{background:"#dbeafe",borderRadius:4,padding:"2px 3px",textAlign:"center",lineHeight:1.15}}>
-                    <div style={{fontWeight:700,color:"#000",fontSize:9,lineHeight:1.15}}>{assigned.subject}</div>
+                <td key={`tc${pi}`} style={TT_TD_STYLE}>
+                  {assigned?(<div style={{background:"#dbeafe",borderRadius:4,padding:"4px 3px",textAlign:"center",lineHeight:1.2,margin:"0 auto",maxWidth:"100%"}}>
+                    <div style={{fontWeight:700,color:"#000",fontSize:11,lineHeight:1.2}}>{assigned.subject}</div>
                     <br />
-                    <div style={{fontSize:8,color:"#000",fontWeight:400,lineHeight:1.15}}>{assigned.className}</div>
-                  </div>):<span style={{color:"#d1d5db",fontSize:8}}>Free</span>}
+                    <div style={{fontSize:10,color:"#000",fontWeight:400,lineHeight:1.2}}>{assigned.className}</div>
+                  </div>):<span style={{color:"#cbd5e1",fontSize:11}}>—</span>}
                 </td>,
-                pi===brAfterIdx&&<td key={`tb${pi}`} style={{background:C.breakL,textAlign:"center",fontWeight:700,fontSize:8,color:"#92400e",padding:2}}>BREAK</td>
+                pi===brAfterIdx&&<td key={`tb${pi}`} style={TT_BREAK_TD}>BREAK</td>
               ];
             })}
-            <td style={{textAlign:"center",fontWeight:700,fontSize:12,color:count>0?C.navy:C.gray}}>{count||"—"}</td>
+            <td style={{...TT_TD_STYLE,fontWeight:700,fontSize:12,color:count>0?C.navy:C.gray}}>{count||"—"}</td>
           </tr>;
         })}
       </tbody>
@@ -1240,7 +1295,8 @@ function ByClassView({settings,staffProfiles,timetable,setTimetable,selCls,suppr
   }
   function subjectUsed(cid,day,subj,excludePi){
     if(!subj) return false;
-    return pRows.some((_,i)=>i!==excludePi&&getTT(timetable,cid,day,i).subject===subj);
+    const target=String(subj).trim().toLowerCase();
+    return pRows.some((_,i)=>i!==excludePi&&String(getTT(timetable,cid,day,i).subject||"").trim().toLowerCase()===target);
   }
   function applyCommon(cid,day,pi,subject,teacher){
     const rowCls=classes.find(c=>c.id===cid); if(!rowCls) return;
@@ -1309,6 +1365,7 @@ function ByClassView({settings,staffProfiles,timetable,setTimetable,selCls,suppr
     const dp=rows.filter(r=>!r.isBreak);
     const period=dp[pi];
     const currentCell=getTT(timetable,selCls,day,pi);
+    // Subject already taken in another period this day → hide from dropdown (keep current selection).
     const subjectOptions=subjects.filter(s=>!subjectUsed(selCls,day,s,pi)||s===currentCell.subject);
     const gradeCommon=settings.commonTeachers?.[cls?.grade]||{};
     const teacherOptions=teachingStaffList(settings,staffProfiles).filter(st=>{
@@ -1376,17 +1433,17 @@ function ByClassView({settings,staffProfiles,timetable,setTimetable,selCls,suppr
     {!suppressPrintHeader&&<div className="print-only" style={{display:"none",marginBottom:8}}>
       <SchoolHeader settings={settings} subtitle={`${cls?.name||""} — CLASS TIMETABLE`}/>
     </div>}
-    <div style={{overflowX:"auto"}}>
-      <table className="timetable-pdf-export" style={{borderCollapse:"collapse",fontSize:11,width:"100%"}}>
+    <div style={{overflowX:"auto",width:"100%"}}>
+      <table className="timetable-pdf-export" style={TT_TABLE_STYLE}>
           <thead>
             <tr>
-              <th style={{background:"#15803d",color:"#fff",padding:"6px 10px",minWidth:80,whiteSpace:"pre-line",textAlign:"center",fontWeight:700}}>{timetablePdfPeriodCell("Day", "Time")}</th>
+              <th style={{...TT_TH_STYLE,width:"10%",minWidth:88}}>{timetablePdfPeriodCell("Day", "Time")}</th>
               {pRows.map((p, i) => [
-                <th key={`bch${i}`} style={{background:"#15803d",color:"#fff",padding:"4px 6px",minWidth:80,textAlign:"center",whiteSpace:"pre-line",fontWeight:700}}>
+                <th key={`bch${i}`} style={TT_TH_STYLE}>
                   {timetablePdfPeriodCell(getPeriodLabel(i, settings), `${fmtMin(p.start)}–${fmtMin(p.end)}`)}
                 </th>,
                 i === brAfterIdx && (
-                  <th key={`bcbh${i}`} className="timetable-pdf-break-th" style={{background:C.breakC,color:"#78350f",padding:"4px 6px",minWidth:50,fontWeight:700,fontSize:10,textAlign:"center",whiteSpace:"pre-line"}}>
+                  <th key={`bcbh${i}`} className="timetable-pdf-break-th" style={TT_BREAK_TH}>
                     {timetablePdfPeriodCell("Break", brRow ? `${fmtMin(brRow.start)}–${fmtMin(brRow.end)}` : "—")}
                   </th>
                 ),
@@ -1398,29 +1455,29 @@ function ByClassView({settings,staffProfiles,timetable,setTimetable,selCls,suppr
               const {rows} = calcTimes(settings,day);
               const dp = rows.filter(r=>!r.isBreak);
               return <tr key={day} style={{background:di%2===0?"#f9fafb":"#fff"}}>
-                <td style={{padding:"5px 10px",fontWeight:700,color:"#000",background:di%2===0?"#e8edf8":"#eef2fc"}}>{day}</td>
+                <td style={{...TT_STICKY_TD(di%2===0),position:"static"}}>{day}</td>
                 {dp.map((_,pi)=>{
                   const cell=getTT(timetable,selCls,day,pi);
                   const gradeCommon=settings.commonTeachers?.[cls?.grade]||{};
                   const isCommon=!!(cell.subject&&gradeCommon[cell.subject]);
                   const busy=teacherBusy(cell.teacher,day,pi,selCls);
                   return [
-                    <td key={`byc${pi}`} style={{padding:2,border:"1px solid #9ca3af",textAlign:"center",minWidth:80,verticalAlign:"top"}}>
+                    <td key={`byc${pi}`} style={TT_TD_STYLE}>
                       {editable
                         ? <TTCell subject={cell.subject} teacher={cell.teacher} isCommon={isCommon} busy={busy} onOpen={()=>openEditor(day,pi)}/>
                         : (cell.subject?(
-                          <div style={{textAlign:"center",padding:"3px 2px",lineHeight:1.15}}>
-                            <div style={{fontWeight:700,color:"#000",fontSize:11,lineHeight:1.15}}>{cell.subject}</div>
+                          <div style={{textAlign:"center",padding:"4px 2px",lineHeight:1.2}}>
+                            <div style={{fontWeight:700,color:"#000",fontSize:12,lineHeight:1.2}}>{cell.subject}</div>
                             {String(cell.teacher || "").trim() ? (
                               <>
                                 <br />
-                                <div style={{fontSize:10,color:"#000",fontWeight:400,lineHeight:1.15}}>{cell.teacher}</div>
+                                <div style={{fontSize:10,color:"#000",fontWeight:400,lineHeight:1.2}}>{cell.teacher}</div>
                               </>
                             ) : null}
                           </div>
-                        ):(<span style={{color:"#d1d5db",fontSize:10}}>—</span>))}
+                        ):(<span style={{color:"#cbd5e1",fontSize:11}}>—</span>))}
                     </td>,
-                    pi===brAfterIdx&&<td key={`bycb${pi}`} style={{background:C.breakL,textAlign:"center",fontWeight:700,fontSize:10,color:"#92400e",padding:2}}>BREAK</td>
+                    pi===brAfterIdx&&<td key={`bycb${pi}`} style={TT_BREAK_TD}>BREAK</td>
                   ];
                 })}
               </tr>;
@@ -1461,40 +1518,38 @@ function ByTeacherView({settings,timetable,selT,suppressPrintHeader}){
   })();
 
   return <div className="by-teacher-print">
-    <div style={{overflow:"hidden",background:"#fff"}}>
+    <div style={{overflow:"hidden",background:"#fff",border:"1px solid #e2e8f0",borderRadius:8}}>
       {!suppressPrintHeader&&<div className="print-only" style={{display:"none",marginBottom:8}}>
         <SchoolHeader settings={settings} subtitle="TEACHERS TIMETABLE"/>
       </div>}
       {/* Info bar */}
-      <div style={{padding:"10px 16px",borderBottom:`1px solid #e5e7eb`,fontSize:12,display:"flex",justifyContent:"center",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+      <div style={{padding:"10px 16px",borderBottom:`1px solid #e5e7eb`,fontSize:12,display:"flex",justifyContent:"space-evenly",alignItems:"center",gap:12,flexWrap:"wrap",textAlign:"center"}}>
         <span>Name: <span style={{fontWeight:700,textTransform:"uppercase"}}>{teacher?.name}</span></span>
         <span>Designation: <span style={{fontWeight:700,textTransform:"uppercase"}}>{teacher?.designation}</span></span>
-        <span>|</span>
         <span>Incharge: <span style={{fontWeight:700,textTransform:"uppercase"}}>{incharge}</span></span>
-        <span>|</span>
         <span>Periods/Day: <span style={{fontWeight:700}}>{totalP}</span></span>
       </div>
 
       {/* Schedule table */}
-      <div style={{overflowX:"auto"}}>
-        <table className="timetable-pdf-export" style={{borderCollapse:"collapse",fontSize:11,width:"100%"}}>
+      <div style={{overflowX:"auto",width:"100%"}}>
+        <table className="timetable-pdf-export" style={TT_TABLE_STYLE}>
           <thead>
             <tr style={{background:"#15803d",color:"#fff"}}>
-              <th style={{padding:"5px 8px",textAlign:"left",minWidth:70}}>Periods</th>
-              <th colSpan={2} style={{padding:"5px 8px",textAlign:"center",borderLeft:"1px solid #86efac"}}>MONDAY TO THURSDAY</th>
-              <th colSpan={2} style={{padding:"5px 8px",textAlign:"center",borderLeft:"1px solid #86efac"}}>FRIDAY</th>
-              <th style={{padding:"5px 8px",textAlign:"center",borderLeft:"1px solid #86efac",minWidth:120}}>CLASS–SUBJECT</th>
+              <th style={{...TT_TH_STYLE,width:"14%",textAlign:"center"}}>Periods</th>
+              <th colSpan={2} style={{...TT_TH_STYLE,borderLeft:"1px solid #86efac"}}>MONDAY TO THURSDAY</th>
+              <th colSpan={2} style={{...TT_TH_STYLE,borderLeft:"1px solid #86efac"}}>FRIDAY</th>
+              <th style={{...TT_TH_STYLE,borderLeft:"1px solid #86efac",width:"22%"}}>CLASS–SUBJECT</th>
             </tr>
           </thead>
           <tbody>
             {/* Assembly */}
             <tr style={{background:"#f0f4fc"}}>
-              <td style={{padding:"4px 8px",fontWeight:600}}>Assembly</td>
-              <td style={{padding:"4px 8px",textAlign:"center"}}>{fmtMin(monP[0]?.start-settings.assemblyTime)}</td>
-              <td style={{padding:"4px 8px",textAlign:"center"}}>{fmtMin(monP[0]?.start)}</td>
-              <td style={{padding:"4px 8px",textAlign:"center"}}>{fmtMin(friP[0]?.start-settings.assemblyTime)}</td>
-              <td style={{padding:"4px 8px",textAlign:"center"}}>{fmtMin(friP[0]?.start)}</td>
-              <td></td>
+              <td style={{padding:"6px 8px",fontWeight:600,textAlign:"center"}}>Assembly</td>
+              <td style={{padding:"6px 8px",textAlign:"center"}}>{fmtMin(monP[0]?.start-settings.assemblyTime)}</td>
+              <td style={{padding:"6px 8px",textAlign:"center"}}>{fmtMin(monP[0]?.start)}</td>
+              <td style={{padding:"6px 8px",textAlign:"center"}}>{fmtMin(friP[0]?.start-settings.assemblyTime)}</td>
+              <td style={{padding:"6px 8px",textAlign:"center"}}>{fmtMin(friP[0]?.start)}</td>
+              <td style={{textAlign:"center"}}></td>
             </tr>
             {monP.map((mp,pi)=>{
               const fp=friP[pi];
@@ -1502,26 +1557,26 @@ function ByTeacherView({settings,timetable,selT,suppressPrintHeader}){
               const isBreakRow=settings.breakRequired&&pi===settings.breakAfterPeriod;
               return [
                 isBreakRow&&<tr key={`br${pi}`} style={{background:C.breakL}}>
-                  <td style={{padding:"4px 8px",fontWeight:700,color:"#92400e"}}>Break</td>
-                  <td style={{padding:"4px 8px",textAlign:"center",color:"#92400e"}}>{monBr?fmtMin(monBr.start):"—"}</td>
-                  <td style={{padding:"4px 8px",textAlign:"center",color:"#92400e"}}>{monBr?fmtMin(monBr.end):"—"}</td>
-                  <td colSpan={2} style={{padding:"4px 8px",textAlign:"center",color:"#92400e",fontStyle:"italic"}}>
+                  <td style={{padding:"6px 8px",fontWeight:700,color:"#92400e",textAlign:"center"}}>Break</td>
+                  <td style={{padding:"6px 8px",textAlign:"center",color:"#92400e"}}>{monBr?fmtMin(monBr.start):"—"}</td>
+                  <td style={{padding:"6px 8px",textAlign:"center",color:"#92400e"}}>{monBr?fmtMin(monBr.end):"—"}</td>
+                  <td colSpan={2} style={{padding:"6px 8px",textAlign:"center",color:"#92400e",fontStyle:"italic"}}>
                     {settings.fridayBreak&&friBr?`${fmtMin(friBr.start)} – ${fmtMin(friBr.end)}`:"No Break"}
                   </td>
                   <td></td>
                 </tr>,
                 <tr key={pi} style={{background:pi%2===0?"#f9fafb":"#fff"}}>
-                  <td style={{padding:"4px 8px",fontWeight:600}}>{getPeriodLabel(pi,settings)}</td>
-                  <td style={{padding:"4px 8px",textAlign:"center"}}>{fmtMin(mp.start)}</td>
-                  <td style={{padding:"4px 8px",textAlign:"center"}}>{fmtMin(mp.end)}</td>
-                  <td style={{padding:"4px 8px",textAlign:"center"}}>{fp?fmtMin(fp.start):"—"}</td>
-                  <td style={{padding:"4px 8px",textAlign:"center"}}>{fp?fmtMin(fp.end):"—"}</td>
-                  <td style={{padding:"4px 8px",textAlign:"center",verticalAlign:"middle"}}>
-                    {monAssign?(<div style={{background:"#f3f4ff",borderRadius:6,padding:"3px 9px",display:"inline-block",minWidth:120,textAlign:"center",lineHeight:1.15}}>
-                      <div style={{fontWeight:700,color:"#000",fontSize:11,lineHeight:1.15}}>{monAssign.subject}</div>
+                  <td style={{padding:"6px 8px",fontWeight:600,textAlign:"center"}}>{getPeriodLabel(pi,settings)}</td>
+                  <td style={{padding:"6px 8px",textAlign:"center"}}>{fmtMin(mp.start)}</td>
+                  <td style={{padding:"6px 8px",textAlign:"center"}}>{fmtMin(mp.end)}</td>
+                  <td style={{padding:"6px 8px",textAlign:"center"}}>{fp?fmtMin(fp.start):"—"}</td>
+                  <td style={{padding:"6px 8px",textAlign:"center"}}>{fp?fmtMin(fp.end):"—"}</td>
+                  <td style={{padding:"6px 8px",textAlign:"center",verticalAlign:"middle"}}>
+                    {monAssign?(<div style={{background:"#f3f4ff",borderRadius:6,padding:"4px 8px",display:"inline-block",minWidth:120,maxWidth:"100%",textAlign:"center",lineHeight:1.2}}>
+                      <div style={{fontWeight:700,color:"#000",fontSize:11,lineHeight:1.2}}>{monAssign.subject}</div>
                       <br />
-                      <div style={{fontSize:10,color:"#000",fontWeight:400,lineHeight:1.15}}>{monAssign.className}</div>
-                    </div>):<span style={{color:"#d1d5db"}}>—</span>}
+                      <div style={{fontSize:10,color:"#000",fontWeight:400,lineHeight:1.2}}>{monAssign.className}</div>
+                    </div>):<span style={{color:"#cbd5e1"}}>—</span>}
                   </td>
                 </tr>
               ];
@@ -1547,11 +1602,11 @@ function ByTeacherView({settings,timetable,selT,suppressPrintHeader}){
           ]},
         ].map(col=>(
           <div key={col.label} style={{padding:"8px 16px",borderRight:"1px solid #e5e7eb"}}>
-            <div style={{fontWeight:700,color:"#000",marginBottom:5,fontSize:12}}>{col.label}</div>
+            <div style={{fontWeight:700,color:"#000",marginBottom:5,fontSize:12,textAlign:"center"}}>{col.label}</div>
             {col.rows.map(([k,v])=>(
-              <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"2px 0",borderBottom:"1px dotted #e5e7eb"}}>
+              <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"2px 0",borderBottom:"1px dotted #e5e7eb",gap:8}}>
                 <span style={{fontWeight:k==="Break"?700:400,color:k==="Break"?"#92400e":"#374151"}}>{k}</span>
-                <span style={{fontWeight:k==="Break"?700:400,color:k==="Break"?"#92400e":"#374151"}}>{v}</span>
+                <span style={{fontWeight:k==="Break"?700:400,color:k==="Break"?"#92400e":"#374151",textAlign:"right"}}>{v}</span>
               </div>
             ))}
           </div>
@@ -1638,98 +1693,377 @@ function TimetablePage({settings,staffProfiles,timetable,setTimetable,currentSes
 
   const teachersWithSubjects = useMemo(() => {
     return teachingStaff.filter(st => {
+      const hasClass = st.classSubjects && typeof st.classSubjects === "object"
+        && Object.values(st.classSubjects).some((list) => Array.isArray(list) ? list.length : String(list||"").trim());
       const subj = String(st.subj || "").trim();
-      return subj.length > 0;
-    }).map(st => ({
-      name: st.name,
-      subjects: (String(st.subj || "")).split(/[,;]/).map(s => s.trim().toLowerCase()).filter(Boolean)
-    }));
+      return hasClass || subj.length > 0;
+    }).map(st => {
+      const classSubjects = {};
+      if (st.classSubjects && typeof st.classSubjects === "object") {
+        for (const [cid, list] of Object.entries(st.classSubjects)) {
+          const arr = (Array.isArray(list) ? list : String(list||"").split(/[,;]/))
+            .map(s => String(s||"").trim().toLowerCase()).filter(Boolean);
+          if (arr.length) classSubjects[cid] = arr;
+        }
+      }
+      const inchargeClassIds = Array.isArray(st.inchargeClassIds)
+        ? st.inchargeClassIds.map((id) => String(id || "").trim()).filter(Boolean)
+        : [];
+      return {
+        name: st.name,
+        level: st.level || "",
+        levels: Array.isArray(st.levels) ? st.levels : (st.level ? [st.level] : []),
+        qualification: st.qualification || "",
+        classSubjects,
+        inchargeClassIds,
+        subjects: (String(st.subj || "")).split(/[,;]/).map(s => s.trim().toLowerCase()).filter(Boolean)
+      };
+    });
   }, [teachingStaff]);
 
   const autoGenerateTimetable = () => {
     if (!settings?.classes?.length || !teachersWithSubjects.length) {
-      alert("No classes or teachers with subject qualifications found.");
+      alert("No classes or teachers with subjects found.\n\nAdd teaching staff in Settings → Teachers (sync from Staff Profiles) and enter subjects for each teacher’s level (Primary / Middle / High).");
       return;
     }
-    if (!confirm("This will replace the current timetable. Continue?")) return;
+    if (!confirm("This will replace the current timetable with a new shuffled layout. Continue?")) return;
 
-    const newTimetable = {};
     const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const { rows: periodRows } = calcTimes(settings, "Monday");
     const teachingPeriods = periodRows.filter(r => !r.isBreak);
     const subjectNorm = (s) => String(s || "").trim().toLowerCase();
+    const gradeKey = (g) => String(g || "").trim();
 
+    /** Fisher–Yates shuffle — new order every Auto Generate press. */
+    const shuffle = (list) => {
+      const a = [...(list || [])];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const t = a[i];
+        a[i] = a[j];
+        a[j] = t;
+      }
+      return a;
+    };
+    const pickRandom = (list) => {
+      if (!list?.length) return null;
+      return list[Math.floor(Math.random() * list.length)];
+    };
+
+    const isCommonSubject = (grade, subject) => {
+      const map = settings.commonTeachers?.[grade] || {};
+      const target = subjectNorm(subject);
+      if (!target) return false;
+      return Object.entries(map).some(([k, on]) => on && subjectNorm(k) === target);
+    };
+
+    const originalSubjectLabel = (cid, subjNorm) =>
+      getClassSubjects(settings, cid, "timetable").find((cs) => subjectNorm(cs) === subjNorm) || subjNorm;
+
+    const subjectMatch = (ts, subjNorm) => {
+      if (!ts || !subjNorm) return false;
+      if (ts === subjNorm || ts.includes(subjNorm) || subjNorm.includes(ts)) return true;
+      const compact = (s) => String(s).replace(/[^a-z0-9]/g, "");
+      const a = compact(ts);
+      const b = compact(subjNorm);
+      return !!a && !!b && (a === b || a.includes(b) || b.includes(a));
+    };
+
+    const teacherSubjectsForClass = (t, classId, forSubjectNorm = "") => {
+      const perClass = t.classSubjects && Object.keys(t.classSubjects).length > 0;
+      if (perClass) {
+        const direct = t.classSubjects[classId];
+        if (Array.isArray(direct) && direct.length) return direct;
+        // Common subject: allow match from any section of the same grade
+        const cls = settings.classes.find((c) => c.id === classId);
+        if (cls && forSubjectNorm && isCommonSubject(cls.grade, forSubjectNorm)) {
+          const g = gradeKey(cls.grade);
+          const merged = [];
+          for (const c of settings.classes) {
+            if (gradeKey(c.grade) !== g) continue;
+            for (const s of t.classSubjects[c.id] || []) {
+              if (!merged.includes(s)) merged.push(s);
+            }
+          }
+          return merged;
+        }
+        return [];
+      }
+      return t.subjects || [];
+    };
+
+    const teacherMatches = (t, subjNorm, clsLevel, classId) => {
+      if (!teacherCoversClassLevel(t.levels?.length ? t.levels : t.level, clsLevel)) return false;
+      const list = teacherSubjectsForClass(t, classId, subjNorm);
+      if (!list.length) return false;
+      return list.some((ts) => subjectMatch(ts, subjNorm));
+    };
+
+    const newTimetable = {};
     for (const cls of settings.classes) {
-      const classSubjects = getClassSubjects(settings, cls.id, "timetable").map(subjectNorm).filter(Boolean);
-      if (!classSubjects.length) continue;
-
       newTimetable[cls.id] = {};
+      for (const day of weekdays) newTimetable[cls.id][day] = {};
+    }
 
-      for (const day of weekdays) {
-        newTimetable[cls.id][day] = {};
+    const grades = shuffle([
+      ...new Set(settings.classes.map((c) => gradeKey(c.grade)).filter(Boolean)),
+    ]);
 
-        const usedTeachers = new Set();
+    const inchargeByClass = {};
+    for (const t of teachersWithSubjects) {
+      for (const cid of t.inchargeClassIds || []) {
+        if (!inchargeByClass[cid]) inchargeByClass[cid] = t.name;
+      }
+    }
 
-        for (let pi = 0; pi < teachingPeriods.length; pi++) {
-          let assignedSubject = "";
-          let assignedTeacher = "";
+    for (const day of weekdays) {
+      // Per period: teacher may only teach one class, unless common subject for same grade sections.
+      const teacherBusyAt = Array.from({ length: teachingPeriods.length }, () => ({}));
+      // Subject once per class per day
+      const usedSubjectsByClass = {};
+      for (const cls of settings.classes) usedSubjectsByClass[cls.id] = new Set();
 
-          for (const subjNorm of classSubjects) {
-            const originalSubject = getClassSubjects(settings, cls.id, "timetable").find(cs => subjectNorm(cs) === subjNorm) || "";
+      const lastPi = teachingPeriods.length - 1;
 
-            const candidates = teachersWithSubjects.filter(t =>
-              t.subjects.some(ts => ts === subjNorm || ts.includes(subjNorm) || subjNorm.includes(ts)) &&
-              !usedTeachers.has(t.name)
-            );
+      // Pass 0 — lock FIRST & LAST period for each class incharge (before anything else).
+      for (const cls of shuffle(settings.classes)) {
+        const inchargeName = inchargeByClass[cls.id];
+        if (!inchargeName) continue;
+        const inchargeTeacher = teachersWithSubjects.find((t) => t.name === inchargeName);
+        if (!inchargeTeacher) continue;
+        const clsLevel = inferClassLevel(cls);
+        const grade = gradeKey(cls.grade);
+        const pool = shuffle(
+          getClassSubjects(settings, cls.id, "timetable")
+            .map(subjectNorm)
+            .filter(Boolean)
+            .filter((sn) => !isCommonSubject(grade, sn))
+            .filter((sn) => teacherMatches(inchargeTeacher, sn, clsLevel, cls.id)),
+        );
+        if (!pool.length) continue;
 
-            if (candidates.length > 0) {
-              assignedSubject = originalSubject;
-              assignedTeacher = candidates[0].name;
-              usedTeachers.add(assignedTeacher);
-              break;
+        const placeEdge = (pi) => {
+          if (pi < 0 || pi >= teachingPeriods.length) return;
+          if (newTimetable[cls.id][day][pi]?.teacher) return;
+          const busy = teacherBusyAt[pi];
+          if (busy[inchargeName]) return;
+          const unused = pool.filter((sn) => !usedSubjectsByClass[cls.id].has(sn));
+          const sn = unused.length ? pickRandom(unused) : pickRandom(pool);
+          if (!sn) return;
+          const label = originalSubjectLabel(cls.id, sn);
+          newTimetable[cls.id][day][pi] = {
+            subject: label,
+            teacher: inchargeName,
+            isIncharge: true,
+          };
+          busy[inchargeName] = { grade, subject: label, isCommon: false, isIncharge: true };
+          usedSubjectsByClass[cls.id].add(sn);
+        };
+
+        placeEdge(0);
+        if (teachingPeriods.length > 1) placeEdge(lastPi);
+      }
+
+      // Pass 1 — common subjects: each subject once per day; one teacher → all sections of that grade.
+      for (const grade of grades) {
+        const sections = settings.classes.filter((c) => gradeKey(c.grade) === grade);
+        if (!sections.length) continue;
+        const gradeCommon = settings.commonTeachers?.[grade] || {};
+        const commonSubjects = shuffle(Object.keys(gradeCommon).filter((s) => gradeCommon[s]));
+        if (!commonSubjects.length) continue;
+        const clsLevel = inferClassLevel(sections[0]);
+        const usedCommonToday = new Set();
+
+        for (const subj of commonSubjects) {
+          const sn = subjectNorm(subj);
+          if (usedCommonToday.has(sn)) continue;
+          const needing = sections.filter((c) =>
+            getClassSubjects(settings, c.id, "timetable").some((cs) => subjectNorm(cs) === sn),
+          );
+          if (!needing.length) continue;
+
+          // Avoid first/last periods when any needing section has a class incharge
+          const reservedEdge = new Set();
+          for (const c of needing) {
+            if (inchargeByClass[c.id]) {
+              reservedEdge.add(0);
+              if (teachingPeriods.length > 1) reservedEdge.add(teachingPeriods.length - 1);
             }
           }
 
-          if (assignedSubject && assignedTeacher) {
-            newTimetable[cls.id][day][pi] = { subject: assignedSubject, teacher: assignedTeacher };
+          // Try periods in random order so each generate places common subjects differently
+          let placed = false;
+          for (const pi of shuffle([...Array(teachingPeriods.length).keys()])) {
+            if (reservedEdge.has(pi)) continue;
+            if (needing.some((c) => newTimetable[c.id][day][pi]?.teacher)) continue;
+            if (needing.some((c) => usedSubjectsByClass[c.id].has(sn))) continue;
+
+            const busy = teacherBusyAt[pi];
+            const candidates = shuffle(
+              teachersWithSubjects.filter((t) => {
+                if (!teacherMatches(t, sn, clsLevel, needing[0].id)) return false;
+                return !busy[t.name];
+              }),
+            );
+            if (!candidates.length) continue;
+
+            const teacher = candidates[0].name;
+            const label = originalSubjectLabel(needing[0].id, sn) || subj;
+            for (const c of needing) {
+              newTimetable[c.id][day][pi] = {
+                subject: label,
+                teacher,
+                isCommon: true,
+              };
+              usedSubjectsByClass[c.id].add(sn);
+            }
+            busy[teacher] = { grade, subject: label, isCommon: true };
+            usedCommonToday.add(sn);
+            placed = true;
+            break;
+          }
+          void placed;
+        }
+      }
+
+      // Pass 2 — fill empty periods. Same teacher may teach several subjects in one class.
+      for (const cls of shuffle(settings.classes)) {
+        const classSubjects = shuffle(
+          getClassSubjects(settings, cls.id, "timetable")
+            .map(subjectNorm)
+            .filter(Boolean),
+        );
+        if (!classSubjects.length) continue;
+        const clsLevel = inferClassLevel(cls);
+        const grade = gradeKey(cls.grade);
+        const usedSubjectsInClass = usedSubjectsByClass[cls.id];
+        const inchargeName = inchargeByClass[cls.id] || "";
+        const inchargeTeacher = inchargeName
+          ? teachersWithSubjects.find((t) => t.name === inchargeName)
+          : null;
+
+        const inchargeSubjectPool = () => {
+          if (!inchargeTeacher) return [];
+          return shuffle(
+            classSubjects.filter((sn) => teacherMatches(inchargeTeacher, sn, clsLevel, cls.id)),
+          );
+        };
+
+        const assignInchargeEdge = (pi) => {
+          if (!inchargeName || !inchargeTeacher) return false;
+          const existing = newTimetable[cls.id][day][pi];
+          if (existing?.teacher) return existing.teacher === inchargeName;
+          const busy = teacherBusyAt[pi];
+          if (busy[inchargeName]) return false;
+          const pool = inchargeSubjectPool();
+          if (!pool.length) return false;
+          const unused = pool.filter((sn) => !usedSubjectsInClass.has(sn));
+          const sn = unused.length ? pickRandom(unused) : pickRandom(pool);
+          if (!sn) return false;
+          const label = originalSubjectLabel(cls.id, sn);
+          newTimetable[cls.id][day][pi] = {
+            subject: label,
+            teacher: inchargeName,
+            isIncharge: true,
+          };
+          busy[inchargeName] = { grade, subject: label, isCommon: false, isIncharge: true };
+          usedSubjectsInClass.add(sn);
+          return true;
+        };
+
+        if (inchargeName && teachingPeriods.length > 0) {
+          assignInchargeEdge(0);
+          if (teachingPeriods.length > 1) assignInchargeEdge(lastPi);
+        }
+
+        const tryAssign = (pi) => {
+          const existing = newTimetable[cls.id][day][pi];
+          if (existing?.teacher) {
+            if (existing.subject) usedSubjectsInClass.add(subjectNorm(existing.subject));
+            return true;
+          }
+          const busy = teacherBusyAt[pi];
+          const subjectOrder = shuffle(classSubjects.filter((s) => !usedSubjectsInClass.has(s)));
+          if (!subjectOrder.length) return false;
+
+          for (const sn of subjectOrder) {
+            const label = originalSubjectLabel(cls.id, sn);
+            const candidates = shuffle(
+              teachersWithSubjects.filter((t) => {
+                if (!teacherMatches(t, sn, clsLevel, cls.id)) return false;
+                if (busy[t.name]) return false;
+                return true;
+              }),
+            );
+            if (!candidates.length) continue;
+            const preferred = candidates.filter((t) => t.name === inchargeName);
+            const chosen = preferred.length ? pickRandom(preferred) : pickRandom(candidates);
+            newTimetable[cls.id][day][pi] = {
+              subject: label,
+              teacher: chosen.name,
+              isCommon: !!isCommonSubject(grade, sn),
+            };
+            busy[chosen.name] = {
+              grade,
+              subject: label,
+              isCommon: !!isCommonSubject(grade, sn),
+            };
+            usedSubjectsInClass.add(sn);
+            return true;
+          }
+          return false;
+        };
+
+        // Fill all empty slots (keep first/last for incharge only when incharge is set)
+        let progress = true;
+        while (progress) {
+          progress = false;
+          for (const pi of shuffle([...Array(teachingPeriods.length).keys()])) {
+            if (newTimetable[cls.id][day][pi]?.teacher) continue;
+            const isEdge = pi === 0 || (teachingPeriods.length > 1 && pi === lastPi);
+            if (inchargeName && isEdge) {
+              if (assignInchargeEdge(pi)) progress = true;
+              continue;
+            }
+            if (tryAssign(pi)) progress = true;
           }
         }
       }
     }
 
     setTimetable(newTimetable);
-    alert("Timetable auto-generated successfully!");
+    alert("Timetable auto-generated (shuffled)!\n\n• First & last period → class incharge\n• Teachers can take several subjects in the same class\n• Press Auto Generate again for a different layout");
   };
 
   return <div className="timetable-page timetable-print-area" style={{width:"100%",maxWidth:"100%",minWidth:0,boxSizing:"border-box"}}>
-    <div className="no-print timetable-toolbar" style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap",padding:"10px 14px",background:"#fff",borderRadius:8,boxShadow:"0 1px 4px rgba(0,0,0,0.08)",width:"100%",maxWidth:"100%",boxSizing:"border-box"}}>
-      <div style={{display:"flex",gap:4,minWidth:0}}>
+    <div className="no-print timetable-toolbar" style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap",padding:"10px 14px",background:"#fff",borderRadius:8,boxShadow:"0 1px 4px rgba(0,0,0,0.08)",width:"100%",maxWidth:"100%",boxSizing:"border-box"}}>
+      <div className="timetable-view-tabs" style={{display:"flex",gap:4,flex:"1 1 280px",minWidth:0}}>
         {views.map(v=>(
           <button
             type="button"
             key={v.id}
             onClick={()=>setView(v.id)}
             style={{
-              flex:1,
-              padding:"6px 14px",
-              borderRadius:999,
-              border:"none",
-              background:view===v.id?C.navy:"#e5e7eb",
-              color:view===v.id?"#fff":"#374151",
+              flex:"1 1 0",
+              padding:"8px 10px",
+              borderRadius:8,
+              border:view===v.id?"1px solid transparent":"1px solid #e2e8f0",
+              background:view===v.id?C.navy:"#f8fafc",
+              color:view===v.id?"#fff":"#334155",
               fontWeight:600,
               fontSize:12,
               cursor:"pointer",
               whiteSpace:"nowrap",
               textAlign:"center",
-              boxShadow:view===v.id?"0 4px 10px rgba(15,23,42,0.25)":"none",
-              transition:"background 0.18s ease,box-shadow 0.18s ease,transform 0.1s ease"
+              boxShadow:view===v.id?"0 4px 10px rgba(15,23,42,0.2)":"none",
+              transition:"background 0.18s ease,box-shadow 0.18s ease",
             }}
           >
             {v.label}
           </button>
         ))}
       </div>
-      <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+      <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
         {(view==="allClasses"||view==="teachers")&&(
           <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
             <span style={{fontSize:12,fontWeight:600,color:C.gray}}>Portion:</span>
@@ -2563,7 +2897,7 @@ function getTeachersWithAssignments(settings,timetable){
   return Array.from(byTeacher.values());
 }
 
-function SettingsPage({settings,setSettings,setSchools,students,setStudents,schools,activeSchoolId,timetable,exam_tm,exam_om,setExamMarks,currentSession,sessions,setCurrentSession,addSession,staffProfiles,setBarSubtitle,session}){
+function SettingsPage({settings,setSettings,setSchools,students,setStudents,schools,activeSchoolId,timetable,exam_tm,exam_om,setExamMarks,currentSession,sessions,setCurrentSession,addSession,staffProfiles,schoolStaff,setBarSubtitle,session}){
   const isPrincipal = !session || session.userType==="principal"||session.userType==="school"||session.userType==="admin-created"||session.userType==="local";
   const staffList=Array.isArray(staffProfiles)?staffProfiles:[];
   const teachingStaffCount=staffList.filter(isTeachingStaffMember).length;
@@ -2578,7 +2912,7 @@ function SettingsPage({settings,setSettings,setSchools,students,setStudents,scho
   const classesAndStaffExcelRef=useRef();
   const studentImportRef=useRef();
   const sessionInputRef=useRef();
-  const tabs=[{id:"general",label:"General"},{id:"school",label:"School"},{id:"classes",label:"Classes & Subjects"},{id:"staffProfiles",label:"Staff Profiles"},{id:"common",label:"Common Teachers"},{id:"time",label:"Time & Periods"},{id:"awardList",label:"Award List"},...(isPrincipal?[{id:"teachers",label:"👩‍🏫 Teacher Accounts"}]:[])];
+  const tabs=[{id:"general",label:"General"},{id:"school",label:"School"},{id:"classes",label:"Classes & Subjects"},{id:"schoolStaff",label:"Teachers"},{id:"common",label:"Common Teachers"},{id:"time",label:"Time & Periods"},{id:"awardList",label:"Award List"},...(isPrincipal?[{id:"teachers",label:"👩‍🏫 Teacher Accounts"}]:[])];
   // ── Teacher management state (principals only) ──
   const [tcStaffId,setTcStaffId]=useState("");
   const [tcName,setTcName]=useState("");
@@ -2774,7 +3108,7 @@ function SettingsPage({settings,setSettings,setSchools,students,setStudents,scho
                   if(match){const i=merged.findIndex(e=>e.id===match.id);if(i>=0)merged[i]={...match,...p,id:match.id,photo:match.photo||p.photo};}
                   else merged.push(p);
                 });
-                return { ...s, staffProfiles: merged };
+                return { ...s, staffProfiles: merged, schoolStaff: syncSchoolStaffFromProfiles(s.schoolStaff || [], merged) };
               })
             );
             msg.push(profiles.length + " staff profile(s)");
@@ -3012,7 +3346,7 @@ function SettingsPage({settings,setSettings,setSchools,students,setStudents,scho
             if(match){const i=merged.findIndex(e=>e.id===match.id);if(i>=0)merged[i]={...match,...p,id:match.id,photo:match.photo||p.photo};}
             else merged.push(p);
           });
-          return {...s,staffProfiles:merged};
+          return {...s,staffProfiles:merged,schoolStaff:syncSchoolStaffFromProfiles(s.schoolStaff||[],merged)};
         }));
         alert("Imported " + profiles.length + " staff profile(s).");
       } catch (err) {
@@ -3384,7 +3718,11 @@ function SettingsPage({settings,setSettings,setSchools,students,setStudents,scho
         }
         if(msg.length){
           setSettings(s=>({...s,classes:nextClasses,classSubjects:nextClassSubjectsExam,classSubjectsExam:nextClassSubjectsExam,classSubjectsTimetable:nextClassSubjectsTimetable}));
-          if(newStaffProfiles.length) setSchools(prev=>prev.map(s=>s.id===activeSchoolId?{...s,staffProfiles:[...(s.staffProfiles||[]),...newStaffProfiles]}:s));
+          if(newStaffProfiles.length) setSchools(prev=>prev.map(s=>{
+            if(s.id!==activeSchoolId) return s;
+            const merged=[...(s.staffProfiles||[]),...newStaffProfiles];
+            return {...s,staffProfiles:merged,schoolStaff:syncSchoolStaffFromProfiles(s.schoolStaff||[],merged)};
+          }));
           if(Object.keys(nextTimetable).length>0) setSchools(prev=>prev.map(s=>s.id===activeSchoolId?{...s,timetable:nextTimetable}:s));
         }
         if(!msg.length) alert("No class or staff sheet with data found.\n\nExpected one of: Class, Classes, Classes & Subjects — and one of: Teacher, Staff, Staff Profiles.");
@@ -3815,7 +4153,7 @@ function SettingsPage({settings,setSettings,setSchools,students,setStudents,scho
           <div>
             <label style={{display:"block",marginBottom:3,fontSize:12,fontWeight:600,color:"#374151"}}>Select Staff Member</label>
             {(staffProfiles||[]).length===0
-              ? <p style={{margin:0,fontSize:12,color:C.gray}}>No staff profiles found. Add staff in the <strong>Staff Profiles</strong> tab first.</p>
+              ? <p style={{margin:0,fontSize:12,color:C.gray}}>No staff profiles found. Add staff in <strong>Staff Profiles</strong> (sidebar) first.</p>
               : <select value={tcStaffId} onChange={e=>{
                   const id=e.target.value;
                   setTcStaffId(id);
@@ -4326,7 +4664,16 @@ function SettingsPage({settings,setSettings,setSchools,students,setStudents,scho
       </div>
     </div>}
 
-    {tab==="staffProfiles"&&<StaffProfilesPage settings={settings} schools={schools||[]} staffProfiles={staffProfiles||[]} setSchools={setSchools} activeSchoolId={activeSchoolId} currentSession={currentSession}/>}
+    {tab==="schoolStaff"&&(
+      <SchoolStaffPage
+        staffProfiles={staffProfiles}
+        schoolStaff={schoolStaff}
+        settings={settings}
+        setSchools={setSchools}
+        activeSchoolId={activeSchoolId}
+        setBarSubtitle={setBarSubtitle}
+      />
+    )}
 
     {tab==="common"&&<CommonTeachersEditor settings={settings} setSettings={setSettings}/>}
 
@@ -7028,6 +7375,11 @@ const MOBILE_CSS = [
   ".mobile-menu-btn{display:none!important}",
   ".app-page-timetable .timetable-print-area,.app-page-timetable .timetable-main-content{min-width:0;max-width:100%;box-sizing:border-box;}",
   ".app-page-timetable .timetable-main-content > div{max-width:100%;box-sizing:border-box;}",
+  ".app-page-timetable .timetable-pdf-export{width:100%!important;table-layout:fixed!important;}",
+  ".app-page-timetable .timetable-pdf-export th,.app-page-timetable .timetable-pdf-export td{text-align:center;vertical-align:middle;word-break:break-word;overflow-wrap:anywhere;}",
+  ".app-page-timetable .timetable-view-tabs{display:flex;flex:1 1 280px;gap:4px;min-width:0;}",
+  ".app-page-timetable .timetable-view-tabs button{flex:1 1 0;min-width:0;}",
+  ".app-page-timetable .timetable-main-content .by-class-single,.app-page-timetable .timetable-main-content .by-teacher-single,.app-page-timetable .timetable-main-content .all-classes-batch-print,.app-page-timetable .timetable-main-content .all-teachers-batch-print{width:100%;}",
   "/* Drawer + backdrop: global so they work whenever the hamburger is shown (e.g. Timetable enables it up to 1280px). */",
   "@keyframes mobile-nav-drawer-in{from{transform:translateX(-100%);opacity:0.9}to{transform:translateX(0);opacity:1}}",
   ".mobile-menu-backdrop{position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:10000;-webkit-tap-highlight-color:transparent}",
@@ -7162,6 +7514,68 @@ const STAFF_PROFILE_HEADING_FIELDS = [
   { key: "forTheMonth", label: "FOR THE MONTH" },
 ];
 
+/** Staff Profiles typography — keep body/labels consistent across list, form, and transfer UI. */
+const SP_FS = {
+  title: 20,
+  body: UI.fontBody,   // 13
+  small: UI.fontSmall, // 12
+};
+const SP_INPUT_STYLE = {
+  width: "100%",
+  padding: "8px 12px",
+  border: "1.5px solid #d1d5db",
+  borderRadius: 6,
+  fontSize: SP_FS.body,
+  boxSizing: "border-box",
+  fontFamily: "inherit",
+  background: "#fff",
+};
+const SP_LABEL_STYLE = {
+  display: "block",
+  fontSize: SP_FS.small,
+  fontWeight: 600,
+  color: C.gray,
+  marginBottom: 4,
+};
+const SP_TAB_STYLE = (active) => ({
+  padding: "7px 12px",
+  borderRadius: 6,
+  border: active ? "1px solid transparent" : "1px solid #e2e8f0",
+  background: active ? C.navy : "#f8fafc",
+  color: active ? "#fff" : "#334155",
+  cursor: "pointer",
+  fontSize: SP_FS.body,
+  fontWeight: 600,
+  whiteSpace: "nowrap",
+  textAlign: "center",
+});
+const SP_PILL_STYLE = (active) => ({
+  padding: "6px 12px",
+  borderRadius: 16,
+  border: "1px solid #cbd5e1",
+  background: active ? "#e0e7ff" : "#fff",
+  color: active ? C.navy : C.gray,
+  cursor: "pointer",
+  fontSize: SP_FS.small,
+  fontWeight: 600,
+  whiteSpace: "nowrap",
+});
+const SP_TH_STYLE = {
+  padding: "10px 12px",
+  textAlign: "left",
+  whiteSpace: "nowrap",
+  fontSize: SP_FS.small,
+  fontWeight: 700,
+  letterSpacing: "0.01em",
+  verticalAlign: "middle",
+};
+const SP_TD_STYLE = {
+  padding: "10px 12px",
+  fontSize: SP_FS.body,
+  verticalAlign: "middle",
+  lineHeight: 1.35,
+};
+
 function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setSchools, activeSchoolId, currentSession }) {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({});
@@ -7169,7 +7583,7 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
   const [formTab, setFormTab] = useState("Personal"); // NEW STATE
   const [showSensitive, setShowSensitive] = useState(false); // NEW STATE
   const [tableTab, setTableTab] = useState("Teaching"); // NEW STATE
-  const [colTab, setColTab] = useState("All");
+  const [colTab, setColTab] = useState("Personal Information");
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferStaff, setTransferStaff] = useState(null);
   const [transferType, setTransferType] = useState("school");
@@ -7245,6 +7659,7 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
           if (transferType === "retired") {
             next.retiredStaff = [...(s.retiredStaff || []), { ...transferStaff, retiredAt: nowIso, retiredDate: transferDate || nowIso.slice(0, 10) }];
           }
+          next.schoolStaff = syncSchoolStaffFromProfiles(s.schoolStaff || [], next.staffProfiles);
         }
         if (isTo) {
           const moved = {
@@ -7259,6 +7674,7 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
           };
           const existing = (s.staffProfiles || []).filter((p) => p.id !== transferStaff.id);
           next.staffProfiles = [...existing, moved];
+          next.schoolStaff = syncSchoolStaffFromProfiles(s.schoolStaff || [], next.staffProfiles);
         }
         return next;
       })
@@ -7284,7 +7700,8 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
         } else {
           nextProfiles.push(payload);
         }
-        return { ...s, staffProfiles: nextProfiles };
+        const nextSchoolStaff = syncSchoolStaffFromProfiles(s.schoolStaff || [], nextProfiles);
+        return { ...s, staffProfiles: nextProfiles, schoolStaff: nextSchoolStaff };
       })
     );
     setIsFormOpen(false);
@@ -7295,7 +7712,9 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
     setSchools((prev) =>
       prev.map((s) => {
         if (s.id !== activeSchoolId) return s;
-        return { ...s, staffProfiles: (s.staffProfiles || []).filter((p) => p.id !== id) };
+        const nextProfiles = (s.staffProfiles || []).filter((p) => p.id !== id);
+        const nextSchoolStaff = syncSchoolStaffFromProfiles(s.schoolStaff || [], nextProfiles);
+        return { ...s, staffProfiles: nextProfiles, schoolStaff: nextSchoolStaff };
       })
     );
   };
@@ -7351,9 +7770,9 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
   if (isFormOpen) {
     return (
       <>
-        <div style={{ background: "#fff", padding: 24, borderRadius: 8, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+        <div style={{ background: "#fff", padding: 24, borderRadius: 8, boxShadow: "0 1px 3px rgba(0,0,0,0.1)", fontFamily: UI.fontApp, fontSize: SP_FS.body }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <h2 style={{ margin: 0, color: C.navy, fontSize: 20 }}>{editingId ? "Edit Staff Profile" : "Add Staff Profile"}</h2>
+          <h2 style={UI.pageTitle(0)}>{editingId ? "Edit Staff Profile" : "Add Staff Profile"}</h2>
           <Btn outline color={C.gray} onClick={() => setIsFormOpen(false)}><X size={16} style={{ marginRight: 4 }} /> Cancel</Btn>
         </div>
 
@@ -7375,13 +7794,13 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
               ) : (
                 <div style={{ textAlign: "center", color: C.gray }}>
                   <Upload size={32} style={{ marginBottom: 8, opacity: 0.5 }} />
-                  <div style={{ fontSize: 12 }}>Upload Photo</div>
+                  <div style={{ fontSize: SP_FS.small, fontWeight: 600 }}>Upload Photo</div>
                 </div>
               )}
             </div>
             {formData.photo && (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: C.gray }}>Adjust position</div>
+                <div style={{ fontSize: SP_FS.small, fontWeight: 600, color: C.gray }}>Adjust position</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4 }}>
                   {PHOTO_POSITIONS.map((pos) => (
                     <button
@@ -7398,7 +7817,7 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
                         background: photoPosition === pos.value ? C.navyL : "#fff",
                         color: photoPosition === pos.value ? C.navy : C.gray,
                         cursor: "pointer",
-                        fontSize: 12,
+                        fontSize: SP_FS.small,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -7424,7 +7843,7 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
                   key={tab}
                   type="button"
                   onClick={(e) => { e.preventDefault(); setFormTab(tab); }}
-                  style={{ padding: "6px 12px", borderRadius: 4, border: "none", background: formTab === tab ? C.navy : "#f3f4f6", color: formTab === tab ? "#fff" : C.gray, cursor: "pointer", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}
+                  style={SP_TAB_STYLE(formTab === tab)}
                 >
                   {tab}
                 </button>
@@ -7470,7 +7889,7 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
               };
               return (
               <div key={field.id} style={{ gridColumn: field.type === "textarea" ? "1 / span 2" : "auto" }}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.gray, marginBottom: 4 }}>
+                <label style={SP_LABEL_STYLE}>
                   {field.label} {field.id === "name" && <span style={{ color: C.red }}>*</span>}
                 </label>
                 {field.type === "textarea" ? (
@@ -7479,13 +7898,13 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
                     onChange={handleChange}
                     onBlur={(e) => isTextProper && setFormData((prev) => ({ ...prev, [field.id]: toProperCase(e.target.value) }))}
                     placeholder={`Enter ${field.label}`}
-                    style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #d1d5db", borderRadius: 6, fontSize: 13, minHeight: 80, boxSizing: "border-box", fontFamily: "inherit" }}
+                    style={{ ...SP_INPUT_STYLE, minHeight: 80 }}
                   />
                 ) : field.type === "select" ? (
                   <select
                     value={value || (field.options && field.options[0]) || ""}
                     onChange={handleChange}
-                    style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #d1d5db", borderRadius: 6, fontSize: 13, boxSizing: "border-box", background: "#fff" }}
+                    style={SP_INPUT_STYLE}
                   >
                     {(field.options || []).map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                   </select>
@@ -7497,7 +7916,7 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
                     onBlur={handleBlur}
                     placeholder={isDate ? "dd/mm/yyyy" : field.type === "email" ? "" : undefined}
                     maxLength={field.id === "iban" ? 24 : isDate ? 10 : field.id === "cnic" ? 15 : field.id === "contact" ? 12 : undefined}
-                    style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #d1d5db", borderRadius: 6, fontSize: 13, boxSizing: "border-box" }}
+                    style={SP_INPUT_STYLE}
                   />
                 )}
               </div>
@@ -7519,7 +7938,7 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
   const workerProfiles = safeProfiles.filter((p) => normalizeStaffCategory(p.staffCategory) === "Non Teaching");
 
   return (
-    <div style={{ background: "#fff", padding: 20, borderRadius: 8, boxShadow: "0 1px 3px rgba(0,0,0,0.1)", minHeight: "100%" }}>
+    <div style={{ background: "#fff", padding: 20, borderRadius: 8, boxShadow: "0 1px 3px rgba(0,0,0,0.1)", minHeight: "100%", fontFamily: UI.fontApp, fontSize: SP_FS.body }}>
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: safeProfiles.length > 0 ? 12 : 0, flexWrap: "wrap", gap: 12 }}>
           <div style={{ display: "flex", gap: 8, overflowX: "auto", flex: 1, minWidth: 200 }}>
@@ -7528,7 +7947,7 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
                 key={title}
                 type="button"
                 onClick={() => setTableTab(title)}
-                style={{ padding: "6px 12px", borderRadius: 4, border: "none", background: tableTab === title ? C.navy : "#f3f4f6", color: tableTab === title ? "#fff" : C.gray, cursor: "pointer", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}
+                style={SP_TAB_STYLE(tableTab === title)}
               >
                 {title} ({count})
               </button>
@@ -7539,7 +7958,7 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
               <>
                 <button
                   onClick={() => setShowSensitive(!showSensitive)}
-                  style={{ background: "#f3f4f6", border: "1px solid #d1d5db", padding: "6px 12px", borderRadius: 6, fontSize: 12, cursor: "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: 6, color: C.navy }}
+                  style={{ background: "#f3f4f6", border: "1px solid #d1d5db", padding: "7px 12px", borderRadius: 6, fontSize: SP_FS.small, cursor: "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: 6, color: C.navy }}
                 >
                   {showSensitive ? <EyeOff size={16} /> : <Eye size={16} />}
                   {showSensitive ? "Hide Sensitive Data" : "Show Sensitive Data"}
@@ -7553,12 +7972,12 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
         </div>
         {safeProfiles.length > 0 && (
           <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
-            {["All", ...STAFF_TABLE_GROUPS.map(g => g.title)].map(group => (
+            {STAFF_TABLE_GROUPS.map(g => g.title).map(group => (
               <button
                 key={group}
                 type="button"
                 onClick={() => setColTab(group)}
-                style={{ padding: "4px 10px", borderRadius: 16, border: "1px solid #cbd5e1", background: colTab === group ? "#e0e7ff" : "#fff", color: colTab === group ? C.navy : C.gray, cursor: "pointer", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}
+                style={SP_PILL_STYLE(colTab === group)}
               >
                 {group}
               </button>
@@ -7571,32 +7990,32 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
       {transferOpen && (
         <div style={{ marginBottom: 16, padding: 14, border: "1px solid #cbd5e1", borderRadius: 8, background: "#f8fafc" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <strong style={{ color: C.navy }}>Transfer Staff</strong>
+            <strong style={{ color: C.navy, fontSize: SP_FS.body }}>Transfer Staff</strong>
             <Btn small outline color={C.gray} onClick={() => setTransferOpen(false)}>Close</Btn>
           </div>
-          <div style={{ fontSize: 12, color: C.gray, marginBottom: 10 }}>
+          <div style={{ fontSize: SP_FS.small, color: C.gray, marginBottom: 10 }}>
             {transferStaff?.name ? `Staff: ${transferStaff.name}` : "Select transfer details."}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10, alignItems: "end" }}>
             <div>
-              <label style={{ display: "block", fontSize: 12, marginBottom: 4, color: C.gray, fontWeight: 600 }}>Transfer Type</label>
-              <select value={transferType} onChange={(e) => setTransferType(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1.5px solid #d1d5db", borderRadius: 6 }}>
+              <label style={SP_LABEL_STYLE}>Transfer Type</label>
+              <select value={transferType} onChange={(e) => setTransferType(e.target.value)} style={SP_INPUT_STYLE}>
                 <option value="school" disabled={targetSchools.length === 0}>School to School</option>
                 <option value="retired">Retired</option>
               </select>
             </div>
             {transferType === "school" && (
               <div>
-                <label style={{ display: "block", fontSize: 12, marginBottom: 4, color: C.gray, fontWeight: 600 }}>Target School</label>
-                <select value={transferTargetSchoolId} onChange={(e) => setTransferTargetSchoolId(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1.5px solid #d1d5db", borderRadius: 6 }}>
+                <label style={SP_LABEL_STYLE}>Target School</label>
+                <select value={transferTargetSchoolId} onChange={(e) => setTransferTargetSchoolId(e.target.value)} style={SP_INPUT_STYLE}>
                   {targetSchools.length === 0 && <option value="">No active target school available</option>}
                   {targetSchools.map((s) => <option key={s.id} value={s.id}>{s.name || s.id}</option>)}
                 </select>
               </div>
             )}
             <div>
-              <label style={{ display: "block", fontSize: 12, marginBottom: 4, color: C.gray, fontWeight: 600 }}>Transfer Date</label>
-              <input type="date" value={transferDate} onChange={(e) => setTransferDate(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1.5px solid #d1d5db", borderRadius: 6 }} />
+              <label style={SP_LABEL_STYLE}>Transfer Date</label>
+              <input type="date" value={transferDate} onChange={(e) => setTransferDate(e.target.value)} style={SP_INPUT_STYLE} />
             </div>
             <div>
               <Btn onClick={handleTransfer} disabled={transferType === "school" && targetSchools.length === 0}>Save Transfer</Btn>
@@ -7607,8 +8026,8 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
       {safeProfiles.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 20px", background: "#f9fafb", borderRadius: 8, border: "2px dashed #e5e7eb" }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>👨‍🏫</div>
-          <h3 style={{ margin: "0 0 8px", color: C.navy }}>No Staff Profiles Found</h3>
-          <p style={{ margin: 0, color: C.gray, fontSize: 13, maxWidth: 400, marginInline: "auto" }}>Get started by adding your first staff profile. You can record comprehensive details including CPN, qualifications, dates of entry, and banking info.</p>
+          <h3 style={{ margin: "0 0 8px", color: C.navy, fontSize: 16, fontWeight: 700 }}>No Staff Profiles Found</h3>
+          <p style={{ margin: 0, color: C.gray, fontSize: SP_FS.body, maxWidth: 400, marginInline: "auto", lineHeight: 1.45 }}>Get started by adding your first staff profile. You can record comprehensive details including CPN, qualifications, dates of entry, and banking info.</p>
           <br />
           <Btn onClick={() => handleOpenForm()}>Add First Profile</Btn>
         </div>
@@ -7618,41 +8037,40 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
           {[{ title: "Teaching", rows: teacherProfiles }, { title: "Non Teaching", rows: workerProfiles }]
             .filter(section => section.title === tableTab)
             .map((section) => {
-              const visibleHeaders = colTab === "All" ? STAFF_PROFILE_TABLE_HEADERS : STAFF_PROFILE_TABLE_HEADERS.filter(h => {
+              const visibleHeaders = STAFF_PROFILE_TABLE_HEADERS.filter(h => {
                 const isSticky = h.id === "photo" || h.id === "name";
                 if (isSticky) return true;
                 const group = STAFF_TABLE_GROUPS.find(g => g.title === colTab);
                 return group && group.fields.includes(h.id);
               });
+              const nowrapFields = new Set(["cnic", "dob", "contact", "email", "emergencyContact"]);
 
               return (
             <div key={section.title} style={{ border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
               {section.rows.length === 0 ? (
-                <div style={{ padding: "14px 12px", color: C.gray, fontSize: 13 }}>No profiles in this category.</div>
+                <div style={{ padding: "14px 12px", color: C.gray, fontSize: SP_FS.body }}>No profiles in this category.</div>
               ) : (
                 <div style={{ overflowX: "auto", maxHeight: "70vh" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: colTab === "All" ? 900 : 500 }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: SP_FS.body, minWidth: 640, tableLayout: "auto" }}>
                     <thead>
-                      {colTab === "All" && (
-                      <tr style={{ background: C.navy, color: "#fff", borderBottom: `1px solid ${C.navyL}` }}>
-                        {STAFF_TABLE_GROUPS.map((g, i) => (
-                          <th key={g.title} colSpan={g.count} style={{ padding: "8px 12px", textAlign: "center", borderRight: i < STAFF_TABLE_GROUPS.length - 1 ? `1px solid rgba(255,255,255,0.2)` : undefined, fontSize: 13, fontWeight: 700, borderRadius: i === 0 ? "6px 0 0 0" : undefined, position: "sticky", top: 0, zIndex: 4, background: C.navy }}>{g.title}</th>
-                        ))}
-                        <th rowSpan={2} style={{ padding: "10px 12px", textAlign: "center", borderRadius: "0 6px 0 0", whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 4, background: C.navy, verticalAlign: "middle" }}>Actions</th>
-                      </tr>
-                      )}
                       <tr style={{ background: C.navy, color: "#fff" }}>
-                        {visibleHeaders.map((h, i) => {
-                          let isBorder = false;
-                          if (colTab === "All") {
-                            let passed = 0;
-                            for (let g of STAFF_TABLE_GROUPS) { passed += g.count; if (i === passed - 1) { isBorder = true; break; } }
-                          }
-                          return (
-                          <th key={h.id} style={{ padding: "10px 12px", textAlign: "left", whiteSpace: "nowrap", borderRight: isBorder && i < visibleHeaders.length - 1 ? `1px solid rgba(255,255,255,0.2)` : undefined, position: "sticky", top: colTab === "All" ? 38 : 0, zIndex: 3, background: C.navy, borderRadius: colTab !== "All" && i === 0 ? "6px 0 0 0" : undefined }}>{h.label}</th>
-                          );
-                        })}
-                        {colTab !== "All" && <th style={{ padding: "10px 12px", textAlign: "center", borderRadius: "0 6px 0 0", whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 3, background: C.navy }}>Actions</th>}
+                        {visibleHeaders.map((h, i) => (
+                          <th
+                            key={h.id}
+                            style={{
+                              ...SP_TH_STYLE,
+                              position: "sticky",
+                              top: 0,
+                              zIndex: 3,
+                              background: C.navy,
+                              borderRadius: i === 0 ? "6px 0 0 0" : undefined,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {h.label}
+                          </th>
+                        ))}
+                        <th style={{ ...SP_TH_STYLE, textAlign: "center", borderRadius: "0 6px 0 0", position: "sticky", top: 0, zIndex: 3, background: C.navy, whiteSpace: "nowrap" }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -7672,19 +8090,32 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
                           }
                           if (["dob", "doe", "dprs", "dppp", "daps"].includes(id)) return staffDateToDDMMYYYY(s) || "—";
                           if (id === "cnic") return staffFormatCNIC(s) || "—";
-                          if (id === "contact") return staffFormatPhone(s) || "—";
+                          if (id === "contact" || id === "emergencyContact") return staffFormatPhone(s) || s || "—";
                           if (["name", "fname", "designation", "domicile", "aq", "subj", "pq", "bankName", "branch", "address"].includes(id)) return toProperCase(s) || "—";
                           return s;
                         };
                         return (
                         <tr key={p.id != null ? p.id : `row-${i}`} style={{ borderBottom: "1px solid #e5e7eb", background: i % 2 === 0 ? "#f9fafb" : "#fff" }}>
                           {visibleHeaders.map((h) => (
-                            <td key={h.id} style={{ padding: "10px 12px", color: h.id === "name" ? C.navy : "inherit", fontWeight: h.id === "name" ? 600 : 400, maxWidth: 180, verticalAlign: h.id === "photo" ? "middle" : "top" }}>
+                            <td
+                              key={h.id}
+                              style={{
+                                ...SP_TD_STYLE,
+                                color: h.id === "name" ? C.navy : "inherit",
+                                fontWeight: h.id === "name" ? 600 : 400,
+                                maxWidth: h.id === "address" ? 220 : nowrapFields.has(h.id) ? undefined : 180,
+                                whiteSpace: nowrapFields.has(h.id) ? "nowrap" : h.id === "address" ? "normal" : "nowrap",
+                                overflow: nowrapFields.has(h.id) ? "visible" : undefined,
+                                textOverflow: nowrapFields.has(h.id) ? undefined : "ellipsis",
+                                verticalAlign: "middle",
+                              }}
+                              title={nowrapFields.has(h.id) || h.id === "address" ? String(cellVal(h.id)) : undefined}
+                            >
                               {h.id === "photo" ? (
                                 p.photo && typeof p.photo === "string" ? (
                                   <img src={p.photo} alt="" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", objectPosition: p.photoPosition || "50% 50%" }} />
                                 ) : (
-                                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#e5e7eb", color: C.gray, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>
+                                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#e5e7eb", color: C.gray, display: "flex", alignItems: "center", justifyContent: "center", fontSize: SP_FS.small, fontWeight: 700 }}>
                                     {(p.name && typeof p.name === "string" ? p.name.charAt(0) : "?")}
                                   </div>
                                 )
@@ -7693,7 +8124,7 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
                               )}
                             </td>
                           ))}
-                          <td style={{ padding: "10px 12px", textAlign: "center", verticalAlign: "middle" }}>
+                          <td style={{ ...SP_TD_STYLE, textAlign: "center" }}>
                             <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                               <button onClick={() => handleOpenForm(p)} style={{ background: "#dbeafe", color: "#1e40af", border: "none", padding: 6, borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center" }} title="Edit">
                                 <Edit2 size={14} />
@@ -7701,13 +8132,13 @@ function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, setScho
                               <button onClick={() => handleDelete(p.id)} style={{ background: "#fee2e2", color: "#b91c1c", border: "none", padding: 6, borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center" }} title="Delete">
                                 <Trash2 size={14} />
                               </button>
-                              <button onClick={() => moveStaffWithinCategory(p.id, "up")} style={{ background: "#f8fafc", color: C.navy, border: "1px solid #cbd5e1", padding: "6px 8px", borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", fontSize: 12, fontWeight: 700 }} title="Move Up">
+                              <button onClick={() => moveStaffWithinCategory(p.id, "up")} style={{ background: "#f8fafc", color: C.navy, border: "1px solid #cbd5e1", padding: "6px 8px", borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", fontSize: SP_FS.small, fontWeight: 700 }} title="Move Up">
                                 ↑
                               </button>
-                              <button onClick={() => moveStaffWithinCategory(p.id, "down")} style={{ background: "#f8fafc", color: C.navy, border: "1px solid #cbd5e1", padding: "6px 8px", borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", fontSize: 12, fontWeight: 700 }} title="Move Down">
+                              <button onClick={() => moveStaffWithinCategory(p.id, "down")} style={{ background: "#f8fafc", color: C.navy, border: "1px solid #cbd5e1", padding: "6px 8px", borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", fontSize: SP_FS.small, fontWeight: 700 }} title="Move Down">
                                 ↓
                               </button>
-                              <button onClick={() => openTransferDialog(p)} style={{ background: "#ecfeff", color: "#155e75", border: "none", padding: "6px 8px", borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", fontSize: 12, fontWeight: 700 }} title="Transfer">
+                              <button onClick={() => openTransferDialog(p)} style={{ background: "#ecfeff", color: "#155e75", border: "none", padding: "6px 8px", borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", fontSize: SP_FS.small, fontWeight: 700 }} title="Transfer">
                                 Transfer
                               </button>
                             </div>
@@ -8453,7 +8884,7 @@ function StaffCardGeneratorPage({ settings = {}, staffProfiles = [] }) {
         </Btn>
       </div>
       {safeProfiles.length === 0 ? (
-        <div style={{ padding: 24, textAlign: "center", color: C.gray, background: "#f9fafb", borderRadius: 8 }}>No staff profiles. Add profiles in Staff Profiles first.</div>
+        <div style={{ padding: 24, textAlign: "center", color: C.gray, background: "#f9fafb", borderRadius: 8 }}>No staff profiles. Add profiles in <strong>Staff Profiles</strong> (sidebar) first.</div>
       ) : !staffNameQuery.trim() ? (
         <div style={{ padding: 24, textAlign: "center", color: C.gray, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, lineHeight: 1.5 }}>
           Type a <strong>staff name</strong> above to load matching cards. Use commas to match several people (e.g. <code style={{ fontSize: 12 }}>Ali, Sara</code>) — each part is matched against the full name.
@@ -9002,6 +9433,9 @@ function loadFromLocal(){
         settings: mergedSettings,
         students:dedupeStudentsByIdentity(Array.isArray(s.students)?s.students:defaultStudents,mergedSettings.classes||[]),
         staffProfiles:Array.isArray(s.staffProfiles)?s.staffProfiles:[],
+        schoolStaff:Array.isArray(s.schoolStaff)
+          ? s.schoolStaff
+          : syncSchoolStaffFromProfiles([], Array.isArray(s.staffProfiles)?s.staffProfiles:[]),
         staffTransferHistory:Array.isArray(s.staffTransferHistory)?s.staffTransferHistory:[],
         retiredStaff:Array.isArray(s.retiredStaff)?s.retiredStaff:[],
         timetable:s.timetable&&typeof s.timetable==="object"?s.timetable:{},
@@ -9041,7 +9475,7 @@ function saveToLocal(schools,activeSchoolId){
       const exam_datesheet=sessionData?.exam_datesheet&&typeof sessionData.exam_datesheet==="object"?sessionData.exam_datesheet:(s.exam_datesheet&&typeof s.exam_datesheet==="object"?s.exam_datesheet:defDs());
       const cls=s.settings?.classes||[];
       const studentsClean=dedupeStudentsByIdentity(Array.isArray(s.students)?s.students:[],cls);
-      return { id:s.id,name:s.name,settings:s.settings,students:studentsClean,staffProfiles:s.staffProfiles||[],staffTransferHistory:Array.isArray(s.staffTransferHistory)?s.staffTransferHistory:[],retiredStaff:Array.isArray(s.retiredStaff)?s.retiredStaff:[],timetable:s.timetable||{},exam_tm,exam_om,exam_datesheet,currentSession:s.currentSession,sessions:s.sessions,exam_by_session:s.exam_by_session,questionBank:s.questionBank&&typeof s.questionBank==="object"?s.questionBank:{},status:s.status==="stopped"||s.status==="deleted"?s.status:"active" };
+      return { id:s.id,name:s.name,settings:s.settings,students:studentsClean,staffProfiles:s.staffProfiles||[],schoolStaff:Array.isArray(s.schoolStaff)?s.schoolStaff:[],staffTransferHistory:Array.isArray(s.staffTransferHistory)?s.staffTransferHistory:[],retiredStaff:Array.isArray(s.retiredStaff)?s.retiredStaff:[],timetable:s.timetable||{},exam_tm,exam_om,exam_datesheet,currentSession:s.currentSession,sessions:s.sessions,exam_by_session:s.exam_by_session,questionBank:s.questionBank&&typeof s.questionBank==="object"?s.questionBank:{},status:s.status==="stopped"||s.status==="deleted"?s.status:"active" };
     });
     window.localStorage.setItem(LOCAL_DATA_KEY,JSON.stringify({ schools:toSave, activeSchoolId:activeSchoolId||null }));
   } catch {}
@@ -9262,6 +9696,7 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
       },
       students: [],
       staffProfiles: [],
+      schoolStaff: [],
       staffTransferHistory: [],
       retiredStaff: [],
       timetable: {},
@@ -9333,7 +9768,7 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
     const emailNorm = String(csEmail).trim().toLowerCase();
     if (list.some(u => String(u.email || "").toLowerCase() === emailNorm)) { setCsError("A user with this email already exists."); return; }
     const schoolId = genId();
-    const newSchool = { id: schoolId, name: String(csName).trim(), settings: { schoolName: String(csName).trim(), schoolEmail: emailNorm }, students: [], staffProfiles: [], staffTransferHistory: [], retiredStaff: [], timetable: {}, currentSession: defaultSession(), sessions: [defaultSession()], exam_by_session: {}, exam_tm: {}, exam_om: {}, exam_datesheet: { dates: [], cols: [], subs: {}, note: "" }, questionBank: {}, status: "active" };
+    const newSchool = { id: schoolId, name: String(csName).trim(), settings: { schoolName: String(csName).trim(), schoolEmail: emailNorm }, students: [], staffProfiles: [], schoolStaff: [], staffTransferHistory: [], retiredStaff: [], timetable: {}, currentSession: defaultSession(), sessions: [defaultSession()], exam_by_session: {}, exam_tm: {}, exam_om: {}, exam_datesheet: { dates: [], cols: [], subs: {}, note: "" }, questionBank: {}, status: "active" };
     setSchools(prev => [...prev, newSchool]);
     const userId = genId();
     const pwHash = await hashPassword(String(csPassword).trim());
@@ -9612,7 +10047,7 @@ function HeaderNow(){
 function schoolShape(id,name){
   const session=defaultSession();
   return {
-    id,name,settings:defaultSettings,students:defaultStudents,staffProfiles:[],staffTransferHistory:[],retiredStaff:[],timetable:{},
+    id,name,settings:defaultSettings,students:defaultStudents,staffProfiles:[],schoolStaff:[],staffTransferHistory:[],retiredStaff:[],timetable:{},
     currentSession:session,
     sessions:[session],
     exam_by_session:{[session]:{exam_tm:{},exam_om:{},exam_datesheet:defaultExamDatesheet()}},
@@ -9702,17 +10137,30 @@ function App(){
     [activeSchool.students,settings.classes]
   );
   const staffProfiles=activeSchool.staffProfiles||[];
+  const schoolStaff=activeSchool.schoolStaff||[];
   const effectiveSettings=useMemo(()=>{
     const s=settings||defaultSettings;
+    const roster=schoolStaffToTimetableStaff(schoolStaff,staffProfiles);
     return {
       ...s,
       classes:Array.isArray(s.classes)?s.classes:[],
       classSubjects:(s.classSubjects&&typeof s.classSubjects==="object")?s.classSubjects:{},
       classSubjectsExam:(s.classSubjectsExam&&typeof s.classSubjectsExam==="object")?s.classSubjectsExam:((s.classSubjects&&typeof s.classSubjects==="object")?s.classSubjects:{}),
       classSubjectsTimetable:(s.classSubjectsTimetable&&typeof s.classSubjectsTimetable==="object")?s.classSubjectsTimetable:((s.classSubjects&&typeof s.classSubjects==="object")?s.classSubjects:{}),
-      staff:(staffProfiles||[]).map(p=>({id:p.id,name:p.name||"",designation:p.designation||"",photo:p.photo||null})),
+      staff:roster.length
+        ? roster
+        : (staffProfiles||[]).filter(isTeachingStaffMember).map(p=>({
+            id:p.id,
+            name:p.name||"",
+            designation:p.designation||"",
+            photo:p.photo||null,
+            subj:p.subj||"",
+            qualification:[p.aq,p.pq].filter(Boolean).join(" / "),
+            level:"",
+            staffCategory:p.staffCategory||"Teaching",
+          })),
     };
-  },[settings,staffProfiles]);
+  },[settings,staffProfiles,schoolStaff]);
   const timetable=activeSchool.timetable||{};
   const curSession=activeSchool.currentSession||defaultSession();
   const examBySession=activeSchool.exam_by_session&&typeof activeSchool.exam_by_session==="object"?activeSchool.exam_by_session:{};
@@ -9873,7 +10321,9 @@ function App(){
   }
   // Teachers cannot access Settings; principals and all others can
   const isTeacher = session?.userType === "teacher";
-  const nav = isTeacher ? APP_MAIN_NAV.filter(n => n.id !== "settings") : APP_MAIN_NAV;
+  const nav = isTeacher
+    ? APP_MAIN_NAV.filter(n => n.id !== "settings" && n.id !== "staff-profiles")
+    : APP_MAIN_NAV;
   if(session===null){
     return <AuthScreen onSignIn={(s)=>{ setSession(s); if(s.schoolId) setActiveSchoolId(s.schoolId); }} setActiveSchoolId={setActiveSchoolId}/>;
   }
@@ -10045,6 +10495,7 @@ function App(){
         <div id="print-section" style={{flex:1,minHeight:0,padding:UI.padMain,overflow:"auto",WebkitOverflowScrolling:"touch",background:UI.canvasBg,fontFamily:UI.fontApp}}>
           {page==="dashboard"&&<DashboardPage settings={effectiveSettings} students={students} staffProfiles={staffProfiles} exam_tm={exam_tm} exam_om={exam_om} activeSchoolId={activeSchoolId}/>}
           {page==="timetable"&&<TimetablePage settings={effectiveSettings} staffProfiles={staffProfiles} timetable={timetable} setTimetable={setTimetable} currentSession={curSession} setBarSubtitle={setBarSubtitle}/>}
+          {page==="staff-profiles"&&!isTeacher&&<StaffProfilesPage settings={effectiveSettings} schools={schools||[]} staffProfiles={staffProfiles||[]} setSchools={setSchools} activeSchoolId={activeSchoolId} currentSession={curSession}/>}
           {page==="attendance"&&<AttendancePage settings={effectiveSettings} students={students} currentSession={curSession} activeSchoolId={activeSchoolId} setBarSubtitle={setBarSubtitle}/>}
           {page==="fees"&&<FeePage settings={effectiveSettings} students={students} activeSchoolId={activeSchoolId} setBarSubtitle={setBarSubtitle}/>}
           {page==="examination"&&<ExaminationErrorBoundary><ExaminationPage settings={effectiveSettings} setSettings={setSettingsForActive} students={students} setStudents={setStudentsForActive} timetable={timetable} exam_tm={exam_tm} exam_om={exam_om} setExamMarks={setExamMarksForActive} exam_datesheet={exam_datesheet} setDatesheet={setDatesheetForActive} currentSession={curSession} currentUser={currentUser} setBarSubtitle={setBarSubtitle}/></ExaminationErrorBoundary>}
@@ -10053,41 +10504,9 @@ function App(){
           {page==="book-bank"&&<BookBankPage setBarSubtitle={setBarSubtitle}/>}
           {page==="library"&&<LibraryPage setBarSubtitle={setBarSubtitle} activeSchoolId={activeSchoolId} classes={effectiveSettings.classes} students={students}/>}
           {page==="about"&&<AboutUsPage />}
-          {page==="settings"&&!isTeacher&&<SettingsPage settings={effectiveSettings} setSettings={setSettingsForActive} setSchools={setSchools} students={students} setStudents={setStudentsForActive} schools={schools} activeSchoolId={activeSchoolId} timetable={timetable} exam_tm={exam_tm} exam_om={exam_om} setExamMarks={setExamMarksForActive} currentSession={curSession} sessions={activeSchool.sessions||[curSession]} setCurrentSession={setCurrentSessionForActive} addSession={addSessionForActive} staffProfiles={staffProfiles} setBarSubtitle={setBarSubtitle} session={session}/>}
+          {page==="settings"&&!isTeacher&&<SettingsPage settings={effectiveSettings} setSettings={setSettingsForActive} setSchools={setSchools} students={students} setStudents={setStudentsForActive} schools={schools} activeSchoolId={activeSchoolId} timetable={timetable} exam_tm={exam_tm} exam_om={exam_om} setExamMarks={setExamMarksForActive} currentSession={curSession} sessions={activeSchool.sessions||[curSession]} setCurrentSession={setCurrentSessionForActive} addSession={addSessionForActive} staffProfiles={staffProfiles} schoolStaff={schoolStaff} setBarSubtitle={setBarSubtitle} session={session}/>}
         </div>
       </div>
-      <aside
-        className="app-right-sidebar no-print"
-        style={{
-          width:272,
-          flexShrink:0,
-          height:"100%",
-          minHeight:0,
-          overflowY:"auto",
-          overflowX:"hidden",
-          background:"#fff",
-          borderRadius:12,
-          border:"1px solid #e2e8f0",
-          boxShadow:"0 2px 12px rgba(15,23,42,0.06)",
-          display:"flex",
-          flexDirection:"column",
-          gap:12,
-          padding:14,
-          boxSizing:"border-box",
-        }}
-      >
-        <div>
-          <div style={{fontFamily:UI.fontHeading,fontWeight:800,fontSize:12,color:C.navy,marginBottom:10,letterSpacing:"0.02em"}}>Updates and tips</div>
-          <div style={{borderRadius:10,background:"linear-gradient(135deg,#eff6ff 0%,#f8fafc 100%)",border:"1px solid #bfdbfe",padding:12,marginBottom:10}}>
-            <div style={{fontSize:11,fontWeight:800,color:"#1d4ed8",marginBottom:4}}>Stay organised</div>
-            <p style={{margin:0,fontSize:11,color:"#334155",lineHeight:1.45}}>Pin attendance and exam prep in your routine—consistency keeps records audit-ready.</p>
-          </div>
-          <div style={{borderRadius:10,background:"#f8fafc",border:"1px dashed #cbd5e1",padding:12}}>
-            <div style={{fontSize:10,fontWeight:700,color:C.gray,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Community</div>
-            <p style={{margin:0,fontSize:11,color:"#64748b",lineHeight:1.45}}>Follow your school board or publisher for exam schedules and resource drops—placeholder for social or promo links.</p>
-          </div>
-        </div>
-      </aside>
       </div>
       <PWAInstallBanner />
     </div>

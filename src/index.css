@@ -1,70 +1,146 @@
-/* Minimal reset + theme support for school management app */
-* {
-  box-sizing: border-box;
-}
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  width: 100%;
-}
-#root {
-  height: 100%;
-  width: 100%;
+@import "tailwindcss";
+
+/* shadcn theme — PSMS brand green primary */
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Montserrat", ui-sans-serif, system-ui, sans-serif;
 }
 
-:root {
-  /* Lock the app to light mode - ignore Windows OS dark/light theme completely */
-  color-scheme: light only;
+@layer base {
+  :root {
+    color-scheme: light only;
+    --radius: 0.5rem;
+
+    /* shadcn semantic tokens (HSL channels for opacity support) */
+    --background: 140 20% 97%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 123 46% 24%; /* #1B5E20 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 140 20% 94%;
+    --secondary-foreground: 123 40% 20%;
+    --muted: 140 15% 95%;
+    --muted-foreground: 215 16% 40%;
+    --accent: 140 25% 93%;
+    --accent-foreground: 123 46% 20%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 20% 88%;
+    --input: 214 20% 88%;
+    --ring: 123 46% 30%;
+
+    /* Legacy PSMS tokens (kept for existing inline styles) */
+    --bg-body: hsl(var(--background));
+    --ui-canvas-bg: #fafdfb;
+    --bg-surface: hsl(var(--card));
+    --bg-surface-soft: hsl(var(--secondary));
+    --border-subtle: hsl(var(--border));
+    --text-main: hsl(var(--foreground));
+    --text-muted: hsl(var(--muted-foreground));
+    --color-navy: #1b5e20;
+    --color-navy-soft: #e8f5e9;
+    --color-gold: #d4af37;
+    --color-green: #2e7d32;
+    --color-red: #dc2626;
+    --color-gray: #6b7280;
+    --color-gray-soft: #f3f4f6;
+    --break-main: #fbbf24;
+    --break-soft: #fef3c7;
+    --ui-logo-splash: 192px;
+  }
+
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    background: var(--bg-body);
+    color: var(--text-main);
+  }
+
+  /* shadcn-like form controls for native elements still used system-wide */
+  button:not([class*="bg-"]):not(.no-shadcn) {
+    font-family: inherit;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not(.no-shadcn),
+  select:not(.no-shadcn),
+  textarea:not(.no-shadcn) {
+    border-radius: var(--radius);
+    border: 1px solid hsl(var(--input));
+    background: hsl(var(--card));
+    color: hsl(var(--foreground));
+    font-family: inherit;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not(.no-shadcn):focus,
+  select:not(.no-shadcn):focus,
+  textarea:not(.no-shadcn):focus {
+    outline: none;
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 2px hsl(var(--ring) / 0.25);
+  }
 }
 
-/* Light theme: PSMS brand — forest green primary, gold accents (see public/app-brand-logo.png) */
-:root[data-theme="light"],
-:root:not([data-theme]) {
-  --bg-body: #e8f0ea;         /* shell / auth / admin — soft green-gray */
-  --ui-canvas-bg: #fafdfb;    /* main content area (#print-section) */
-  --bg-surface: #ffffff;      /* cards / content */
-  --bg-surface-soft: #f1f8f3; /* softer surfaces */
-  --border-subtle: #d1d5db;
-  --text-main: #0f172a;
-  --text-muted: #4b5563;
-  --color-navy: #1B5E20;      /* primary chrome (sidebar / header) — brand green */
-  --color-navy-soft: #e8f5e9; /* light brand tint */
-  --color-gold: #D4AF37;      /* accent gold */
-  --color-green: #2e7d32;
-  --color-red: #dc2626;
-  --color-gray: #6b7280;
-  --color-gray-soft: #f3f4f6;
-  --break-main: #fbbf24;
-  --break-soft: #fef3c7;
-  --ui-logo-splash: 192px;
+/* App shell — shadcn card surfaces */
+.app-layout {
+  background: hsl(var(--background));
 }
 
-/* Dark theme: dark background, brand-aligned accents */
-:root[data-theme="dark"] {
-  --bg-body: #1a1f1a;
-  --ui-canvas-bg: #141814;
-  --bg-surface: #262626;
-  --bg-surface-soft: #1f1f1f;
-  --border-subtle: #404040;
-  --text-main: #ffffff;
-  --text-muted: #a3a3a3;
-  --color-navy: #81c784;
-  --color-navy-soft: #1b2e1d;
-  --color-gold: #e6c35c;
-  --color-green: #66bb6a;
-  --color-red: #f97373;
-  --color-gray: #a3a3a3;
-  --color-gray-soft: #1f1f1f;
-  --break-main: #facc15;
-  --break-soft: #292524;
+.app-main,
+.app-sidebar,
+.app-header {
+  border-color: hsl(var(--border));
 }
 
-body {
-  background: var(--bg-body);
-  color: var(--text-main);
-  font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+.app-main {
+  background: hsl(var(--card)) !important;
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.04) !important;
 }
+
+#print-section {
+  background: hsl(var(--background)) !important;
+}
+
+/* Prefer module-level table styles; don't force all theads */
 
 @media print {
   @page {
@@ -72,30 +148,28 @@ body {
     margin: 10mm;
   }
 
-  /* Force background colors to print so headers remain navy with white text */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  .timetable-pdf-export {
-    border-collapse: collapse !important;
-    border: 1.5px solid #000 !important;
+  body {
+    background: #fff !important;
   }
-  
-  .timetable-pdf-export th {
-    border: 1px solid #000 !important;
-    color: #fff !important;
-    background-color: #15803d !important;
-  }
+}
 
-  .timetable-pdf-export th.timetable-pdf-break-th {
-    color: #78350f !important;
-    background-color: #fcd34d !important;
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
   }
-  
-  .timetable-pdf-export td {
-    border: 1px solid #000 !important;
-    color: #000 !important;
+  100% {
+    background-position: 200% 0;
   }
+}
+
+.skeleton {
+  background: #f1f5f9;
+  background-image: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
 }
