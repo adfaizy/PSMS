@@ -4,3 +4,8 @@ dist
 *.local
 *.bak
 .vscode/*.log
+# Windows reserved-name junk from accidental esbuild --outfile=nul
+nul
+nul.*
+NUL
+NUL.*
