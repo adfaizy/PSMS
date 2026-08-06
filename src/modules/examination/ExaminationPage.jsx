@@ -14,7 +14,6 @@ import signImg from "@/assets/sign.png";
 import { yieldToMain } from "@/yieldToMain.js";
 import { C, schoolOrBrandLogo, APP_BRAND_LOGO, genId } from "@/shared/theme";
 import { Btn, Sel, Inp, SchoolHeader } from "@/components/AppControls";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as H from "@/shared/helpers";
 
 const {
@@ -979,338 +978,639 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
     setBarSubtitle(t?.l||"");
   },[tab,setBarSubtitle]);
 
-  return <div>
-    <div className="no-print">
-    <Tabs value={tab} onValueChange={setTab} className="mb-3.5">
-      <TabsList className="h-auto flex-wrap">
-        {EXAM_TABS.map((t) => (
-          <TabsTrigger key={t.id} value={t.id}>{t.l}</TabsTrigger>
-        ))}
-      </TabsList>
-    </Tabs>
-    </div>
+  const ctrlW = 180;
+  const panel = {
+    background: "#fff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 12,
+    boxShadow: "0 1px 3px rgba(15,23,42,0.06)",
+  };
+  const toolbar = {
+    ...panel,
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: "14px 16px",
+    marginBottom: 14,
+  };
+  const thBase = {
+    padding: "9px 10px",
+    whiteSpace: "nowrap",
+    fontWeight: 700,
+    fontSize: 12,
+    color: "#fff",
+    background: "#1B5E20",
+    position: "sticky",
+    top: 0,
+    zIndex: 3,
+  };
 
-    {tab==="admission"&&<div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
-        <p style={{fontSize:13,color:C.gray,margin:0}}>Fill the form below to admit a new student. After saving, the student will appear in Student Record.</p>
-        <Btn small outline onClick={()=>{ const el=document.getElementById("admission-form-print"); if(!el){ alert("Print area not found."); return; } const printWindow=window.open("","","width=800,height=600"); if(!printWindow){ alert("Please allow pop-ups to print."); return; } const style="body{font-family:'Segoe UI',sans-serif;margin:12px;padding:0}"; printWindow.document.write("<html><head><title>Admission Form</title><style>"+style+"</style></head><body>"); printWindow.document.write(el.innerHTML); printWindow.document.write("</body></html>"); printWindow.document.close(); printWindow.focus(); printWindow.print(); printWindow.onafterprint=()=>printWindow.close(); }}>Print</Btn>
-      </div>
-      <div id="admission-form-print" style={{maxWidth:640,margin:"0 auto"}}>
-        <SchoolHeader settings={settings} subtitle="ADMISSION FORM"/>
-        <div style={{background:"#fff",borderRadius:8,border:"1px solid #e5e7eb",padding:20,boxShadow:"0 1px 3px rgba(0,0,0,0.06)",marginTop:12}}>
-          <div style={{display:"flex",gap:16,alignItems:"flex-start",marginBottom:14}}>
-            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,flexShrink:0}}>
-              <div style={{width:80,height:100,border:"2px dashed #d1d5db",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",background:"#fafafa"}}>
-                {admissionPhotoBusy?<span style={{fontSize:10,color:C.gray,textAlign:"center",padding:4}}>Processing…</span>:admissionForm.photo?<img src={admissionForm.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:10,color:C.gray,textAlign:"center"}}>Photo</span>}
-              </div>
-              <div style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"center"}}>
-                <Btn type="button" small outline onClick={()=>admissionPhotoGalleryRef.current?.click()} disabled={admissionPhotoBusy}>Gallery</Btn>
-                <Btn type="button" small outline onClick={()=>admissionPhotoCameraRef.current?.click()} disabled={admissionPhotoBusy}>Camera</Btn>
-              </div>
-              <input ref={admissionPhotoGalleryRef} type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(!f)return;e.target.value="";await handleAdmissionPhotoFile(f);}}/>
-              <input ref={admissionPhotoCameraRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(!f)return;e.target.value="";await handleAdmissionPhotoFile(f);}}/>
-            </div>
-            <div style={{flex:1,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-              <Inp label="Admission No" value={admissionForm.admissionNo} onChange={v=>setAdmissionForm(x=>({...x,admissionNo:v}))} placeholder={"Next: "+suggestedNextAdm}/>
-              <Inp label="Roll No" value={admissionForm.rollNo} onChange={v=>setAdmissionForm(x=>({...x,rollNo:v}))} placeholder={"Next in class: "+suggestedNextRoll}/>
-              <Inp label="Student Name" value={admissionForm.name} onChange={v=>setAdmissionForm(x=>({...x,name:toProperCaseNameInput(v)}))}/>
-              <Inp label="Father's Name" value={admissionForm.fatherName} onChange={v=>setAdmissionForm(x=>({...x,fatherName:toProperCaseNameInput(v)}))}/>
-              <Inp label="Form B / Bay Form" value={admissionForm.bayForm} onChange={v=>setAdmissionForm(x=>({...x,bayForm:formatCnicAf(v)}))} placeholder="00000-0000000-0"/>
-              <Inp label="Father's CNIC" value={admissionForm.fatherCnic} onChange={v=>setAdmissionForm(x=>({...x,fatherCnic:formatCnicAf(v)}))} placeholder="00000-0000000-0"/>
-              <Inp label="WhatsApp No" value={admissionForm.whatsapp} onChange={v=>setAdmissionForm(x=>({...x,whatsapp:formatWhatsappAf(v)}))} placeholder="0000-0000000"/>
-              <Sel label="Class" value={admissionForm.classId} onChange={v=>setAdmissionForm(x=>({...x,classId:v}))} options={settings.classes.map(c=>({value:c.id,label:formatClassDisplay(c)}))}/>
-              <Inp label="Date of Birth" value={admissionForm.dob} onChange={v=>setAdmissionForm(x=>({...x,dob:formatDobAf(v)}))} placeholder="dd/mm/yyyy"/>
-            </div>
-          </div>
-          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn onClick={saveAdmission}>Save & Admit Student</Btn></div>
+  return (
+    <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div className="no-print" style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: 14 }}>
+        <div style={{ minWidth: 0 }}>
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: "#1B5E20", letterSpacing: "-0.02em" }}>Examination</h1>
+          <p style={{ margin: "6px 0 0", fontSize: 13, color: "#6b7280" }}>
+            {EXAM_TABS.find((x) => x.id === tab)?.l || "Exams"} · session {currentSession || "—"}
+          </p>
         </div>
-      </div>
-    </div>}
-    {tab==="record"&&<StudentsPage settings={settings} students={students} setStudents={setStudents} embedded currentSession={currentSession} currentUser={currentUser}/>}
-    {tab==="marks"&&<div>
-      <div style={{display:"flex",gap:12,marginBottom:12,flexWrap:"wrap",alignItems:"flex-end"}}>
-        <Sel label="Exam" value={exam} onChange={setExam} options={exams}/>
-        <Sel label="Class" value={selCls} onChange={setSelCls} options={settings.classes.map(c=>({value:c.id,label:formatClassDisplay(c)}))}/>
-        <div style={{marginLeft:"auto",display:"flex",gap:8}}>
-          <Btn small outline onClick={() => void exportMarksTemplateExcel()}>📊 Export Excel</Btn>
-          <Btn small outline onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept=".xlsx,.xls";inp.style.display="none";document.body.appendChild(inp);inp.onchange=(ev)=>{importMarksFromExcel(ev);document.body.removeChild(inp);};inp.click();}} disabled={!setExamMarks}>📥 Import Excel</Btn>
-          <Btn small outline onClick={()=>exportMarksPdf().catch(()=>alert("PDF export failed."))}>📄 PDF</Btn>
-        </div>
-      </div>
-      <div ref={marksTableRef} style={{overflowX:"auto",maxHeight:"70vh"}}><table style={{borderCollapse:"collapse",fontSize:12}}>
-        <thead>
-          <tr style={{background:C.navy,color:"#fff"}}>
-            {["Adm#","Roll#","Student Name","Father's Name",...subjs(selCls),"Total"].map(h=><th key={h} style={{padding:"7px 8px",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:3,background:C.navy}}>{h}</th>)}
-          </tr>
-          <tr style={{background:"#e8edf8"}}>
-            <th colSpan={4} style={{padding:"5px 8px",fontWeight:700,fontSize:11,color:"#000",position:"sticky",top:34,zIndex:2,background:"#e8edf8"}}>Total Marks {"->"}</th>
-            {subjs(selCls).map(s=><td key={s} style={{padding:"3px 3px",position:"sticky",top:34,zIndex:2,background:"#e8edf8"}}><MarksInput initialValue={gtm(exam,selCls,s)} onSave={v=>stm(exam,selCls,s,v)} rowIdx={-1} colIdx={-1} totalRows={0} totalCols={0} inputStyle={{border:"1.5px solid #1a3a6b",background:"#dbeafe"}}/></td>)}
-            <td></td>
-          </tr>
-        </thead>
-        <tbody>{(()=>{const students_=cs(selCls).slice().sort((a,b)=>{const r=String(a.rollNo||"").localeCompare(String(b.rollNo||""),undefined,{numeric:true,sensitivity:"base"});return r!==0?r:String(a.admissionNo||"").localeCompare(String(b.admissionNo||""),undefined,{numeric:true,sensitivity:"base"});});const subjects_=subjs(selCls);const totalRows=students_.length;const totalCols=subjects_.length;return students_.map((s,i)=>{const {obt,tot}=calc(exam,selCls,s.id);return(<tr key={s.id} style={{background:i%2===0?"#f9fafb":"#fff"}}>
-          <td style={{padding:"5px 8px"}}>{s.admissionNo}</td><td style={{padding:"5px 8px",fontWeight:700}}>{s.rollNo}</td><td style={{padding:"5px 8px"}}>{s.name}</td><td style={{padding:"5px 8px"}}>{s.fatherName}</td>
-          {subjects_.map((subj,sIdx)=><td key={subj} style={{padding:"3px 3px"}}><MarksInput initialValue={gom(exam,selCls,s.id,subj)} onSave={v=>som(exam,selCls,s.id,subj,v)} rowIdx={i} colIdx={sIdx} totalRows={totalRows} totalCols={totalCols}/></td>)}
-          <td style={{padding:"5px 8px",textAlign:"center",fontWeight:700}}>{obt}/{tot||"—"}</td>
-        </tr>);});})()}</tbody>
-      </table></div>
-    </div>}
-
-    {tab==="consolidated"&&<div>
-      <div style={{display:"flex",gap:12,marginBottom:12,flexWrap:"wrap",alignItems:"flex-end"}}>
-        <Sel label="Exam" value={exam} onChange={setExam} options={exams}/>
-        <Sel label="Class" value={selCls} onChange={setSelCls} options={settings.classes.map(c=>({value:c.id,label:formatClassDisplay(c)}))}/>
-        <div style={{marginLeft:"auto",display:"flex",gap:8}}>
-          <Btn small outline onClick={()=>{ const {headers,rows}=getTableDataFromElement(consolidatedTableRef.current); if(!headers.length&&!rows.length){ alert("No data to export."); return; } const clsName=getClassLabel(settings, selCls); const safeCls=sanitizeMarksSheetName(clsName||"Class"); void exportConsolidatedSheetToPdf(settings,currentSession,exam,clsName,headers,rows,`Consolidated_${String(exam||"").replace(/\s/g,"_")}_${safeCls}.pdf`).catch(()=>alert("PDF export failed.")); }}>📄 PDF</Btn>
-        </div>
-      </div>
-      <div ref={consolidatedTableRef} style={{overflowX:"auto",maxHeight:"70vh"}}><table style={{borderCollapse:"collapse",fontSize:12,width:"100%"}}>
-        <thead>
-          <tr style={{background:C.navy,color:"#fff"}}>{["Photo","Adm#","Roll#","Student Name","Father's Name",...subjs(selCls),"Total","%","Status","Grade","Position"].map(h=><th key={h} style={{padding:"6px 8px",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:3,background:C.navy}}>{h}</th>)}</tr>
-          <tr style={{background:"#e8edf8"}}>
-            <th colSpan={5} style={{padding:"5px 8px",fontWeight:700,fontSize:11,textAlign:"right",color:"#000",position:"sticky",top:34,zIndex:2,background:"#e8edf8"}}>Total Marks {"->"}</th>
-            {subjs(selCls).map(s=><td key={s} style={{padding:"5px 8px",textAlign:"center",fontWeight:700,color:"#000",position:"sticky",top:34,zIndex:2,background:"#e8edf8"}}>{gtm(exam,selCls,s)||"—"}</td>)}
-            <th colSpan={5} style={{position:"sticky",top:34,zIndex:2,background:"#e8edf8"}}></th>
-          </tr>
-        </thead>
-        <tbody>{(()=>{
-          const sorted=cs(selCls).map(s=>({s,...calc(exam,selCls,s.id)})).sort((a,b)=>b.obt-a.obt);
-          let pos=0;
-          return sorted.map((row,i)=>{
-            if(i===0||row.obt!==sorted[i-1].obt) pos++;
-            const {s,obt,tot,pct}=row;
-            const pctNum=parseFloat(pct);
-            const passFail=Number.isNaN(pctNum)?"—":(pctNum>=passThreshold?"Pass":"Fail");
-            const passFailColor=Number.isNaN(pctNum)?C.gray:(pctNum>=passThreshold?C.green:C.red);
-            return <tr key={s.id} style={{background:i%2===0?"#f9fafb":"#fff"}}>
-              <td style={{padding:4,verticalAlign:"middle"}}><div style={{width:36,height:44,border:"1px solid #d1d5db",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",background:"#f3f4f6"}}>{s.photo?<img src={s.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:9,color:C.gray}}>Photo</span>}</div></td>
-              <td style={{padding:"5px 8px"}}>{s.admissionNo}</td><td style={{padding:"5px 8px",fontWeight:700}}>{s.rollNo}</td><td style={{padding:"5px 8px"}}>{s.name}</td>
-              <td style={{padding:"5px 8px"}}>{s.fatherName}</td>
-              {subjs(selCls).map(subj=><td key={subj} style={{padding:"5px 8px",textAlign:"center"}}>{gom(exam,selCls,s.id,subj)||"—"}</td>)}
-              <td style={{padding:"5px 8px",fontWeight:700,textAlign:"center"}}>{obt}/{tot||"—"}</td>
-              <td style={{padding:"5px 8px",textAlign:"center"}}>{pct}%</td>
-              <td style={{padding:"5px 8px",textAlign:"center",fontWeight:700,color:passFailColor}}>{passFail}</td>
-              <td style={{padding:"5px 8px",textAlign:"center",fontWeight:700,color:parseFloat(pct)>=passThreshold?C.green:C.red}}>{grade(pct)}</td>
-              <td style={{padding:"5px 8px",textAlign:"center",fontWeight:700}}>
-                <div>{pos}</div>
-                {passFail==="Pass" && (
-                  <div style={{marginTop:4,display:"grid",gap:4,justifyItems:"center"}}>
-                    {(() => {
-                      const options = getNextPromotionClassOptions(selCls);
-                      const selected = promotionTargetByStudent[s.id] || "";
-                      if (options.length > 1) {
-                        return (
-                          <select
-                            value={selected}
-                            onChange={(e)=>setPromotionTargetByStudent(prev=>({...prev,[s.id]:e.target.value}))}
-                            style={{padding:"2px 4px",fontSize:11,border:"1px solid #cbd5e1",borderRadius:4,background:"#fff",minWidth:120}}
-                          >
-                            <option value="">Select section</option>
-                            {options.map((c)=><option key={c.id} value={c.id}>{formatClassDisplay(c)}</option>)}
-                          </select>
-                        );
-                      }
-                      return null;
-                    })()}
-                    <button
-                      type="button"
-                      onClick={() => promoteStudentToNextClass(s)}
-                      style={{padding:"2px 7px",fontSize:11,border:"1px solid #86efac",borderRadius:4,background:"#f0fdf4",color:"#166534",cursor:"pointer",fontWeight:700}}
-                    >
-                      Promote
-                    </button>
-                  </div>
-                )}
-              </td>
-            </tr>;
-          });
-        })()}</tbody>
-      </table></div>
-    </div>}
-
-    {tab==="card"&&<div>
-      <div className="no-print" style={{display:"flex",gap:12,marginBottom:12,flexWrap:"wrap",alignItems:"flex-end"}}>
-        <Sel label="Class" value={rcCls} onChange={setRcCls} options={settings.classes.map(c=>({value:c.id,label:formatClassDisplay(c)}))}/>
-        <Sel label="Exam" value={rcExam} onChange={setRcExam} options={[{value:"overall",label:"Overall (All Terms)"},...exams.map(e=>({value:e,label:e}))]}/>
-        <div style={{display:"flex",flexDirection:"column",gap:3}}>
-          <label style={{fontSize:11,fontWeight:700,color:C.gray,textTransform:"uppercase",letterSpacing:0.4}}>Pass %</label>
-          <div style={{display:"flex",alignItems:"center",gap:6}}>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              step={1}
-              value={settings.passPercent ?? 50}
-              onChange={e=>{
-                const v=Number(e.target.value);
-                if(!isNaN(v)&&v>=0&&v<=100&&setSettings) setSettings(s=>({...s,passPercent:v}));
+        <div style={{ display: "inline-flex", flexWrap: "wrap", background: "#e8f5e9", borderRadius: 10, padding: 4, gap: 4, border: "1px solid #c8e6c9", maxWidth: "100%" }}>
+          {EXAM_TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              style={{
+                border: "none",
+                cursor: "pointer",
+                borderRadius: 8,
+                padding: "8px 12px",
+                fontSize: 12,
+                fontWeight: 700,
+                background: tab === t.id ? "#1B5E20" : "transparent",
+                color: tab === t.id ? "#fff" : "#1B5E20",
+                whiteSpace: "nowrap",
               }}
-              style={{padding:"6px 10px",border:"1.5px solid #d1d5db",borderRadius:5,fontSize:13,background:"#fff",width:72,boxSizing:"border-box"}}
-            />
-            <span style={{fontSize:13,color:C.gray,fontWeight:600}}>%</span>
+            >
+              {t.l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {tab === "admission" && (
+        <div>
+          <div style={{ ...toolbar }}>
+            <p style={{ fontSize: 13, color: "#6b7280", margin: 0, maxWidth: 560 }}>
+              Fill the form to admit a new student. After saving, they appear in Student Record.
+            </p>
+            <Btn
+              small
+              outline
+              onClick={() => {
+                const el = document.getElementById("admission-form-print");
+                if (!el) {
+                  alert("Print area not found.");
+                  return;
+                }
+                const printWindow = window.open("", "", "width=800,height=600");
+                if (!printWindow) {
+                  alert("Please allow pop-ups to print.");
+                  return;
+                }
+                const style = "body{font-family:'Segoe UI',sans-serif;margin:12px;padding:0}";
+                printWindow.document.write("<html><head><title>Admission Form</title><style>" + style + "</style></head><body>");
+                printWindow.document.write(el.innerHTML);
+                printWindow.document.write("</body></html>");
+                printWindow.document.close();
+                printWindow.focus();
+                printWindow.print();
+                printWindow.onafterprint = () => printWindow.close();
+              }}
+            >
+              Print
+            </Btn>
+          </div>
+          <div id="admission-form-print" style={{ maxWidth: 720, margin: "0 auto" }}>
+            <SchoolHeader settings={settings} subtitle="ADMISSION FORM" />
+            <div style={{ ...panel, padding: 20, marginTop: 12 }}>
+              <div style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 14 }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                  <div style={{ width: 80, height: 100, border: "2px dashed #d1d5db", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", background: "#fafafa" }}>
+                    {admissionPhotoBusy ? (
+                      <span style={{ fontSize: 10, color: C.gray, textAlign: "center", padding: 4 }}>Processing…</span>
+                    ) : admissionForm.photo ? (
+                      <img src={admissionForm.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : (
+                      <span style={{ fontSize: 10, color: C.gray, textAlign: "center" }}>Photo</span>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "center" }}>
+                    <Btn type="button" small outline onClick={() => admissionPhotoGalleryRef.current?.click()} disabled={admissionPhotoBusy}>
+                      Gallery
+                    </Btn>
+                    <Btn type="button" small outline onClick={() => admissionPhotoCameraRef.current?.click()} disabled={admissionPhotoBusy}>
+                      Camera
+                    </Btn>
+                  </div>
+                  <input
+                    ref={admissionPhotoGalleryRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={async (e) => {
+                      const f = e.target.files[0];
+                      if (!f) return;
+                      e.target.value = "";
+                      await handleAdmissionPhotoFile(f);
+                    }}
+                  />
+                  <input
+                    ref={admissionPhotoCameraRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    style={{ display: "none" }}
+                    onChange={async (e) => {
+                      const f = e.target.files[0];
+                      if (!f) return;
+                      e.target.value = "";
+                      await handleAdmissionPhotoFile(f);
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <Inp label="Admission No" value={admissionForm.admissionNo} onChange={(v) => setAdmissionForm((x) => ({ ...x, admissionNo: v }))} placeholder={"Next: " + suggestedNextAdm} width="100%" />
+                  <Inp label="Roll No" value={admissionForm.rollNo} onChange={(v) => setAdmissionForm((x) => ({ ...x, rollNo: v }))} placeholder={"Next in class: " + suggestedNextRoll} width="100%" />
+                  <Inp label="Student Name" value={admissionForm.name} onChange={(v) => setAdmissionForm((x) => ({ ...x, name: toProperCaseNameInput(v) }))} width="100%" />
+                  <Inp label="Father's Name" value={admissionForm.fatherName} onChange={(v) => setAdmissionForm((x) => ({ ...x, fatherName: toProperCaseNameInput(v) }))} width="100%" />
+                  <Inp label="Form B / Bay Form" value={admissionForm.bayForm} onChange={(v) => setAdmissionForm((x) => ({ ...x, bayForm: formatCnicAf(v) }))} placeholder="00000-0000000-0" width="100%" />
+                  <Inp label="Father's CNIC" value={admissionForm.fatherCnic} onChange={(v) => setAdmissionForm((x) => ({ ...x, fatherCnic: formatCnicAf(v) }))} placeholder="00000-0000000-0" width="100%" />
+                  <Inp label="WhatsApp No" value={admissionForm.whatsapp} onChange={(v) => setAdmissionForm((x) => ({ ...x, whatsapp: formatWhatsappAf(v) }))} placeholder="0000-0000000" width="100%" />
+                  <Sel label="Class" value={admissionForm.classId} onChange={(v) => setAdmissionForm((x) => ({ ...x, classId: v }))} options={settings.classes.map((c) => ({ value: c.id, label: formatClassDisplay(c) }))} width="100%" />
+                  <Inp label="Date of Birth" value={admissionForm.dob} onChange={(v) => setAdmissionForm((x) => ({ ...x, dob: formatDobAf(v) }))} placeholder="dd/mm/yyyy" width="100%" />
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <Btn onClick={saveAdmission}>Save & Admit Student</Btn>
+              </div>
+            </div>
           </div>
         </div>
-        <div style={{display:"flex",alignItems:"flex-end",gap:6}}>
-          <button
-            type="button"
-            onClick={()=>{
-              const list=cs(rcCls);
-              const rolls=list
-                .map(s=>parseInt(s.rollNo,10))
-                .filter(n=>!isNaN(n))
-                .sort((a,b)=>a-b);
-              if(!rolls.length){ setRcRoll(""); return; }
-              const min=rolls[0];
-              const max=rolls[rolls.length-1];
-              const cur=parseInt(rcRoll||"",10);
-              if(isNaN(cur)){ setRcRoll(String(max)); return; }
-              const next=Math.max(min,cur-1);
-              setRcRoll(String(next));
-            }}
-            style={{border:"1px solid #d1d5db",background:"#fff",borderRadius:4,padding:"6px 8px",cursor:"pointer",fontSize:13}}
-          >
-            ←
-          </button>
-          <Inp label="Roll No" value={rcRoll} onChange={setRcRoll} placeholder="Enter Roll No"/>
-          <button
-            type="button"
-            onClick={()=>{
-              const list=cs(rcCls);
-              const rolls=list
-                .map(s=>parseInt(s.rollNo,10))
-                .filter(n=>!isNaN(n))
-                .sort((a,b)=>a-b);
-              if(!rolls.length){ setRcRoll(""); return; }
-              const min=rolls[0];
-              const max=rolls[rolls.length-1];
-              const cur=parseInt(rcRoll||"",10);
-              if(isNaN(cur)){ setRcRoll(String(min)); return; }
-              const next=Math.min(max,cur+1);
-              setRcRoll(String(next));
-            }}
-            style={{border:"1px solid #d1d5db",background:"#fff",borderRadius:4,padding:"6px 8px",cursor:"pointer",fontSize:13}}
-          >
-            →
-          </button>
-        </div>
-        <div style={{marginLeft:"auto",display:"flex",gap:8,paddingTop:16}}>
-          <Btn
-            small
-            outline
-            disabled={singlePdfBusy||classPdfBusy||!String(rcRoll||"").trim()}
-            onClick={()=>void exportSingleResultCardPdf()}
-          >
-            {singlePdfBusy?"⏳ PDF…":"📄 PDF"}
-          </Btn>
-          <Btn small disabled={classPdfBusy||singlePdfBusy} onClick={requestClassPdfExport}>
-            {classPdfBusy?"⏳ Class PDF…":"📄 Class PDF"}
-          </Btn>
-        </div>
-      </div>
-      {rcRoll&&(()=>{const st=cs(rcCls).find(s=>s.rollNo===rcRoll); if(!st) return <div style={{color:C.red,padding:16}}>Student not found for Roll No: {rcRoll}</div>;
-        return <div className="result-card-print-area">{renderResultCard(st,rcCls,rcExam,resultCardRef)}</div>;
-      })()}
-      {classPdfExportList?.length ? (
-        <div
-          ref={classResultPdfContainerRef}
-          aria-hidden
-          className="class-result-cards-pdf-source"
-          style={{position:"fixed",left:-99999,top:0,width:720,pointerEvents:"none"}}
-        >
-          {classPdfExportList.map((st)=>renderResultCard(st,rcCls,rcExam))}
-        </div>
-      ) : null}
-    </div>}
+      )}
 
-    {tab==="datesheet"&&<div>
-      <div className="no-print" style={{display:"flex",gap:12,marginBottom:12,flexWrap:"wrap",alignItems:"flex-end"}}>
-        <Sel label="Exam" value={exam} onChange={setExam} options={exams}/>
-        <Btn onClick={()=>setDsDates(rows=>[...rows,{id:genId(),date:new Date().toISOString().split("T")[0]}])}>+ Add Date</Btn>
-        <Btn outline danger disabled={dsDates.length<=1} onClick={()=>setDsDates(rows=>rows.length>1?rows.slice(0,-1):rows)}>Remove Date</Btn>
-        <Btn outline onClick={()=>setDsCols(cols=>[...cols,{id:genId(),classId:""}])}>+ Add Class Column</Btn>
-        <Btn outline danger disabled={dsCols.length<=1} onClick={()=>setDsCols(cols=>cols.length>1?cols.slice(0,-1):cols)}>Remove Class Column</Btn>
-      </div>
-      <div ref={datesheetTableRef} style={{overflowX:"auto",maxHeight:"70vh",background:"#fff",padding:12,borderRadius:8,border:"1px solid #9ca3af"}}>
-        <table className="datesheet-table" style={{borderCollapse:"collapse",fontSize:12,minWidth:0,margin:"0 auto"}}>
-          <thead>
-            <tr style={{background:C.navy,color:"#fff",textAlign:"center"}}>
-              <th style={{padding:"4px 6px",border:"1px solid #000",minWidth:70,width:70,height:32,textAlign:"center",position:"sticky",top:0,zIndex:3,background:C.navy}}>Date</th>
-              <th style={{padding:"4px 6px",border:"1px solid #000",minWidth:70,width:70,height:32,textAlign:"center",position:"sticky",top:0,zIndex:3,background:C.navy}}>Day</th>
-              {dsCols.map(col=>{
-                const usedIds=dsCols.filter(c=>c.id!==col.id).map(c=>c.classId).filter(Boolean);
-                return <th key={col.id} style={{padding:"4px 6px",border:"1px solid #000",minWidth:70,width:70,height:32,textAlign:"center",position:"sticky",top:0,zIndex:3,background:C.navy}}>
-                  <select
-                    value={col.classId}
-                    onChange={e=>{
-                      const v=e.target.value;
-                      setDsCols(cols=>cols.map(c=>c.id===col.id?{...c,classId:v}:c));
-                    }}
-                    style={{width:"100%",padding:"3px 4px",border:"1px solid #d1d5db",borderRadius:4,fontSize:11,textAlign:"center"}}
-                  >
-                    <option value="">— Select class —</option>
-                    {settings.classes
-                      .filter(cls=>!usedIds.includes(cls.id)||cls.id===col.classId)
-                      .map(cls=><option key={cls.id} value={cls.id}>{formatClassDisplay(cls)}</option>)}
-                  </select>
-                </th>;
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {dsDates.map(row=>{
-              const dObj=row.date?new Date(row.date):null;
-              const dayName=dObj&& !isNaN(dObj) ? dObj.toLocaleDateString("en-PK",{weekday:"long"}) : "";
-              return <tr key={row.id}>
-                <td style={{padding:"6px 8px",border:"1px solid #000",minWidth:70,width:70,height:32,textAlign:"center"}}>
+      {tab === "record" && (
+        <div style={{ ...panel, padding: 12 }}>
+          <StudentsPage settings={settings} students={students} setStudents={setStudents} embedded currentSession={currentSession} currentUser={currentUser} />
+        </div>
+      )}
+
+      {tab === "marks" && (
+        <div>
+          <div style={toolbar}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
+              <Sel label="Exam" value={exam} onChange={setExam} options={exams} width={ctrlW} />
+              <Sel label="Class" value={selCls} onChange={setSelCls} options={settings.classes.map((c) => ({ value: c.id, label: formatClassDisplay(c) }))} width={ctrlW} />
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <Btn small outline onClick={() => void exportMarksTemplateExcel()}>
+                📊 Export Excel
+              </Btn>
+              <Btn
+                small
+                outline
+                onClick={() => {
+                  const inp = document.createElement("input");
+                  inp.type = "file";
+                  inp.accept = ".xlsx,.xls";
+                  inp.style.display = "none";
+                  document.body.appendChild(inp);
+                  inp.onchange = (ev) => {
+                    importMarksFromExcel(ev);
+                    document.body.removeChild(inp);
+                  };
+                  inp.click();
+                }}
+                disabled={!setExamMarks}
+              >
+                📥 Import Excel
+              </Btn>
+              <Btn small outline onClick={() => exportMarksPdf().catch(() => alert("PDF export failed."))}>
+                📄 PDF
+              </Btn>
+            </div>
+          </div>
+          <div style={{ ...panel, overflow: "hidden" }}>
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid #e2e8f0", background: "#f1f8f3", display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ fontWeight: 700, color: "#1B5E20", fontSize: 15 }}>
+                Enter Marks — {exam} · {getClassLabel(settings, selCls)}
+              </div>
+              <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 600 }}>{cs(selCls).length} students · {subjs(selCls).length} subjects</div>
+            </div>
+            <div ref={marksTableRef} style={{ overflowX: "auto", maxHeight: "70vh" }}>
+              <table style={{ borderCollapse: "collapse", fontSize: 12, width: "100%" }}>
+                <thead>
+                  <tr>
+                    {["Adm#", "Roll#", "Student Name", "Father's Name", ...subjs(selCls), "Total"].map((h, hi) => (
+                      <th
+                        key={h}
+                        style={{
+                          ...thBase,
+                          textAlign: hi < 4 ? "left" : "center",
+                        }}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                  <tr style={{ background: "#e8f5e9" }}>
+                    <th colSpan={4} style={{ padding: "5px 8px", fontWeight: 700, fontSize: 11, color: "#000", position: "sticky", top: 34, zIndex: 2, background: "#e8f5e9", textAlign: "right" }}>
+                      Total Marks →
+                    </th>
+                    {subjs(selCls).map((s) => (
+                      <td key={s} style={{ padding: "3px 3px", position: "sticky", top: 34, zIndex: 2, background: "#e8f5e9", textAlign: "center" }}>
+                        <MarksInput initialValue={gtm(exam, selCls, s)} onSave={(v) => stm(exam, selCls, s, v)} rowIdx={-1} colIdx={-1} totalRows={0} totalCols={0} inputStyle={{ border: "1.5px solid #1B5E20", background: "#dcfce7" }} />
+                      </td>
+                    ))}
+                    <td style={{ position: "sticky", top: 34, zIndex: 2, background: "#e8f5e9" }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const students_ = cs(selCls)
+                      .slice()
+                      .sort((a, b) => {
+                        const r = String(a.rollNo || "").localeCompare(String(b.rollNo || ""), undefined, { numeric: true, sensitivity: "base" });
+                        return r !== 0 ? r : String(a.admissionNo || "").localeCompare(String(b.admissionNo || ""), undefined, { numeric: true, sensitivity: "base" });
+                      });
+                    const subjects_ = subjs(selCls);
+                    const totalRows = students_.length;
+                    const totalCols = subjects_.length;
+                    return students_.map((s, i) => {
+                      const { obt, tot } = calc(exam, selCls, s.id);
+                      return (
+                        <tr key={s.id} style={{ background: i % 2 === 0 ? "#f8fafc" : "#fff" }}>
+                          <td style={{ padding: "5px 8px", fontVariantNumeric: "tabular-nums" }}>{s.admissionNo}</td>
+                          <td style={{ padding: "5px 8px", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{s.rollNo}</td>
+                          <td style={{ padding: "5px 8px", fontWeight: 600 }}>{s.name}</td>
+                          <td style={{ padding: "5px 8px", color: "#64748b" }}>{s.fatherName}</td>
+                          {subjects_.map((subj, sIdx) => (
+                            <td key={subj} style={{ padding: "3px 3px", textAlign: "center" }}>
+                              <MarksInput initialValue={gom(exam, selCls, s.id, subj)} onSave={(v) => som(exam, selCls, s.id, subj, v)} rowIdx={i} colIdx={sIdx} totalRows={totalRows} totalCols={totalCols} />
+                            </td>
+                          ))}
+                          <td style={{ padding: "5px 8px", textAlign: "center", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                            {obt}/{tot || "—"}
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === "consolidated" && (
+        <div>
+          <div style={toolbar}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
+              <Sel label="Exam" value={exam} onChange={setExam} options={exams} width={ctrlW} />
+              <Sel label="Class" value={selCls} onChange={setSelCls} options={settings.classes.map((c) => ({ value: c.id, label: formatClassDisplay(c) }))} width={ctrlW} />
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <Btn
+                small
+                outline
+                onClick={() => {
+                  const { headers, rows } = getTableDataFromElement(consolidatedTableRef.current);
+                  if (!headers.length && !rows.length) {
+                    alert("No data to export.");
+                    return;
+                  }
+                  const clsName = getClassLabel(settings, selCls);
+                  const safeCls = sanitizeMarksSheetName(clsName || "Class");
+                  void exportConsolidatedSheetToPdf(settings, currentSession, exam, clsName, headers, rows, `Consolidated_${String(exam || "").replace(/\s/g, "_")}_${safeCls}.pdf`).catch(() => alert("PDF export failed."));
+                }}
+              >
+                📄 PDF
+              </Btn>
+            </div>
+          </div>
+          <div style={{ ...panel, overflow: "hidden" }}>
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid #e2e8f0", background: "#f1f8f3" }}>
+              <div style={{ fontWeight: 700, color: "#1B5E20", fontSize: 15 }}>
+                Consolidated Sheet — {exam} · {getClassLabel(settings, selCls)}
+              </div>
+            </div>
+            <div ref={consolidatedTableRef} style={{ overflowX: "auto", maxHeight: "70vh" }}>
+              <table style={{ borderCollapse: "collapse", fontSize: 12, width: "100%" }}>
+                <thead>
+                  <tr>
+                    {["Photo", "Adm#", "Roll#", "Student Name", "Father's Name", ...subjs(selCls), "Total", "%", "Status", "Grade", "Position"].map((h, hi) => (
+                      <th key={h} style={{ ...thBase, textAlign: hi < 5 ? (hi === 0 ? "center" : "left") : "center" }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                  <tr style={{ background: "#e8f5e9" }}>
+                    <th colSpan={5} style={{ padding: "5px 8px", fontWeight: 700, fontSize: 11, textAlign: "right", color: "#000", position: "sticky", top: 34, zIndex: 2, background: "#e8f5e9" }}>
+                      Total Marks →
+                    </th>
+                    {subjs(selCls).map((s) => (
+                      <td key={s} style={{ padding: "5px 8px", textAlign: "center", fontWeight: 700, color: "#000", position: "sticky", top: 34, zIndex: 2, background: "#e8f5e9", fontVariantNumeric: "tabular-nums" }}>
+                        {gtm(exam, selCls, s) || "—"}
+                      </td>
+                    ))}
+                    <th colSpan={5} style={{ position: "sticky", top: 34, zIndex: 2, background: "#e8f5e9" }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const sorted = cs(selCls)
+                      .map((s) => ({ s, ...calc(exam, selCls, s.id) }))
+                      .sort((a, b) => b.obt - a.obt);
+                    let pos = 0;
+                    return sorted.map((row, i) => {
+                      if (i === 0 || row.obt !== sorted[i - 1].obt) pos++;
+                      const { s, obt, tot, pct } = row;
+                      const pctNum = parseFloat(pct);
+                      const passFail = Number.isNaN(pctNum) ? "—" : pctNum >= passThreshold ? "Pass" : "Fail";
+                      const passFailColor = Number.isNaN(pctNum) ? C.gray : pctNum >= passThreshold ? C.green : C.red;
+                      return (
+                        <tr key={s.id} style={{ background: i % 2 === 0 ? "#f8fafc" : "#fff" }}>
+                          <td style={{ padding: 4, verticalAlign: "middle", textAlign: "center" }}>
+                            <div style={{ width: 36, height: 44, border: "1px solid #d1d5db", borderRadius: 4, display: "inline-flex", alignItems: "center", justifyContent: "center", overflow: "hidden", background: "#f3f4f6" }}>
+                              {s.photo ? <img src={s.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 9, color: C.gray }}>Photo</span>}
+                            </div>
+                          </td>
+                          <td style={{ padding: "5px 8px", fontVariantNumeric: "tabular-nums" }}>{s.admissionNo}</td>
+                          <td style={{ padding: "5px 8px", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{s.rollNo}</td>
+                          <td style={{ padding: "5px 8px", fontWeight: 600 }}>{s.name}</td>
+                          <td style={{ padding: "5px 8px", color: "#64748b" }}>{s.fatherName}</td>
+                          {subjs(selCls).map((subj) => (
+                            <td key={subj} style={{ padding: "5px 8px", textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
+                              {gom(exam, selCls, s.id, subj) || "—"}
+                            </td>
+                          ))}
+                          <td style={{ padding: "5px 8px", fontWeight: 700, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
+                            {obt}/{tot || "—"}
+                          </td>
+                          <td style={{ padding: "5px 8px", textAlign: "center", fontVariantNumeric: "tabular-nums" }}>{pct}%</td>
+                          <td style={{ padding: "5px 8px", textAlign: "center", fontWeight: 700, color: passFailColor }}>{passFail}</td>
+                          <td style={{ padding: "5px 8px", textAlign: "center", fontWeight: 700, color: parseFloat(pct) >= passThreshold ? C.green : C.red }}>{grade(pct)}</td>
+                          <td style={{ padding: "5px 8px", textAlign: "center", fontWeight: 700 }}>
+                            <div>{pos}</div>
+                            {passFail === "Pass" && (
+                              <div style={{ marginTop: 4, display: "grid", gap: 4, justifyItems: "center" }}>
+                                {(() => {
+                                  const options = getNextPromotionClassOptions(selCls);
+                                  const selected = promotionTargetByStudent[s.id] || "";
+                                  if (options.length > 1) {
+                                    return (
+                                      <select
+                                        value={selected}
+                                        onChange={(e) => setPromotionTargetByStudent((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                                        style={{ padding: "2px 4px", fontSize: 11, border: "1px solid #cbd5e1", borderRadius: 4, background: "#fff", minWidth: 120 }}
+                                      >
+                                        <option value="">Select section</option>
+                                        {options.map((c) => (
+                                          <option key={c.id} value={c.id}>
+                                            {formatClassDisplay(c)}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                                <button
+                                  type="button"
+                                  onClick={() => promoteStudentToNextClass(s)}
+                                  style={{ padding: "2px 7px", fontSize: 11, border: "1px solid #86efac", borderRadius: 4, background: "#f0fdf4", color: "#166534", cursor: "pointer", fontWeight: 700 }}
+                                >
+                                  Promote
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === "card" && (
+        <div>
+          <div className="no-print" style={toolbar}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
+              <Sel label="Class" value={rcCls} onChange={setRcCls} options={settings.classes.map((c) => ({ value: c.id, label: formatClassDisplay(c) }))} width={ctrlW} />
+              <Sel label="Exam" value={rcExam} onChange={setRcExam} options={[{ value: "overall", label: "Overall (All Terms)" }, ...exams.map((e) => ({ value: e, label: e }))]} width={ctrlW} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: C.gray, textTransform: "uppercase", letterSpacing: 0.4 }}>Pass %</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <input
-                    type="date"
-                    value={row.date}
-                    onChange={e=>setDsDates(rs=>rs.map(r=>r.id===row.id?{...r,date:e.target.value}:r))}
-                    style={{width:"100%",padding:"2px 3px",border:"1px solid #d1d5db",borderRadius:4,fontSize:10,boxSizing:"border-box",textAlign:"center"}}
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={settings.passPercent ?? 50}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      if (!isNaN(v) && v >= 0 && v <= 100 && setSettings) setSettings((s) => ({ ...s, passPercent: v }));
+                    }}
+                    style={{ padding: "6px 10px", border: "1.5px solid #d1d5db", borderRadius: 5, fontSize: 13, background: "#fff", width: ctrlW, boxSizing: "border-box" }}
                   />
-                </td>
-                <td style={{padding:"6px 8px",border:"1px solid #000",fontWeight:700,minWidth:70,width:70,height:32,textAlign:"center"}}>{dayName}</td>
-                {dsCols.map(col=>{
-                  const cid=col.classId;
-                  const key=`${row.id}_${col.id}`;
-                  const current=dsSubs[key]||"";
-                  const allSubs=cid?getClassSubjects(settings,cid,"exam"):[];
-                  const usedSubs=dsDates
-                    .map(r=>dsSubs[`${r.id}_${col.id}`])
-                    .filter(s=>s && s!==current);
-                  const options=allSubs.filter(s=>!usedSubs.includes(s));
-                  return <td key={key} style={{padding:"6px 8px",border:"1px solid #000",minWidth:70,width:70,height:32,textAlign:"center"}}>
-                    <select
-                      value={current}
-                      onChange={e=>{
-                        const v=e.target.value;
-                        setDsSubs(prev=>({...prev,[key]:v}));
-                      }}
-                      disabled={!cid}
-                      style={{width:"100%",padding:"2px 3px",border:"1px solid #d1d5db",borderRadius:4,fontSize:10,background:cid?"#fff":"#f3f4f6",opacity:cid?1:0.7,textAlign:"center"}}
-                    >
-                      <option value="">---</option>
-                      {options.map(s=><option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </td>;
-                })}
-              </tr>;
-            })}
-          </tbody>
-        </table>
-      </div>
-      <div style={{marginTop:12}}>
-        <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Note / Instructions</label>
-        <textarea
-          value={dsNote}
-          onChange={e=>setDsNote(e.target.value)}
-          rows={3}
-          style={{width:"100%",padding:"6px 8px",border:"1.5px solid #d1d5db",borderRadius:6,fontSize:12,resize:"vertical",boxSizing:"border-box"}}
-          placeholder="Write important instructions for students (e.g. reporting time, allowed materials, etc.)"
-        />
-      </div>
-    </div>}
-  </div>;
+                  <span style={{ fontSize: 13, color: C.gray, fontWeight: 600 }}>%</span>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const list = cs(rcCls);
+                    const rolls = list
+                      .map((s) => parseInt(s.rollNo, 10))
+                      .filter((n) => !isNaN(n))
+                      .sort((a, b) => a - b);
+                    if (!rolls.length) {
+                      setRcRoll("");
+                      return;
+                    }
+                    const min = rolls[0];
+                    const max = rolls[rolls.length - 1];
+                    const cur = parseInt(rcRoll || "", 10);
+                    if (isNaN(cur)) {
+                      setRcRoll(String(max));
+                      return;
+                    }
+                    const next = Math.max(min, cur - 1);
+                    setRcRoll(String(next));
+                  }}
+                  style={{ border: "1px solid #d1d5db", background: "#fff", borderRadius: 4, padding: "6px 8px", cursor: "pointer", fontSize: 13 }}
+                >
+                  ←
+                </button>
+                <Inp label="Roll No" value={rcRoll} onChange={setRcRoll} placeholder="Enter Roll No" width={ctrlW} />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const list = cs(rcCls);
+                    const rolls = list
+                      .map((s) => parseInt(s.rollNo, 10))
+                      .filter((n) => !isNaN(n))
+                      .sort((a, b) => a - b);
+                    if (!rolls.length) {
+                      setRcRoll("");
+                      return;
+                    }
+                    const min = rolls[0];
+                    const max = rolls[rolls.length - 1];
+                    const cur = parseInt(rcRoll || "", 10);
+                    if (isNaN(cur)) {
+                      setRcRoll(String(min));
+                      return;
+                    }
+                    const next = Math.min(max, cur + 1);
+                    setRcRoll(String(next));
+                  }}
+                  style={{ border: "1px solid #d1d5db", background: "#fff", borderRadius: 4, padding: "6px 8px", cursor: "pointer", fontSize: 13 }}
+                >
+                  →
+                </button>
+              </div>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <Btn small outline disabled={singlePdfBusy || classPdfBusy || !String(rcRoll || "").trim()} onClick={() => void exportSingleResultCardPdf()}>
+                {singlePdfBusy ? "⏳ PDF…" : "📄 PDF"}
+              </Btn>
+              <Btn small disabled={classPdfBusy || singlePdfBusy} onClick={requestClassPdfExport}>
+                {classPdfBusy ? "⏳ Class PDF…" : "📄 Class PDF"}
+              </Btn>
+            </div>
+          </div>
+          {rcRoll &&
+            (() => {
+              const st = cs(rcCls).find((s) => s.rollNo === rcRoll);
+              if (!st) return <div style={{ color: C.red, padding: 16 }}>Student not found for Roll No: {rcRoll}</div>;
+              return <div className="result-card-print-area">{renderResultCard(st, rcCls, rcExam, resultCardRef)}</div>;
+            })()}
+          {classPdfExportList?.length ? (
+            <div ref={classResultPdfContainerRef} aria-hidden className="class-result-cards-pdf-source" style={{ position: "fixed", left: -99999, top: 0, width: 720, pointerEvents: "none" }}>
+              {classPdfExportList.map((st) => renderResultCard(st, rcCls, rcExam))}
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {tab === "datesheet" && (
+        <div>
+          <div className="no-print" style={toolbar}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
+              <Sel label="Exam" value={exam} onChange={setExam} options={exams} width={ctrlW} />
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <Btn onClick={() => setDsDates((rows) => [...rows, { id: genId(), date: new Date().toISOString().split("T")[0] }])}>+ Add Date</Btn>
+              <Btn outline danger disabled={dsDates.length <= 1} onClick={() => setDsDates((rows) => (rows.length > 1 ? rows.slice(0, -1) : rows))}>
+                Remove Date
+              </Btn>
+              <Btn outline onClick={() => setDsCols((cols) => [...cols, { id: genId(), classId: "" }])}>
+                + Add Class Column
+              </Btn>
+              <Btn outline danger disabled={dsCols.length <= 1} onClick={() => setDsCols((cols) => (cols.length > 1 ? cols.slice(0, -1) : cols))}>
+                Remove Class Column
+              </Btn>
+            </div>
+          </div>
+          <div style={{ ...panel, overflow: "hidden" }}>
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid #e2e8f0", background: "#f1f8f3" }}>
+              <div style={{ fontWeight: 700, color: "#1B5E20", fontSize: 15 }}>Date Sheet — {exam}</div>
+            </div>
+            <div ref={datesheetTableRef} style={{ overflowX: "auto", maxHeight: "70vh", background: "#fff", padding: 12 }}>
+              <table className="datesheet-table" style={{ borderCollapse: "collapse", fontSize: 12, minWidth: 0, margin: "0 auto", width: "100%" }}>
+                <thead>
+                  <tr style={{ background: "#1B5E20", color: "#fff", textAlign: "center" }}>
+                    <th style={{ padding: "8px 6px", border: "1px solid #14532d", minWidth: 90, textAlign: "center", position: "sticky", top: 0, zIndex: 3, background: "#1B5E20" }}>Date</th>
+                    <th style={{ padding: "8px 6px", border: "1px solid #14532d", minWidth: 90, textAlign: "center", position: "sticky", top: 0, zIndex: 3, background: "#1B5E20" }}>Day</th>
+                    {dsCols.map((col) => {
+                      const usedIds = dsCols.filter((c) => c.id !== col.id).map((c) => c.classId).filter(Boolean);
+                      return (
+                        <th key={col.id} style={{ padding: "8px 6px", border: "1px solid #14532d", minWidth: 110, textAlign: "center", position: "sticky", top: 0, zIndex: 3, background: "#1B5E20" }}>
+                          <select
+                            value={col.classId}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setDsCols((cols) => cols.map((c) => (c.id === col.id ? { ...c, classId: v } : c)));
+                            }}
+                            style={{ width: "100%", padding: "4px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 11, textAlign: "center" }}
+                          >
+                            <option value="">— Select class —</option>
+                            {settings.classes
+                              .filter((cls) => !usedIds.includes(cls.id) || cls.id === col.classId)
+                              .map((cls) => (
+                                <option key={cls.id} value={cls.id}>
+                                  {formatClassDisplay(cls)}
+                                </option>
+                              ))}
+                          </select>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {dsDates.map((row, ri) => {
+                    const dObj = row.date ? new Date(row.date) : null;
+                    const dayName = dObj && !isNaN(dObj) ? dObj.toLocaleDateString("en-PK", { weekday: "long" }) : "";
+                    return (
+                      <tr key={row.id} style={{ background: ri % 2 === 0 ? "#f8fafc" : "#fff" }}>
+                        <td style={{ padding: "6px 8px", border: "1px solid #e2e8f0", textAlign: "center" }}>
+                          <input
+                            type="date"
+                            value={row.date}
+                            onChange={(e) => setDsDates((rs) => rs.map((r) => (r.id === row.id ? { ...r, date: e.target.value } : r)))}
+                            style={{ width: "100%", padding: "4px 3px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 11, boxSizing: "border-box", textAlign: "center" }}
+                          />
+                        </td>
+                        <td style={{ padding: "6px 8px", border: "1px solid #e2e8f0", fontWeight: 700, textAlign: "center" }}>{dayName}</td>
+                        {dsCols.map((col) => {
+                          const cid = col.classId;
+                          const key = `${row.id}_${col.id}`;
+                          const current = dsSubs[key] || "";
+                          const allSubs = cid ? getClassSubjects(settings, cid, "exam") : [];
+                          const usedSubs = dsDates.map((r) => dsSubs[`${r.id}_${col.id}`]).filter((s) => s && s !== current);
+                          const options = allSubs.filter((s) => !usedSubs.includes(s));
+                          return (
+                            <td key={key} style={{ padding: "6px 8px", border: "1px solid #e2e8f0", textAlign: "center" }}>
+                              <select
+                                value={current}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setDsSubs((prev) => ({ ...prev, [key]: v }));
+                                }}
+                                disabled={!cid}
+                                style={{ width: "100%", padding: "4px 3px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 11, background: cid ? "#fff" : "#f3f4f6", opacity: cid ? 1 : 0.7, textAlign: "center" }}
+                              >
+                                <option value="">---</option>
+                                {options.map((s) => (
+                                  <option key={s} value={s}>
+                                    {s}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ padding: 16, borderTop: "1px solid #e2e8f0" }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: C.gray, display: "block", marginBottom: 4 }}>Note / Instructions</label>
+              <textarea
+                value={dsNote}
+                onChange={(e) => setDsNote(e.target.value)}
+                rows={3}
+                style={{ width: "100%", padding: "8px 10px", border: "1.5px solid #d1d5db", borderRadius: 6, fontSize: 12, resize: "vertical", boxSizing: "border-box" }}
+                placeholder="Write important instructions for students (e.g. reporting time, allowed materials, etc.)"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 
