@@ -1,6 +1,7 @@
 import { startTransition, useEffect, useMemo, useState } from "react";
 import { fetchPtbbBooks } from "./bookBankService.js";
 import "./BookBankPage.css";
+import { Input } from "@/components/ui/input";
 
 function normalize(text) {
   return (text || "").toLowerCase().trim();
@@ -125,10 +126,10 @@ export function BookBankPage({ setBarSubtitle }) {
           <label className="sr-only" htmlFor="book-search">
             Search books in selected class
           </label>
-          <input
+          <Input
             id="book-search"
             type="search"
-            className="social-hero__input"
+            className="social-hero__input h-10"
             placeholder="Search selected class books..."
             value={query}
             onChange={(e) => {

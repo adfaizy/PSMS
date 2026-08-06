@@ -3,6 +3,7 @@ import * as XLSX from "./xlsxClient.js";
 import "./LibraryPage.css";
 import { findStudentByRollInClass, resolveClass, formatClassDisplay, loadLibraryFromLocal, saveLibraryToLocal } from "./modules";
 import { yieldToMain } from "./yieldToMain.js";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const LIBRARY_EXCEL_HEADERS = ["Title", "Author", "Publisher", "ISBN", "Number of copies", "Cover URL", "Book ID"];
 const LIBRARY_CLASSES = ["Nursery", "KG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
@@ -550,26 +551,12 @@ export function LibraryPage({ setBarSubtitle, activeSchoolId, classes: classesPr
 
         <div className="library-actions">
           <div className="library-actions__main">
-            <div className="library-tabs" role="tablist" aria-label="Library sections">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeTab === "books"}
-                className={activeTab === "books" ? "library-tab library-tab--active" : "library-tab"}
-                onClick={() => setActiveTab("books")}
-              >
-                Books
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeTab === "borrowings"}
-                className={activeTab === "borrowings" ? "library-tab library-tab--active" : "library-tab"}
-                onClick={() => setActiveTab("borrowings")}
-              >
-                Borrowings
-              </button>
-            </div>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="library-tabs" aria-label="Library sections">
+              <TabsList>
+                <TabsTrigger value="books">Books</TabsTrigger>
+                <TabsTrigger value="borrowings">Borrowings</TabsTrigger>
+              </TabsList>
+            </Tabs>
 
             {activeTab === "books" ? (
               <div className="library-excel-actions" aria-label="Excel import and export">

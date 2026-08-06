@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { MessageCircle, Phone, Mail, MessageSquareText, Send, X } from "lucide-react";
 import { UI } from "./uiTokens.js";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const PHONE_E164 = "923089640258";
 const PHONE_DISPLAY = "+92 308 9640258";
@@ -485,27 +486,11 @@ function DiscussionPanel() {
 export function AboutUsPage() {
   return (
     <div style={{ fontFamily: UI.fontApp, color: UI.textMain, maxWidth: 640 }}>
-      <div
-        style={{
-          background: UI.surface,
-          border: `1px solid ${UI.borderSubtle}`,
-          borderRadius: UI.radiusCard,
-          padding: 22,
-          boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
-        }}
-      >
-        <h2
-          style={{
-            margin: "0 0 14px",
-            fontFamily: UI.fontHeading,
-            fontSize: 20,
-            fontWeight: 700,
-            color: UI.navy,
-            lineHeight: 1.3,
-          }}
-        >
-          About Us {'&'} Support
-        </h2>
+      <Card className="border-border/70 shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xl text-primary">About Us & Support</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-2">
         <div
           style={{
             margin: "0 0 22px",
@@ -661,7 +646,8 @@ export function AboutUsPage() {
         </div>
 
         <DiscussionPanel />
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
