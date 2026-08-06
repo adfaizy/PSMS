@@ -9,14 +9,25 @@ import QRCode from "qrcode";
 import { X, Plus, Edit2, Trash2, Upload, Download, Menu, Settings, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import * as feeCore from "@/modules/fee/feeCore";
 import { feeService, systemSettingsService, dashboardService } from "@/services";
-import { UI } from "@/uiTokens.js";
 import signImg from "@/assets/sign.png";
 import { yieldToMain } from "@/yieldToMain.js";
-import { C, schoolOrBrandLogo, APP_BRAND_LOGO, genId } from "@/shared/theme";
-import { Btn, Sel, Inp, SchoolHeader } from "@/components/AppControls";
+import { schoolOrBrandLogo, genId } from "@/shared/theme";
 import { StaffProfilesPage } from "@/modules/staffProfiles/StaffProfilesPage";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { loadAuthUsers, saveAuthUsers } from "@/modules/auth/authCore";
+import { hashPassword } from "@/cloudSync.js";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 import * as H from "@/shared/helpers";
+
+const selectClassName = "flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm";
 
 const {
   formatGradeLabel, formatClassDisplay, resolveClass, getClassLabel, normKey,
@@ -46,68 +57,107 @@ const jsPDF =
 export function ClassSubjCard({cls,examSubjects,timetableSubjects,onAddExam,onRemoveExam,onAddTimetable,onRemoveTimetable,onRemoveClass}){
   const [examNs,setExamNs]=useState("");
   const [ttNs,setTtNs]=useState("");
-  return <div style={{background:"#f9fafb",border:"1px solid #9ca3af",borderRadius:8,padding:12}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-      <span style={{fontWeight:700,color:C.navy,fontSize:13}}>{formatClassDisplay(cls)}</span>
-      <Btn small danger onClick={onRemoveClass}>×</Btn>
-    </div>
-    <div style={{marginBottom:10}}>
-      <div style={{fontSize:11,fontWeight:700,color:C.gray,marginBottom:6}}>Subjects for Examination</div>
-      <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>
-        {examSubjects.map(s=><span key={`exam_${s}`} style={{background:"#dbeafe",color:"#1e40af",borderRadius:20,padding:"2px 8px",fontSize:11,display:"flex",alignItems:"center",gap:3}}>
-          {s}<button onClick={()=>onRemoveExam(s)} style={{background:"none",border:"none",cursor:"pointer",color:"#1e40af",padding:0,fontWeight:700}}>×</button>
-        </span>)}
-      </div>
-      <div style={{display:"flex",gap:6}}>
-        <input value={examNs} onChange={e=>setExamNs(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){onAddExam(examNs);setExamNs("");}}} placeholder="Add exam subject..."
-          style={{flex:1,padding:"4px 8px",border:"1px solid #d1d5db",borderRadius:4,fontSize:12}}/>
-        <Btn small onClick={()=>{onAddExam(examNs);setExamNs("");}}>+</Btn>
-      </div>
-    </div>
-    <div>
-      <div style={{fontSize:11,fontWeight:700,color:C.gray,marginBottom:6}}>Subjects for Timetable</div>
-      <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>
-        {timetableSubjects.map(s=><span key={`tt_${s}`} style={{background:"#dcfce7",color:"#166534",borderRadius:20,padding:"2px 8px",fontSize:11,display:"flex",alignItems:"center",gap:3}}>
-          {s}<button onClick={()=>onRemoveTimetable(s)} style={{background:"none",border:"none",cursor:"pointer",color:"#166534",padding:0,fontWeight:700}}>×</button>
-        </span>)}
-      </div>
-      <div style={{display:"flex",gap:6}}>
-        <input value={ttNs} onChange={e=>setTtNs(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){onAddTimetable(ttNs);setTtNs("");}}} placeholder="Add timetable subject..."
-          style={{flex:1,padding:"4px 8px",border:"1px solid #d1d5db",borderRadius:4,fontSize:12}}/>
-        <Btn small onClick={()=>{onAddTimetable(ttNs);setTtNs("");}}>+</Btn>
-      </div>
-    </div>
-  </div>;
+  return (
+    <Card className="h-full border-border/70 shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+        <CardTitle className="text-sm font-bold text-primary">{formatClassDisplay(cls)}</CardTitle>
+        <Button type="button" variant="destructive" size="sm" className="h-7 w-7 p-0" onClick={onRemoveClass}>×</Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <p className="mb-2 text-xs font-semibold text-muted-foreground">Subjects for Examination</p>
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {examSubjects.map(s=>(
+              <Badge key={`exam_${s}`} variant="secondary" className="gap-1 bg-blue-100 text-blue-800 hover:bg-blue-100">
+                {s}
+                <button type="button" onClick={()=>onRemoveExam(s)} className="ml-0.5 font-bold leading-none">×</button>
+              </Badge>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Input
+              value={examNs}
+              onChange={e=>setExamNs(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter"){onAddExam(examNs);setExamNs("");}}}
+              placeholder="Add exam subject..."
+              className="h-8 flex-1 text-xs"
+            />
+            <Button type="button" size="sm" className="h-8 px-3" onClick={()=>{onAddExam(examNs);setExamNs("");}}>+</Button>
+          </div>
+        </div>
+        <Separator />
+        <div>
+          <p className="mb-2 text-xs font-semibold text-muted-foreground">Subjects for Timetable</p>
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {timetableSubjects.map(s=>(
+              <Badge key={`tt_${s}`} className="gap-1 bg-green-100 text-green-800 hover:bg-green-100">
+                {s}
+                <button type="button" onClick={()=>onRemoveTimetable(s)} className="ml-0.5 font-bold leading-none">×</button>
+              </Badge>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Input
+              value={ttNs}
+              onChange={e=>setTtNs(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter"){onAddTimetable(ttNs);setTtNs("");}}}
+              placeholder="Add timetable subject..."
+              className="h-8 flex-1 text-xs"
+            />
+            <Button type="button" size="sm" className="h-8 px-3" onClick={()=>{onAddTimetable(ttNs);setTtNs("");}}>+</Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export function CommonTeachersEditor({settings,setSettings}){
   // Only consider classes that have a section (i.e. multiple sections per grade)
-  const grades=[...new Set(settings.classes.filter(c=>c.section).map(c=>c.grade))];
+  const classes=Array.isArray(settings?.classes)?settings.classes:[];
+  const grades=[...new Set(classes.filter(c=>c.section).map(c=>c.grade))];
   const getC=(g,s)=>settings.commonTeachers?.[g]?.[s]||false;
   const setC=(g,s,t)=>setSettings(prev=>({...prev,commonTeachers:{...prev.commonTeachers,[g]:{...(prev.commonTeachers?.[g]||{}),[s]:t}}}));
-  return <div>
-    <p style={{fontSize:13,color:C.gray,marginTop:0}}>Assign a common teacher for a subject shared across all sections of the same grade. Auto-fills other sections when you assign in the timetable.</p>
-    {grades.map(grade=>{
-      const gClasses=settings.classes.filter(c=>c.grade===grade && c.section);
-      if(gClasses.length<1) return null;
-      // All subjects from classes that have a section (no duplicate filtering by sections now)
-      const allSubjs=[...new Set(
-        gClasses.flatMap(cls=>getClassSubjects(settings,cls.id,"timetable").map(s=>(s||"").trim()).filter(Boolean))
-      )];
-      return <div key={grade} style={{background:"#f9fafb",border:"1px solid #9ca3af",borderRadius:8,padding:14,marginBottom:12}}>
-        <h4 style={{margin:"0 0 10px",color:C.navy}}>Grade {grade} — Sections: {gClasses.map(c=>c.name).join(", ")}</h4>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8}}>
-          {allSubjs.map(subj=>{
-            const isCommon=!!getC(grade,subj);
-            return <div key={subj} style={{display:"flex",flexDirection:"row",alignItems:"center",gap:6}}>
-              <input type="checkbox" checked={isCommon} onChange={e=>setC(grade,subj,e.target.checked)} />
-              <span style={{fontSize:12,fontWeight:700,color:C.gray}}>{subj}</span>
-            </div>;
-          })}
-        </div>
-      </div>;
-    })}
-  </div>;
+  return (
+    <Card className="border-border/70 shadow-sm">
+      <CardHeader>
+        <CardTitle className="text-base text-primary">Common Teachers</CardTitle>
+        <CardDescription>
+          Assign a common teacher for a subject shared across all sections of the same grade. Auto-fills other sections when you assign in the timetable.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {grades.map(grade=>{
+          const gClasses=classes.filter(c=>c.grade===grade && c.section);
+          if(gClasses.length<1) return null;
+          // All subjects from classes that have a section (no duplicate filtering by sections now)
+          const allSubjs=[...new Set(
+            gClasses.flatMap(cls=>getClassSubjects(settings,cls.id,"timetable").map(s=>(s||"").trim()).filter(Boolean))
+          )];
+          return (
+            <Card key={grade} className="border-border/60 bg-muted/30 shadow-none">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm text-primary">Grade {grade} — Sections: {gClasses.map(c=>c.name).join(", ")}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {allSubjs.map(subj=>{
+                    const isCommon=!!getC(grade,subj);
+                    return (
+                      <label key={subj} className="flex cursor-pointer items-center gap-2 text-sm font-medium text-muted-foreground">
+                        <Checkbox checked={isCommon} onCheckedChange={(v)=>setC(grade,subj,!!v)} />
+                        {subj}
+                      </label>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
 }
 
 export function SettingsPage({settings,setSettings,setSchools,students,setStudents,schools,activeSchoolId,timetable,exam_tm,exam_om,setExamMarks,currentSession,sessions,setCurrentSession,addSession,staffProfiles,setBarSubtitle,session}){
@@ -116,6 +166,7 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
   const teachingStaffCount=staffList.filter(isTeachingStaffMember).length;
   const nonTeachingStaffCount=Math.max(0,staffList.length-teachingStaffCount);
   const [tab,setTab]=useState("general");
+  const [schoolSection,setSchoolSection]=useState("basic");
   const [newCls,setNewCls]=useState({grade:"",section:""});
   const fileRef=useRef();
   const bannerUploadRef=useRef();
@@ -1239,8 +1290,13 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
     const t=tabs.find(x=>x.id===tab);
     setBarSubtitle(t?.label||"");
   },[tab,setBarSubtitle]);
-  return <div>
-    <div style={{display:"flex",gap:6,marginBottom:18,flexWrap:"wrap"}}>
+  return (
+  <div className="mx-auto max-w-[1100px] space-y-5">
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 className="m-0 text-2xl font-bold tracking-tight text-primary">Settings</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{tabs.find(t=>t.id===tab)?.label}</p>
+      </div>
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="h-auto flex-wrap">
           {tabs.map((t) => (
@@ -1252,708 +1308,698 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
     <input ref={settingsExcelRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={importFromExcel}/>
     <input ref={studentImportRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={importStudentsFromExcel}/>
 
-    {tab==="general"&&<div style={{maxWidth:520}}>
-      <div style={{marginBottom:18}}>
-        <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:6}}>Session</label>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-          <select value={currentSession||""} onChange={e=>setCurrentSession(e.target.value)} style={{padding:"8px 12px",border:"1.5px solid #d1d5db",borderRadius:6,fontSize:13,background:"#fff",minWidth:140}}>
-            {(sessions||[]).map(ses=><option key={ses} value={ses}>{ses}</option>)}
-          </select>
-          <span style={{fontSize:12,color:C.gray}}>or add:</span>
-          <input ref={sessionInputRef} type="text" placeholder="e.g. 2025-2026" style={{padding:"6px 10px",border:"1.5px solid #d1d5db",borderRadius:5,fontSize:13,width:110}} onKeyDown={e=>{if(e.key==="Enter"){const v=e.target.value.trim();if(v&&addSession){addSession(v);e.target.value="";}}}} />
-          <button type="button" onClick={()=>{const v=sessionInputRef.current?.value?.trim();if(v&&addSession){addSession(v);if(sessionInputRef.current)sessionInputRef.current.value="";}}} style={{padding:"6px 12px",borderRadius:5,border:"1px solid "+C.navy,background:C.navy,color:"#fff",fontSize:12,cursor:"pointer"}}>Add session</button>
-        </div>
-        <p style={{margin:"6px 0 0",fontSize:11,color:C.gray}}>Exam marks and date sheet are saved per session. Switch session to view or edit that year&apos;s data.</p>
-      </div>
-      <div style={{marginBottom:18,padding:14,borderRadius:10,background:"#f9fafb",border:"1px solid #e5e7eb"}}>
-        <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:6}}>Data Workbook</label>
-        <p style={{margin:"0 0 10px",fontSize:11,color:C.gray}}>
-          <strong>Export Data</strong> backs up all data (classes, teachers with subjects, class teachers, students). <strong>Import Data</strong> restores from previously exported file. <strong>Template</strong> downloads a blank Excel with Class and Teacher sheets for quick data entry. Teacher subjects are used for auto-generate timetable.
-        </p>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          <Btn small outline onClick={()=>settingsExcelRef.current?.click()}>Import Data</Btn>
-          <Btn small outline onClick={() => void exportData()}>Export Data</Btn>
-          <Btn small outline onClick={async()=>{
-            const wb=XLSX.utils.book_new();
-            const classesSheet=XLSX.utils.aoa_to_sheet([["ID","Name","Grade","Section","Exam Subjects","Timetable Subjects","Class Teacher"],["1","Class 1-A","1","A","Math, Urdu","Math, Urdu",""],["2","Class 2-A","2","A","English, Math","English, Math",""]]);
-            XLSX.utils.book_append_sheet(wb,classesSheet,"Class");
-            const staffSheet=XLSX.utils.aoa_to_sheet([["Name","Designation","Subject"],["Ali Khan","Teaching","Mathematics, Physics"],["Sara","Teaching","English, Urdu"]]);
-            XLSX.utils.book_append_sheet(wb,staffSheet,"Teacher");
-            await downloadExcel(wb,"Class_Teacher_Template.xlsx");
-          }}>Template</Btn>
-        </div>
-        <div style={{marginTop:10,padding:"8px 12px",background:"#e8f0fe",borderRadius:7,fontSize:12,color:"#1f3b73",display:"flex",gap:16,flexWrap:"wrap"}}>
-          <span>📊 <strong>Students in system:</strong> {(students||[]).length}</span>
-          <span>🏫 <strong>Classes defined:</strong> {(settings.classes||[]).length}</span>
-          <span>👩‍🏫 <strong>Teaching staff:</strong> {teachingStaffCount}</span>
-          <span>🧑‍💼 <strong>Non-teaching staff:</strong> {nonTeachingStaffCount}</span>
-        </div>
-      </div>
-    </div>}
-
-    {tab==="teachers"&&isPrincipal&&<div style={{maxWidth:560}}>
-      {/* Create Operator account */}
-      <div style={{background:"#fff",borderRadius:12,padding:20,marginBottom:20,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",border:"1px solid #dbeafe"}}>
-        <h3 style={{margin:"0 0 4px",fontSize:15,color:"#1e293b"}}>Create Operator Account</h3>
-        <p style={{margin:"0 0 14px",fontSize:13,color:C.gray}}>Operator can <strong>edit and delete marks, students, and staff</strong> but cannot create new schools or manage accounts.</p>
-        <div style={{display:"flex",flexDirection:"column",gap:10,maxWidth:380}}>
-          <div><label style={{display:"block",marginBottom:3,fontSize:12,fontWeight:600,color:"#374151"}}>Full Name</label>
-            <input type="text" value={opName} onChange={e=>setOpName(e.target.value)} placeholder="e.g. School Operator" style={{width:"100%",padding:"9px 11px",border:"1px solid #d1d5db",borderRadius:7,fontSize:13,boxSizing:"border-box"}}/></div>
-          <div><label style={{display:"block",marginBottom:3,fontSize:12,fontWeight:600,color:"#374151"}}>Login Email</label>
-            <input type="email" value={opEmail} onChange={e=>setOpEmail(e.target.value)} placeholder="operator@school.edu" style={{width:"100%",padding:"9px 11px",border:"1px solid #d1d5db",borderRadius:7,fontSize:13,boxSizing:"border-box"}}/></div>
-          <div><label style={{display:"block",marginBottom:3,fontSize:12,fontWeight:600,color:"#374151"}}>Password</label>
-            <input type="password" value={opPassword} onChange={e=>setOpPassword(e.target.value)} placeholder="Min 4 characters" style={{width:"100%",padding:"9px 11px",border:"1px solid #d1d5db",borderRadius:7,fontSize:13,boxSizing:"border-box"}}/></div>
-          {opError&&<div style={{padding:"8px 10px",background:"#fef2f2",color:"#b91c1c",borderRadius:6,fontSize:12}}>{opError}</div>}
-          {opSuccess&&<div style={{padding:"8px 10px",background:"#f0fdf4",color:"#166534",borderRadius:6,fontSize:12}}>{opSuccess}</div>}
-          <button type="button" onClick={async()=>{
-            setOpError("");setOpSuccess("");
-            if(!opName.trim()){setOpError("Enter full name.");return;}
-            if(!opEmail.trim()){setOpError("Enter email.");return;}
-            if(!opPassword.trim()||opPassword.length<4){setOpError("Password must be at least 4 characters.");return;}
-            const list=loadAuthUsers();
-            const em=opEmail.trim().toLowerCase();
-            if(list.some(u=>String(u.email||"").toLowerCase()===em)){setOpError("A user with this email already exists.");return;}
-            const pwHash=await hashPassword(opPassword.trim());
-            saveAuthUsers([...list,{id:genId(),email:em,password:pwHash,schoolId:activeSchoolId,name:opName.trim(),userType:"school"}]);
-            setOpName("");setOpEmail("");setOpPassword("");
-            setOpSuccess("Operator account created. They can now sign in.");
-            refreshOp();
-          }} style={{padding:"9px 16px",borderRadius:7,border:"none",background:"#1e40af",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer",alignSelf:"flex-start"}}>Create Operator Account</button>
-        </div>
-      </div>
-      {/* Operators list */}
-      {opList.length>0&&<div style={{background:"#fff",borderRadius:12,padding:20,marginBottom:20,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",border:"1px solid #dbeafe"}}>
-        <h3 style={{margin:"0 0 12px",fontSize:15,color:"#1e293b"}}>Operators ({opList.length})</h3>
-        <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {opList.map(op=>(
-            <div key={op.id} style={{padding:"10px 14px",background:op.blocked?"#fef2f2":"#eff6ff",borderRadius:8,border:"1px solid #bfdbfe",display:"flex",flexWrap:"wrap",alignItems:"center",gap:8}}>
-              <div style={{flex:"1 1 180px",minWidth:0}}>
-                <div style={{fontWeight:600,fontSize:13,color:"#1e293b",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{op.name||"—"} <span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#dbeafe",color:"#1e40af",fontWeight:700}}>Operator</span></div>
-                <div style={{fontSize:11,color:C.gray,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{op.email}</div>
-                {op.blocked&&<span style={{fontSize:10,fontWeight:600,color:"#b91c1c"}}>BLOCKED</span>}
+    {tab==="general"&&(
+      <div className="space-y-4">
+        <Card className="border-border/70 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-primary">Session</CardTitle>
+            <CardDescription>Exam marks and date sheet are saved per session. Switch session to view or edit that year&apos;s data.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1.5">
+                <Label>Current session</Label>
+                <select value={currentSession||""} onChange={e=>setCurrentSession(e.target.value)} className={cn(selectClassName,"w-[180px]")}>
+                  {(sessions||[]).map(ses=><option key={ses} value={ses}>{ses}</option>)}
+                </select>
               </div>
-              <div style={{display:"flex",gap:6,flexShrink:0}}>
-                <button type="button" onClick={()=>{const n=loadAuthUsers().map(u=>u.id===op.id?{...u,blocked:!op.blocked}:u);saveAuthUsers(n);refreshOp();}}
-                  style={{padding:"5px 10px",borderRadius:6,border:"1px solid #d1d5db",background:op.blocked?"#d1fae5":"#fef2f2",color:op.blocked?"#065f46":"#b91c1c",fontSize:11,fontWeight:600,cursor:"pointer"}}>
-                  {op.blocked?"Unblock":"Block"}
-                </button>
-                {opEditId===op.id?(
-                  <div style={{display:"flex",gap:5,alignItems:"center"}}>
-                    <input type="password" value={opEditPw} onChange={e=>setOpEditPw(e.target.value)} placeholder="New password" style={{padding:"4px 8px",border:"1px solid #d1d5db",borderRadius:5,fontSize:12,width:120}}/>
-                    {opEditPwErr&&<span style={{fontSize:10,color:"#b91c1c"}}>{opEditPwErr}</span>}
-                    <button type="button" onClick={async()=>{
-                      if(!opEditPw.trim()||opEditPw.length<4){setOpEditPwErr("Min 4 chars");return;}
-                      const h=await hashPassword(opEditPw.trim());
-                      saveAuthUsers(loadAuthUsers().map(u=>u.id===op.id?{...u,password:h}:u));
-                      setOpEditId(null);setOpEditPw("");setOpEditPwErr("");refreshOp();
-                    }} style={{padding:"4px 8px",borderRadius:5,border:"none",background:"#1e40af",color:"#fff",fontSize:11,cursor:"pointer"}}>Save</button>
-                    <button type="button" onClick={()=>{setOpEditId(null);setOpEditPw("");setOpEditPwErr("");}} style={{padding:"4px 8px",borderRadius:5,border:"1px solid #d1d5db",background:"#fff",fontSize:11,cursor:"pointer"}}>Cancel</button>
+              <div className="space-y-1.5">
+                <Label>Add session</Label>
+                <Input ref={sessionInputRef} type="text" placeholder="e.g. 2025-2026" className="w-[140px]" onKeyDown={e=>{if(e.key==="Enter"){const v=e.target.value.trim();if(v&&addSession){addSession(v);e.target.value="";}}}} />
+              </div>
+              <Button type="button" onClick={()=>{const v=sessionInputRef.current?.value?.trim();if(v&&addSession){addSession(v);if(sessionInputRef.current)sessionInputRef.current.value="";}}}>Add</Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-primary">Data Workbook</CardTitle>
+            <CardDescription>
+              <strong>Export Data</strong> backs up all data (classes, teachers with subjects, class teachers, students). <strong>Import Data</strong> restores from previously exported file. <strong>Template</strong> downloads a blank Excel with Class and Teacher sheets for quick data entry. Teacher subjects are used for auto-generate timetable.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={()=>settingsExcelRef.current?.click()}>Import Data</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => void exportData()}>Export Data</Button>
+              <Button type="button" variant="outline" size="sm" onClick={async()=>{
+                const wb=XLSX.utils.book_new();
+                const classesSheet=XLSX.utils.aoa_to_sheet([["ID","Name","Grade","Section","Exam Subjects","Timetable Subjects","Class Teacher"],["1","Class 1-A","1","A","Math, Urdu","Math, Urdu",""],["2","Class 2-A","2","A","English, Math","English, Math",""]]);
+                XLSX.utils.book_append_sheet(wb,classesSheet,"Class");
+                const staffSheet=XLSX.utils.aoa_to_sheet([["Name","Designation","Subject"],["Ali Khan","Teaching","Mathematics, Physics"],["Sara","Teaching","English, Urdu"]]);
+                XLSX.utils.book_append_sheet(wb,staffSheet,"Teacher");
+                await downloadExcel(wb,"Class_Teacher_Template.xlsx");
+              }}>Template</Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Card className="border-border/70 shadow-sm">
+            <CardContent className="pt-4">
+              <p className="text-xs text-muted-foreground">Students</p>
+              <p className="text-2xl font-bold text-primary">{(students||[]).length}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-border/70 shadow-sm">
+            <CardContent className="pt-4">
+              <p className="text-xs text-muted-foreground">Classes</p>
+              <p className="text-2xl font-bold text-primary">{(settings.classes||[]).length}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-border/70 shadow-sm">
+            <CardContent className="pt-4">
+              <p className="text-xs text-muted-foreground">Teaching staff</p>
+              <p className="text-2xl font-bold text-primary">{teachingStaffCount}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-border/70 shadow-sm">
+            <CardContent className="pt-4">
+              <p className="text-xs text-muted-foreground">Non-teaching staff</p>
+              <p className="text-2xl font-bold text-primary">{nonTeachingStaffCount}</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )}
+
+    {tab==="teachers"&&isPrincipal&&(
+      <div className="space-y-4">
+        <Card className="border-border/70 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-primary">Create Operator Account</CardTitle>
+            <CardDescription>Operator can <strong>edit and delete marks, students, and staff</strong> but cannot create new schools or manage accounts.</CardDescription>
+          </CardHeader>
+          <CardContent className="max-w-md space-y-3">
+            <div className="space-y-1.5">
+              <Label>Full Name</Label>
+              <Input type="text" value={opName} onChange={e=>setOpName(e.target.value)} placeholder="e.g. School Operator"/>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Login Email</Label>
+              <Input type="email" value={opEmail} onChange={e=>setOpEmail(e.target.value)} placeholder="operator@school.edu"/>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Password</Label>
+              <Input type="password" value={opPassword} onChange={e=>setOpPassword(e.target.value)} placeholder="Min 4 characters"/>
+            </div>
+            {opError&&<div className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">{opError}</div>}
+            {opSuccess&&<div className="rounded-md bg-green-50 px-3 py-2 text-xs text-green-800">{opSuccess}</div>}
+            <Button type="button" onClick={async()=>{
+              setOpError("");setOpSuccess("");
+              if(!opName.trim()){setOpError("Enter full name.");return;}
+              if(!opEmail.trim()){setOpError("Enter email.");return;}
+              if(!opPassword.trim()||opPassword.length<4){setOpError("Password must be at least 4 characters.");return;}
+              const list=loadAuthUsers();
+              const em=opEmail.trim().toLowerCase();
+              if(list.some(u=>String(u.email||"").toLowerCase()===em)){setOpError("A user with this email already exists.");return;}
+              const pwHash=await hashPassword(opPassword.trim());
+              saveAuthUsers([...list,{id:genId(),email:em,password:pwHash,schoolId:activeSchoolId,name:opName.trim(),userType:"school"}]);
+              setOpName("");setOpEmail("");setOpPassword("");
+              setOpSuccess("Operator account created. They can now sign in.");
+              refreshOp();
+            }}>Create Operator Account</Button>
+          </CardContent>
+        </Card>
+
+        {opList.length>0&&(
+          <Card className="border-border/70 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base text-primary">Operators ({opList.length})</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {opList.map(op=>(
+                <div key={op.id} className={cn("flex flex-wrap items-center gap-2 rounded-lg border p-3", op.blocked ? "border-destructive/30 bg-destructive/5" : "border-border/70 bg-muted/20")}>
+                  <div className="min-w-0 flex-1 basis-[180px]">
+                    <div className="flex flex-wrap items-center gap-1.5 truncate text-sm font-semibold">
+                      {op.name||"—"}
+                      <Badge variant="secondary">Operator</Badge>
+                      {op.blocked&&<Badge variant="destructive">Blocked</Badge>}
+                    </div>
+                    <div className="truncate text-xs text-muted-foreground">{op.email}</div>
                   </div>
-                ):(
-                  <button type="button" onClick={()=>{setOpEditId(op.id);setOpEditPw("");setOpEditPwErr("");}}
-                    style={{padding:"5px 10px",borderRadius:6,border:"1px solid #d1d5db",background:"#fff",color:"#374151",fontSize:11,cursor:"pointer"}}>Reset PW</button>
-                )}
-                <button type="button" onClick={()=>{if(!confirm(`Remove operator "${op.name}"?`))return;saveAuthUsers(loadAuthUsers().filter(u=>u.id!==op.id));refreshOp();}}
-                  style={{padding:"5px 10px",borderRadius:6,border:"none",background:"#fef2f2",color:"#b91c1c",fontSize:11,fontWeight:600,cursor:"pointer"}}>Remove</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>}
-      {/* Create teacher account */}
-      <div style={{background:"#fff",borderRadius:12,padding:20,marginBottom:20,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",border:"1px solid #e2e8f0"}}>
-        <h3 style={{margin:"0 0 4px",fontSize:15,color:"#1e293b"}}>Create Teacher Account</h3>
-        <p style={{margin:"0 0 14px",fontSize:13,color:C.gray}}>Teachers can log in on any device and access Dashboard, Timetable, Attendance, Examination, Paper & Card generators.</p>
-        <div style={{display:"flex",flexDirection:"column",gap:10,maxWidth:380}}>
-          <div>
-            <label style={{display:"block",marginBottom:3,fontSize:12,fontWeight:600,color:"#374151"}}>Select Staff Member</label>
-            {(staffProfiles||[]).length===0
-              ? <p style={{margin:0,fontSize:12,color:C.gray}}>No staff profiles found. Add staff in the <strong>Staff Profiles</strong> tab first.</p>
-              : <select value={tcStaffId} onChange={e=>{
-                  const id=e.target.value;
-                  setTcStaffId(id);
-                  const sp=(staffProfiles||[]).find(p=>p.id===id);
-                  if(sp){setTcName(sp.name||"");setTcEmail(sp.email||"");}
-                  else{setTcName("");setTcEmail("");}
-                }} style={{width:"100%",padding:"9px 11px",border:"1px solid #d1d5db",borderRadius:7,fontSize:13,boxSizing:"border-box",background:"#fff"}}>
-                <option value="">— Select staff member —</option>
-                {(staffProfiles||[]).filter(p=>p.name).map(p=><option key={p.id} value={p.id}>{p.name}{p.designation?` (${p.designation})`:""}</option>)}
-              </select>
-            }
-          </div>
-          <div><label style={{display:"block",marginBottom:3,fontSize:12,fontWeight:600,color:"#374151"}}>Email</label>
-            <input type="email" value={tcEmail} onChange={e=>setTcEmail(e.target.value)} placeholder="teacher@school.edu" style={{width:"100%",padding:"9px 11px",border:"1px solid #d1d5db",borderRadius:7,fontSize:13,boxSizing:"border-box"}}/></div>
-          <div><label style={{display:"block",marginBottom:3,fontSize:12,fontWeight:600,color:"#374151"}}>Password</label>
-            <input type="password" value={tcPassword} onChange={e=>setTcPassword(e.target.value)} placeholder="Min 4 characters" style={{width:"100%",padding:"9px 11px",border:"1px solid #d1d5db",borderRadius:7,fontSize:13,boxSizing:"border-box"}}/></div>
-          {tcError&&<div style={{padding:"8px 10px",background:"#fef2f2",color:"#b91c1c",borderRadius:6,fontSize:12}}>{tcError}</div>}
-          {tcSuccess&&<div style={{padding:"8px 10px",background:"#f0fdf4",color:"#166534",borderRadius:6,fontSize:12}}>{tcSuccess}</div>}
-          <button type="button" onClick={async()=>{
-            setTcError("");setTcSuccess("");
-            if(!tcName.trim()){setTcError("Select a staff member.");return;}
-            if(!tcEmail.trim()){setTcError("Enter email.");return;}
-            if(!tcPassword.trim()||tcPassword.length<4){setTcError("Password must be at least 4 characters.");return;}
-            const list=loadAuthUsers();
-            const em=tcEmail.trim().toLowerCase();
-            if(list.some(u=>String(u.email||"").toLowerCase()===em)){setTcError("A user with this email already exists.");return;}
-            const pwHash=await hashPassword(tcPassword.trim());
-            saveAuthUsers([...list,{id:genId(),email:em,password:pwHash,schoolId:activeSchoolId,name:tcName.trim(),userType:"teacher"}]);
-            setTcStaffId("");setTcName("");setTcEmail("");setTcPassword("");
-            setTcSuccess("Teacher account created. They can now sign in.");
-            refreshTc();
-          }} style={{padding:"9px 16px",borderRadius:7,border:"none",background:"#1e293b",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer",alignSelf:"flex-start"}}>Create Teacher Account</button>
-        </div>
-      </div>
-      {/* Teachers list */}
-      <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",border:"1px solid #e2e8f0"}}>
-        <h3 style={{margin:"0 0 12px",fontSize:15,color:"#1e293b"}}>Teachers ({tcList.length})</h3>
-        {tcList.length===0&&<p style={{margin:0,fontSize:13,color:C.gray}}>No teacher accounts yet. Create one above.</p>}
-        <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {tcList.map(tc=>(
-            <div key={tc.id} style={{padding:"10px 14px",background:tc.blocked?"#fef2f2":"#f8fafc",borderRadius:8,border:"1px solid #e2e8f0",display:"flex",flexWrap:"wrap",alignItems:"center",gap:8}}>
-              <div style={{flex:"1 1 180px",minWidth:0}}>
-                <div style={{fontWeight:600,fontSize:13,color:"#1e293b",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tc.name||"—"}</div>
-                <div style={{fontSize:11,color:C.gray,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tc.email}</div>
-                {tc.blocked&&<span style={{fontSize:10,fontWeight:600,color:"#b91c1c"}}>BLOCKED</span>}
-              </div>
-              <div style={{display:"flex",gap:6,flexShrink:0}}>
-                <button type="button" onClick={()=>{const n=loadAuthUsers().map(u=>u.id===tc.id?{...u,blocked:!u.blocked}:u);saveAuthUsers(n);refreshTc();}}
-                  style={{padding:"5px 10px",borderRadius:6,border:"1px solid #d1d5db",background:tc.blocked?"#d1fae5":"#fef2f2",color:tc.blocked?"#065f46":"#b91c1c",fontSize:11,fontWeight:600,cursor:"pointer"}}>
-                  {tc.blocked?"Unblock":"Block"}
-                </button>
-                {tcEditId===tc.id?(
-                  <div style={{display:"flex",gap:5,alignItems:"center"}}>
-                    <input type="password" value={tcEditPw} onChange={e=>setTcEditPw(e.target.value)} placeholder="New password" style={{padding:"4px 8px",border:"1px solid #d1d5db",borderRadius:5,fontSize:12,width:120}}/>
-                    {tcEditPwErr&&<span style={{fontSize:10,color:"#b91c1c"}}>{tcEditPwErr}</span>}
-                    <button type="button" onClick={async()=>{
-                      if(!tcEditPw.trim()||tcEditPw.length<4){setTcEditPwErr("Min 4 chars");return;}
-                      const h=await hashPassword(tcEditPw.trim());
-                      saveAuthUsers(loadAuthUsers().map(u=>u.id===tc.id?{...u,password:h}:u));
-                      setTcEditId(null);setTcEditPw("");setTcEditPwErr("");refreshTc();
-                    }} style={{padding:"4px 8px",borderRadius:5,border:"none",background:"#1e293b",color:"#fff",fontSize:11,cursor:"pointer"}}>Save</button>
-                    <button type="button" onClick={()=>{setTcEditId(null);setTcEditPw("");setTcEditPwErr("");}} style={{padding:"4px 8px",borderRadius:5,border:"1px solid #d1d5db",background:"#fff",fontSize:11,cursor:"pointer"}}>Cancel</button>
+                  <div className="flex flex-shrink-0 flex-wrap gap-1.5">
+                    <Button type="button" size="sm" variant={op.blocked?"outline":"destructive"} onClick={()=>{const n=loadAuthUsers().map(u=>u.id===op.id?{...u,blocked:!op.blocked}:u);saveAuthUsers(n);refreshOp();}}>
+                      {op.blocked?"Unblock":"Block"}
+                    </Button>
+                    {opEditId===op.id?(
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Input type="password" value={opEditPw} onChange={e=>setOpEditPw(e.target.value)} placeholder="New password" className="h-8 w-[120px]"/>
+                        {opEditPwErr&&<span className="text-[10px] text-destructive">{opEditPwErr}</span>}
+                        <Button type="button" size="sm" onClick={async()=>{
+                          if(!opEditPw.trim()||opEditPw.length<4){setOpEditPwErr("Min 4 chars");return;}
+                          const h=await hashPassword(opEditPw.trim());
+                          saveAuthUsers(loadAuthUsers().map(u=>u.id===op.id?{...u,password:h}:u));
+                          setOpEditId(null);setOpEditPw("");setOpEditPwErr("");refreshOp();
+                        }}>Save</Button>
+                        <Button type="button" size="sm" variant="outline" onClick={()=>{setOpEditId(null);setOpEditPw("");setOpEditPwErr("");}}>Cancel</Button>
+                      </div>
+                    ):(
+                      <Button type="button" size="sm" variant="outline" onClick={()=>{setOpEditId(op.id);setOpEditPw("");setOpEditPwErr("");}}>Reset PW</Button>
+                    )}
+                    <Button type="button" size="sm" variant="destructive" onClick={()=>{if(!confirm(`Remove operator "${op.name}"?`))return;saveAuthUsers(loadAuthUsers().filter(u=>u.id!==op.id));refreshOp();}}>Remove</Button>
                   </div>
-                ):(
-                  <button type="button" onClick={()=>{setTcEditId(tc.id);setTcEditPw("");setTcEditPwErr("");}}
-                    style={{padding:"5px 10px",borderRadius:6,border:"1px solid #d1d5db",background:"#fff",color:"#374151",fontSize:11,cursor:"pointer"}}>Reset PW</button>
-                )}
-                <button type="button" onClick={()=>{if(!confirm(`Remove teacher "${tc.name}"?`))return;saveAuthUsers(loadAuthUsers().filter(u=>u.id!==tc.id));refreshTc();}}
-                  style={{padding:"5px 10px",borderRadius:6,border:"none",background:"#fef2f2",color:"#b91c1c",fontSize:11,fontWeight:600,cursor:"pointer"}}>Remove</button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        <Card className="border-border/70 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-primary">Create Teacher Account</CardTitle>
+            <CardDescription>Teachers can log in on any device and access Dashboard, Timetable, Attendance, Examination, Paper & Card generators.</CardDescription>
+          </CardHeader>
+          <CardContent className="max-w-md space-y-3">
+            <div className="space-y-1.5">
+              <Label>Select Staff Member</Label>
+              {(staffProfiles||[]).length===0
+                ? <p className="m-0 text-xs text-muted-foreground">No staff profiles found. Add staff in the <strong>Staff Profiles</strong> tab first.</p>
+                : <select value={tcStaffId} onChange={e=>{
+                    const id=e.target.value;
+                    setTcStaffId(id);
+                    const sp=(staffProfiles||[]).find(p=>p.id===id);
+                    if(sp){setTcName(sp.name||"");setTcEmail(sp.email||"");}
+                    else{setTcName("");setTcEmail("");}
+                  }} className={selectClassName}>
+                  <option value="">— Select staff member —</option>
+                  {(staffProfiles||[]).filter(p=>p.name).map(p=><option key={p.id} value={p.id}>{p.name}{p.designation?` (${p.designation})`:""}</option>)}
+                </select>
+              }
+            </div>
+            <div className="space-y-1.5">
+              <Label>Email</Label>
+              <Input type="email" value={tcEmail} onChange={e=>setTcEmail(e.target.value)} placeholder="teacher@school.edu"/>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Password</Label>
+              <Input type="password" value={tcPassword} onChange={e=>setTcPassword(e.target.value)} placeholder="Min 4 characters"/>
+            </div>
+            {tcError&&<div className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">{tcError}</div>}
+            {tcSuccess&&<div className="rounded-md bg-green-50 px-3 py-2 text-xs text-green-800">{tcSuccess}</div>}
+            <Button type="button" onClick={async()=>{
+              setTcError("");setTcSuccess("");
+              if(!tcName.trim()){setTcError("Select a staff member.");return;}
+              if(!tcEmail.trim()){setTcError("Enter email.");return;}
+              if(!tcPassword.trim()||tcPassword.length<4){setTcError("Password must be at least 4 characters.");return;}
+              const list=loadAuthUsers();
+              const em=tcEmail.trim().toLowerCase();
+              if(list.some(u=>String(u.email||"").toLowerCase()===em)){setTcError("A user with this email already exists.");return;}
+              const pwHash=await hashPassword(tcPassword.trim());
+              saveAuthUsers([...list,{id:genId(),email:em,password:pwHash,schoolId:activeSchoolId,name:tcName.trim(),userType:"teacher"}]);
+              setTcStaffId("");setTcName("");setTcEmail("");setTcPassword("");
+              setTcSuccess("Teacher account created. They can now sign in.");
+              refreshTc();
+            }}>Create Teacher Account</Button>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-primary">Teachers ({tcList.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {tcList.length===0&&<p className="m-0 text-sm text-muted-foreground">No teacher accounts yet. Create one above.</p>}
+            {tcList.map(tc=>(
+              <div key={tc.id} className={cn("flex flex-wrap items-center gap-2 rounded-lg border p-3", tc.blocked ? "border-destructive/30 bg-destructive/5" : "border-border/70 bg-muted/20")}>
+                <div className="min-w-0 flex-1 basis-[180px]">
+                  <div className="flex flex-wrap items-center gap-1.5 truncate text-sm font-semibold">
+                    {tc.name||"—"}
+                    {tc.blocked&&<Badge variant="destructive">Blocked</Badge>}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">{tc.email}</div>
+                </div>
+                <div className="flex flex-shrink-0 flex-wrap gap-1.5">
+                  <Button type="button" size="sm" variant={tc.blocked?"outline":"destructive"} onClick={()=>{const n=loadAuthUsers().map(u=>u.id===tc.id?{...u,blocked:!u.blocked}:u);saveAuthUsers(n);refreshTc();}}>
+                    {tc.blocked?"Unblock":"Block"}
+                  </Button>
+                  {tcEditId===tc.id?(
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Input type="password" value={tcEditPw} onChange={e=>setTcEditPw(e.target.value)} placeholder="New password" className="h-8 w-[120px]"/>
+                      {tcEditPwErr&&<span className="text-[10px] text-destructive">{tcEditPwErr}</span>}
+                      <Button type="button" size="sm" onClick={async()=>{
+                        if(!tcEditPw.trim()||tcEditPw.length<4){setTcEditPwErr("Min 4 chars");return;}
+                        const h=await hashPassword(tcEditPw.trim());
+                        saveAuthUsers(loadAuthUsers().map(u=>u.id===tc.id?{...u,password:h}:u));
+                        setTcEditId(null);setTcEditPw("");setTcEditPwErr("");refreshTc();
+                      }}>Save</Button>
+                      <Button type="button" size="sm" variant="outline" onClick={()=>{setTcEditId(null);setTcEditPw("");setTcEditPwErr("");}}>Cancel</Button>
+                    </div>
+                  ):(
+                    <Button type="button" size="sm" variant="outline" onClick={()=>{setTcEditId(tc.id);setTcEditPw("");setTcEditPwErr("");}}>Reset PW</Button>
+                  )}
+                  <Button type="button" size="sm" variant="destructive" onClick={()=>{if(!confirm(`Remove teacher "${tc.name}"?`))return;saveAuthUsers(loadAuthUsers().filter(u=>u.id!==tc.id));refreshTc();}}>Remove</Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    )}
+
+
+    {tab==="school"&&(
+      <div className="space-y-4">
+        <Card className="border-border/70 shadow-sm">
+          <CardContent className="flex flex-wrap items-center gap-4 pt-6">
+            <img src={schoolOrBrandLogo(settings.logo)} alt="" className="h-36 w-36 rounded-full border-2 border-border object-cover shadow-md"/>
+            <div className="min-w-0 flex-1 space-y-2">
+              <CardTitle className="text-base text-primary">School Logo / Emblem</CardTitle>
+              <CardDescription>Upload your school&apos;s official logo (PNG, JPG – max 2MB) to replace the default emblem on ID cards and printouts.</CardDescription>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" onClick={()=>fileRef.current.click()}>Upload Logo</Button>
+                {settings.logo&&<Button type="button" size="sm" variant="destructive" onClick={()=>setSettings(s=>({...s,logo:null}))}>Remove</Button>}
+              </div>
+              <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setSettings(s=>({...s,logo:ev.target.result}));r.readAsDataURL(f);}}/>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 shadow-sm">
+          <CardContent className="flex flex-wrap items-center gap-4 pt-6">
+            <div className="flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-muted">
+              {settings.banner ? <img src={settings.banner} alt="" className="h-full w-full object-cover"/> : <span className="px-1 text-center text-[10px] text-muted-foreground">No Banner</span>}
+            </div>
+            <div className="min-w-0 flex-1 space-y-2">
+              <CardTitle className="text-base text-primary">Promotion Banner (Result Card)</CardTitle>
+              <CardDescription>Upload a promotional banner (e.g. Admission Campaign) to display at the bottom of student result cards.</CardDescription>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" onClick={()=>bannerUploadRef.current.click()}>Upload Banner</Button>
+                {settings.banner&&<Button type="button" size="sm" variant="destructive" onClick={()=>setSettings(s=>({...s,banner:null}))}>Remove</Button>}
+              </div>
+              <input ref={bannerUploadRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setSettings(s=>({...s,banner:ev.target.result}));r.readAsDataURL(f);}}/>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 shadow-sm">
+          <CardContent className="flex flex-wrap items-start gap-4 pt-6">
+            <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-muted">
+              <img src={settings.resultCardSignature||signImg} alt="" className="max-h-full max-w-full object-contain"/>
+            </div>
+            <div className="min-w-0 flex-1 space-y-3">
+              <div>
+                <CardTitle className="text-base text-primary">Result card — signature and stamp</CardTitle>
+                <CardDescription className="mt-1">Upload a signature image for the headmaster block on printed result cards. Optional text lines override the stamp; if left blank, Principal name and School name from Administration are used.</CardDescription>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" onClick={()=>resultCardSignatureUploadRef.current.click()}>Upload signature</Button>
+                {settings.resultCardSignature&&<Button type="button" size="sm" variant="destructive" onClick={()=>setSettings(s=>({...s,resultCardSignature:null}))}>Use default sign</Button>}
+              </div>
+              <input ref={resultCardSignatureUploadRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setSettings(s=>({...s,resultCardSignature:ev.target.result}));r.readAsDataURL(f);}}/>
+              <div className="grid max-w-xl gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Stamp line 1 (headmaster / title)</Label>
+                  <Input
+                    value={settings.resultCardStampLine1||""}
+                    onChange={e=>setSettings(s=>({...s,resultCardStampLine1:e.target.value}))}
+                    placeholder={`Optional — defaults to Principal name (${(settings.principalName||"").trim()||"—"})`}
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Stamp line 2 (school line)</Label>
+                  <Input
+                    value={settings.resultCardStampLine2||""}
+                    onChange={e=>setSettings(s=>({...s,resultCardStampLine2:e.target.value}))}
+                    placeholder={`Optional — defaults to school name (${(settings.schoolName||"").trim()||"—"})`}
+                  />
+                </div>
               </div>
             </div>
-          ))}
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-primary">School Details</CardTitle>
+            <CardDescription>Official identity, location, and administration.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs value={schoolSection} onValueChange={setSchoolSection}>
+              <TabsList className="mb-4 h-auto flex-wrap">
+                <TabsTrigger value="basic">Basic Info</TabsTrigger>
+                <TabsTrigger value="location">Location</TabsTrigger>
+                <TabsTrigger value="admin">Administration</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="basic" className="mt-0 space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-primary">Basic School Information</h3>
+                  <p className="mt-1 border-b border-dashed border-border pb-2 text-sm text-muted-foreground">Official identity and core administrative details of the school.</p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>School Name (Official)</Label>
+                    <Input value={settings.schoolName||""} onChange={e=>setSettings(s=>({...s,schoolName:e.target.value}))} placeholder="e.g. PSMS Ladheke-Unchay Rainwind Road, Lahore"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>School Code (EMIS)</Label>
+                    <Input value={settings.schoolCode||""} onChange={e=>setSettings(s=>({...s,schoolCode:e.target.value}))} placeholder="8-digit EMIS code"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>D.D.O Code</Label>
+                    <Input value={settings.ddoCode||""} onChange={e=>setSettings(s=>({...s,ddoCode:e.target.value}))} placeholder="DDO code"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>School Type</Label>
+                    <select value={settings.schoolType||""} onChange={e=>setSettings(s=>({...s,schoolType:e.target.value}))} className={selectClassName}>
+                      <option value="">Select type</option>
+                      <option value="Government">Government</option>
+                      <option value="Semi-Government">Semi-Government</option>
+                      <option value="Private">Private</option>
+                      <option value="Model School">Model School</option>
+                      <option value="Special Education">Special Education</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>School Level</Label>
+                    <select value={settings.schoolLevel||""} onChange={e=>setSettings(s=>({...s,schoolLevel:e.target.value}))} className={selectClassName}>
+                      <option value="">Select level</option>
+                      <option value="Primary (I–V)">Primary (I–V)</option>
+                      <option value="Middle (I–VIII)">Middle (I–VIII)</option>
+                      <option value="High (I–X)">High (I–X)</option>
+                      <option value="Higher Secondary (I–XII)">Higher Secondary (I–XII)</option>
+                      <option value="Elementary">Elementary</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Gender Category</Label>
+                    <select value={settings.genderCategory||""} onChange={e=>setSettings(s=>({...s,genderCategory:e.target.value}))} className={selectClassName}>
+                      <option value="">Select</option>
+                      <option value="Boys">Boys</option>
+                      <option value="Girls">Girls</option>
+                      <option value="Co-Education">Co-Education</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>School Shift</Label>
+                    <select value={settings.schoolShift||""} onChange={e=>setSettings(s=>({...s,schoolShift:e.target.value}))} className={selectClassName}>
+                      <option value="">Select shift</option>
+                      <option value="Morning">Morning</option>
+                      <option value="Evening">Evening</option>
+                      <option value="Both">Both</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>School Phone No</Label>
+                    <Input value={settings.schoolPhoneNo||""} onChange={e=>setSettings(s=>({...s,schoolPhoneNo:e.target.value}))} placeholder="+92-XX-XXXXXXX"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>School Email Address</Label>
+                    <Input value={settings.schoolEmail||""} onChange={e=>setSettings(s=>({...s,schoolEmail:e.target.value}))} placeholder="school@edu.punjab.gov.pk"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Date of Establishment</Label>
+                    <Input type="date" value={settings.estDate||""} onChange={e=>setSettings(s=>({...s,estDate:e.target.value}))}/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>For The Month</Label>
+                    <Input value={settings.forTheMonth||""} onChange={e=>setSettings(s=>({...s,forTheMonth:e.target.value}))} placeholder="e.g. March 2025"/>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="location" className="mt-0 space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-primary">Location & Geographic Details</h3>
+                  <p className="mt-1 border-b border-dashed border-border pb-2 text-sm text-muted-foreground">Administrative and physical location of the school.</p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>Full School Address</Label>
+                    <Textarea value={settings.institutionAddress||""} onChange={e=>setSettings(s=>({...s,institutionAddress:e.target.value}))} placeholder="Street / Mohallah / Village, Tehsil, District, Province" className="min-h-[70px]"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Province</Label>
+                    <select value={settings.province||""} onChange={e=>setSettings(s=>({...s,province:e.target.value}))} className={selectClassName}>
+                      <option value="">Select province</option>
+                      <option value="Punjab">Punjab</option>
+                      <option value="Sindh">Sindh</option>
+                      <option value="KPK">KPK</option>
+                      <option value="Balochistan">Balochistan</option>
+                      <option value="AJK">AJK</option>
+                      <option value="GB">GB</option>
+                      <option value="ICT">ICT</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>District</Label>
+                    <Input value={settings.district||""} onChange={e=>setSettings(s=>({...s,district:e.target.value}))} placeholder="e.g. Lahore"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Tehsil</Label>
+                    <Input value={settings.tehsil||""} onChange={e=>setSettings(s=>({...s,tehsil:e.target.value}))} placeholder="Tehsil name"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Union Council (UC)</Label>
+                    <Input value={settings.uc||""} onChange={e=>setSettings(s=>({...s,uc:e.target.value}))} placeholder="UC number / name"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>N.A Constituency</Label>
+                    <Input value={settings.na||""} onChange={e=>setSettings(s=>({...s,na:e.target.value}))} placeholder="e.g. NA-120"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>P.P Constituency</Label>
+                    <Input value={settings.ppNo||""} onChange={e=>setSettings(s=>({...s,ppNo:e.target.value}))} placeholder="e.g. PP-145"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Ward No.</Label>
+                    <Input value={settings.ward||""} onChange={e=>setSettings(s=>({...s,ward:e.target.value}))} placeholder="Ward number"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Mauza / Village</Label>
+                    <Input value={settings.mauza||""} onChange={e=>setSettings(s=>({...s,mauza:e.target.value}))} placeholder="Mauza or village name"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>GPS Latitude</Label>
+                    <Input value={settings.lat||""} onChange={e=>setSettings(s=>({...s,lat:e.target.value}))} placeholder="e.g. 31.5204"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>GPS Longitude</Label>
+                    <Input value={settings.lng||""} onChange={e=>setSettings(s=>({...s,lng:e.target.value}))} placeholder="e.g. 74.3587"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Rural / Urban</Label>
+                    <select value={settings.ruralUrban||""} onChange={e=>setSettings(s=>({...s,ruralUrban:e.target.value}))} className={selectClassName}>
+                      <option value="">Select</option>
+                      <option value="Urban">Urban</option>
+                      <option value="Rural">Rural</option>
+                      <option value="Peri-Urban">Peri-Urban</option>
+                    </select>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="admin" className="mt-0 space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-primary">Administration & Head of Institution</h3>
+                  <p className="mt-1 border-b border-dashed border-border pb-2 text-sm text-muted-foreground">Principal details and key administrative contacts.</p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Principal / Headmaster Name</Label>
+                    <Input value={settings.principalName||""} onChange={e=>setSettings(s=>({...s,principalName:e.target.value}))} placeholder="Full name"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Designation</Label>
+                    <select value={settings.principalDesignation||""} onChange={e=>setSettings(s=>({...s,principalDesignation:e.target.value}))} className={selectClassName}>
+                      <option value="">Select</option>
+                      <option value="Principal">Principal</option>
+                      <option value="Headmaster">Headmaster</option>
+                      <option value="Headmistress">Headmistress</option>
+                      <option value="In-Charge">In-Charge</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Mobile No.</Label>
+                    <Input value={settings.principalMobile||""} onChange={e=>setSettings(s=>({...s,principalMobile:e.target.value}))} placeholder="03XX-XXXXXXX"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Email Address</Label>
+                    <Input value={settings.principalEmail||""} onChange={e=>setSettings(s=>({...s,principalEmail:e.target.value}))} placeholder="principal@email.com"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Qualification</Label>
+                    <Input value={settings.principalQualification||""} onChange={e=>setSettings(s=>({...s,principalQualification:e.target.value}))} placeholder="e.g. M.Ed, M.A"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Date of Joining</Label>
+                    <Input type="date" value={settings.principalJoinDate||""} onChange={e=>setSettings(s=>({...s,principalJoinDate:e.target.value}))}/>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+            <div className="mt-4">
+              <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-100">Changes saved automatically</Badge>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )}
+
+    {tab==="classes"&&(
+      <div className="space-y-4">
+        <Card className="border-border/70 shadow-sm">
+          <CardContent className="flex flex-wrap items-end gap-3 pt-6">
+            <div className="w-[100px] space-y-1.5">
+              <Label>Grade</Label>
+              <Input value={newCls.grade} onChange={e=>setNewCls(x=>({...x,grade:e.target.value}))} className="w-[100px]"/>
+            </div>
+            <div className="w-[100px] space-y-1.5">
+              <Label>Section</Label>
+              <Input value={newCls.section} onChange={e=>setNewCls(x=>({...x,section:e.target.value}))} className="w-[100px]"/>
+            </div>
+            <Button type="button" onClick={addClass}>+ Add Class</Button>
+          </CardContent>
+        </Card>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {(settings.classes || []).map(cls=><ClassSubjCard
+            key={cls.id}
+            cls={cls}
+            examSubjects={getClassSubjects(settings,cls.id,"exam")}
+            timetableSubjects={getClassSubjects(settings,cls.id,"timetable")}
+            onAddExam={s=>addSubj(cls.id,s,"exam")}
+            onRemoveExam={s=>rmSubj(cls.id,s,"exam")}
+            onAddTimetable={s=>addSubj(cls.id,s,"timetable")}
+            onRemoveTimetable={s=>rmSubj(cls.id,s,"timetable")}
+            onRemoveClass={()=>removeClass(cls.id)}
+          />)}
         </div>
       </div>
-    </div>}
+    )}
 
-
-    {tab==="school"&&<div style={{maxWidth:900}}>
-      {/* Logo row */}
-      <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:18}}>
-        <img src={schoolOrBrandLogo(settings.logo)} alt="" style={{width:144,height:144,borderRadius:"50%",objectFit:"cover",border:"3px solid #e5e7eb",boxShadow:"0 4px 16px rgba(15,23,42,0.2)"}}/>
-        <div>
-          <div style={{fontWeight:700,fontSize:14,marginBottom:4,color:C.navy}}>School Logo / Emblem</div>
-          <div style={{fontSize:11,color:C.gray,marginBottom:6}}>Upload your school&apos;s official logo (PNG, JPG – max 2MB) to replace the default emblem on ID cards and printouts.</div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            <Btn small onClick={()=>fileRef.current.click()}>Upload Logo</Btn>
-            {settings.logo&&<Btn small danger onClick={()=>setSettings(s=>({...s,logo:null}))}>Remove</Btn>}
-          </div>
-          <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setSettings(s=>({...s,logo:ev.target.result}));r.readAsDataURL(f);}}/>
-        </div>
+    {tab==="staffProfiles"&&(
+      <div className="rounded-xl border border-border/70 bg-card p-2 shadow-sm">
+        <StaffProfilesPage settings={settings} schools={schools||[]} staffProfiles={staffProfiles||[]} setSchools={setSchools} activeSchoolId={activeSchoolId} currentSession={currentSession}/>
       </div>
-
-      <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:18}}>
-        <div style={{width:72,height:72,borderRadius:8,background:"#f3f4f6",display:"flex",alignItems:"center",justifyContent:"center",border:"1.5px dashed #d1d5db",overflow:"hidden"}}>
-          {settings.banner ? <img src={settings.banner} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : <span style={{fontSize:10,color:C.gray,textAlign:"center"}}>No Banner</span>}
-        </div>
-        <div>
-          <div style={{fontWeight:700,fontSize:14,marginBottom:4,color:C.navy}}>Promotion Banner (Result Card)</div>
-          <div style={{fontSize:11,color:C.gray,marginBottom:6}}>Upload a promotional banner (e.g. Admission Campaign) to display at the bottom of student result cards.</div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            <Btn small onClick={()=>bannerUploadRef.current.click()}>Upload Banner</Btn>
-            {settings.banner&&<Btn small danger onClick={()=>setSettings(s=>({...s,banner:null}))}>Remove</Btn>}
-          </div>
-          <input ref={bannerUploadRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setSettings(s=>({...s,banner:ev.target.result}));r.readAsDataURL(f);}}/>
-        </div>
-      </div>
-
-      <div style={{display:"flex",alignItems:"flex-start",gap:16,marginBottom:18}}>
-        <div style={{width:72,height:72,borderRadius:8,background:"#f3f4f6",display:"flex",alignItems:"center",justifyContent:"center",border:"1.5px dashed #d1d5db",overflow:"hidden",flexShrink:0}}>
-          <img src={settings.resultCardSignature||signImg} alt="" style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain"}}/>
-        </div>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{fontWeight:700,fontSize:14,marginBottom:4,color:C.navy}}>Result card — signature and stamp</div>
-          <div style={{fontSize:11,color:C.gray,marginBottom:8}}>Upload a signature image for the headmaster block on printed result cards. Optional text lines override the stamp; if left blank, Principal name and School name from Administration are used.</div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
-            <Btn small onClick={()=>resultCardSignatureUploadRef.current.click()}>Upload signature</Btn>
-            {settings.resultCardSignature&&<Btn small danger onClick={()=>setSettings(s=>({...s,resultCardSignature:null}))}>Use default sign</Btn>}
-          </div>
-          <input ref={resultCardSignatureUploadRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setSettings(s=>({...s,resultCardSignature:ev.target.result}));r.readAsDataURL(f);}}/>
-          <div style={{marginBottom:8}}>
-            <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Stamp line 1 (headmaster / title)</label>
-            <input
-              value={settings.resultCardStampLine1||""}
-              onChange={e=>setSettings(s=>({...s,resultCardStampLine1:e.target.value}))}
-              placeholder={`Optional — defaults to Principal name (${(settings.principalName||"").trim()||"—"})`}
-              style={{width:"100%",maxWidth:480,padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f9fafb",boxSizing:"border-box"}}
-            />
-          </div>
-          <div>
-            <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Stamp line 2 (school line)</label>
-            <input
-              value={settings.resultCardStampLine2||""}
-              onChange={e=>setSettings(s=>({...s,resultCardStampLine2:e.target.value}))}
-              placeholder={`Optional — defaults to school name (${(settings.schoolName||"").trim()||"—"})`}
-              style={{width:"100%",maxWidth:480,padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f9fafb",boxSizing:"border-box"}}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div style={{background:"#fff",borderRadius:14,boxShadow:"0 18px 55px rgba(15,23,42,0.18)",overflow:"hidden"}}>
-        <div style={{display:"flex",borderBottom:"1px solid #e5e7eb",overflowX:"auto"}}>
-          {[
-            "Basic Info",
-            "Location",
-            "Administration",
-          ].map(label=>(
-            <div key={label} style={{flex:"1 1 0",minWidth:120,padding:"10px 12px",textAlign:"center",fontSize:11,fontWeight:700,color:"#4b5563",borderBottom:"3px solid transparent"}}>
-              {label}
-            </div>
-          ))}
-        </div>
-
-        <div style={{padding:"22px 24px"}}>
-          {/* Basic Info */}
-          <div style={{marginBottom:26}}>
-            <div style={{fontFamily:UI.fontHeading,fontSize:18,color:C.navy,marginBottom:4}}>Basic School Information</div>
-            <div style={{fontSize:12,color:C.gray,marginBottom:16,borderBottom:"1px dashed #e5e7eb",paddingBottom:10}}>
-              Official identity and core administrative details of the school.
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16,marginBottom:4}}>
-              <div style={{gridColumn:"1 / span 2"}}>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>School Name (Official)</label>
-                <input
-                  value={settings.schoolName||""}
-                  onChange={e=>setSettings(s=>({...s,schoolName:e.target.value}))}
-                  placeholder="e.g. PSMS Ladheke-Unchay Rainwind Road, Lahore"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>School Code (EMIS)</label>
-                <input
-                  value={settings.schoolCode||""}
-                  onChange={e=>setSettings(s=>({...s,schoolCode:e.target.value}))}
-                  placeholder="8-digit EMIS code"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>D.D.O Code</label>
-                <input
-                  value={settings.ddoCode||""}
-                  onChange={e=>setSettings(s=>({...s,ddoCode:e.target.value}))}
-                  placeholder="DDO code"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>School Type</label>
-                <select
-                  value={settings.schoolType||""}
-                  onChange={e=>setSettings(s=>({...s,schoolType:e.target.value}))}
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f9fafb",boxSizing:"border-box"}}
-                >
-                  <option value="">Select type</option>
-                  <option value="Government">Government</option>
-                  <option value="Semi-Government">Semi-Government</option>
-                  <option value="Private">Private</option>
-                  <option value="Model School">Model School</option>
-                  <option value="Special Education">Special Education</option>
-                </select>
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>School Level</label>
-                <select
-                  value={settings.schoolLevel||""}
-                  onChange={e=>setSettings(s=>({...s,schoolLevel:e.target.value}))}
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f9fafb",boxSizing:"border-box"}}
-                >
-                  <option value="">Select level</option>
-                  <option value="Primary (I–V)">Primary (I–V)</option>
-                  <option value="Middle (I–VIII)">Middle (I–VIII)</option>
-                  <option value="High (I–X)">High (I–X)</option>
-                  <option value="Higher Secondary (I–XII)">Higher Secondary (I–XII)</option>
-                  <option value="Elementary">Elementary</option>
-                </select>
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Gender Category</label>
-                <select
-                  value={settings.genderCategory||""}
-                  onChange={e=>setSettings(s=>({...s,genderCategory:e.target.value}))}
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f9fafb",boxSizing:"border-box"}}
-                >
-                  <option value="">Select</option>
-                  <option value="Boys">Boys</option>
-                  <option value="Girls">Girls</option>
-                  <option value="Co-Education">Co-Education</option>
-                </select>
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>School Shift</label>
-                <select
-                  value={settings.schoolShift||""}
-                  onChange={e=>setSettings(s=>({...s,schoolShift:e.target.value}))}
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f9fafb",boxSizing:"border-box"}}
-                >
-                  <option value="">Select shift</option>
-                  <option value="Morning">Morning</option>
-                  <option value="Evening">Evening</option>
-                  <option value="Both">Both</option>
-                </select>
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>School Phone No</label>
-                <input
-                  value={settings.schoolPhoneNo||""}
-                  onChange={e=>setSettings(s=>({...s,schoolPhoneNo:e.target.value}))}
-                  placeholder="+92-XX-XXXXXXX"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>School Email Address</label>
-                <input
-                  value={settings.schoolEmail||""}
-                  onChange={e=>setSettings(s=>({...s,schoolEmail:e.target.value}))}
-                  placeholder="school@edu.punjab.gov.pk"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Date of Establishment</label>
-                <input
-                  type="date"
-                  value={settings.estDate||""}
-                  onChange={e=>setSettings(s=>({...s,estDate:e.target.value}))}
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>For The Month</label>
-                <input
-                  value={settings.forTheMonth||""}
-                  onChange={e=>setSettings(s=>({...s,forTheMonth:e.target.value}))}
-                  placeholder="e.g. March 2025"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Location */}
-          <div style={{marginBottom:26}}>
-            <div style={{fontFamily:UI.fontHeading,fontSize:18,color:C.navy,marginBottom:4}}>Location & Geographic Details</div>
-            <div style={{fontSize:12,color:C.gray,marginBottom:16,borderBottom:"1px dashed #e5e7eb",paddingBottom:10}}>
-              Administrative and physical location of the school.
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16}}>
-              <div style={{gridColumn:"1 / span 2"}}>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Full School Address</label>
-                <textarea
-                  value={settings.institutionAddress||""}
-                  onChange={e=>setSettings(s=>({...s,institutionAddress:e.target.value}))}
-                  placeholder="Street / Mohallah / Village, Tehsil, District, Province"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",minHeight:70,resize:"vertical",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Province</label>
-                <select
-                  value={settings.province||""}
-                  onChange={e=>setSettings(s=>({...s,province:e.target.value}))}
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f9fafb",boxSizing:"border-box"}}
-                >
-                  <option value="">Select province</option>
-                  <option value="Punjab">Punjab</option>
-                  <option value="Sindh">Sindh</option>
-                  <option value="KPK">KPK</option>
-                  <option value="Balochistan">Balochistan</option>
-                  <option value="AJK">AJK</option>
-                  <option value="GB">GB</option>
-                  <option value="ICT">ICT</option>
-                </select>
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>District</label>
-                <input
-                  value={settings.district||""}
-                  onChange={e=>setSettings(s=>({...s,district:e.target.value}))}
-                  placeholder="e.g. Lahore"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Tehsil</label>
-                <input
-                  value={settings.tehsil||""}
-                  onChange={e=>setSettings(s=>({...s,tehsil:e.target.value}))}
-                  placeholder="Tehsil name"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Union Council (UC)</label>
-                <input
-                  value={settings.uc||""}
-                  onChange={e=>setSettings(s=>({...s,uc:e.target.value}))}
-                  placeholder="UC number / name"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>N.A Constituency</label>
-                <input
-                  value={settings.na||""}
-                  onChange={e=>setSettings(s=>({...s,na:e.target.value}))}
-                  placeholder="e.g. NA-120"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>P.P Constituency</label>
-                <input
-                  value={settings.ppNo||""}
-                  onChange={e=>setSettings(s=>({...s,ppNo:e.target.value}))}
-                  placeholder="e.g. PP-145"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Ward No.</label>
-                <input
-                  value={settings.ward||""}
-                  onChange={e=>setSettings(s=>({...s,ward:e.target.value}))}
-                  placeholder="Ward number"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Mauza / Village</label>
-                <input
-                  value={settings.mauza||""}
-                  onChange={e=>setSettings(s=>({...s,mauza:e.target.value}))}
-                  placeholder="Mauza or village name"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>GPS Latitude</label>
-                <input
-                  value={settings.lat||""}
-                  onChange={e=>setSettings(s=>({...s,lat:e.target.value}))}
-                  placeholder="e.g. 31.5204"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>GPS Longitude</label>
-                <input
-                  value={settings.lng||""}
-                  onChange={e=>setSettings(s=>({...s,lng:e.target.value}))}
-                  placeholder="e.g. 74.3587"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Rural / Urban</label>
-                <select
-                  value={settings.ruralUrban||""}
-                  onChange={e=>setSettings(s=>({...s,ruralUrban:e.target.value}))}
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f9fafb",boxSizing:"border-box"}}
-                >
-                  <option value="">Select</option>
-                  <option value="Urban">Urban</option>
-                  <option value="Rural">Rural</option>
-                  <option value="Peri-Urban">Peri-Urban</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Administration */}
-          <div>
-            <div style={{fontFamily:UI.fontHeading,fontSize:18,color:C.navy,marginBottom:4}}>Administration & Head of Institution</div>
-            <div style={{fontSize:12,color:C.gray,marginBottom:16,borderBottom:"1px dashed #e5e7eb",paddingBottom:10}}>
-              Principal details and key administrative contacts.
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Principal / Headmaster Name</label>
-                <input
-                  value={settings.principalName||""}
-                  onChange={e=>setSettings(s=>({...s,principalName:e.target.value}))}
-                  placeholder="Full name"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Designation</label>
-                <select
-                  value={settings.principalDesignation||""}
-                  onChange={e=>setSettings(s=>({...s,principalDesignation:e.target.value}))}
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f9fafb",boxSizing:"border-box"}}
-                >
-                  <option value="">Select</option>
-                  <option value="Principal">Principal</option>
-                  <option value="Headmaster">Headmaster</option>
-                  <option value="Headmistress">Headmistress</option>
-                  <option value="In-Charge">In-Charge</option>
-                </select>
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Mobile No.</label>
-                <input
-                  value={settings.principalMobile||""}
-                  onChange={e=>setSettings(s=>({...s,principalMobile:e.target.value}))}
-                  placeholder="03XX-XXXXXXX"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Email Address</label>
-                <input
-                  value={settings.principalEmail||""}
-                  onChange={e=>setSettings(s=>({...s,principalEmail:e.target.value}))}
-                  placeholder="principal@email.com"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Qualification</label>
-                <input
-                  value={settings.principalQualification||""}
-                  onChange={e=>setSettings(s=>({...s,principalQualification:e.target.value}))}
-                  placeholder="e.g. M.Ed, M.A"
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Date of Joining</label>
-                <input
-                  type="date"
-                  value={settings.principalJoinDate||""}
-                  onChange={e=>setSettings(s=>({...s,principalJoinDate:e.target.value}))}
-                  style={{width:"100%",padding:"8px 11px",border:"1.5px solid #cbd5e1",borderRadius:8,fontSize:13,background:"#f1f5f9",boxSizing:"border-box"}}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div style={{marginTop:20,padding:"10px 12px",background:"#d1fae5",borderRadius:8,fontSize:12,color:"#065f46"}}>
-            ✅ Changes saved automatically
-          </div>
-        </div>
-      </div>
-    </div>}
-
-    {tab==="classes"&&<div>
-      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"flex-end"}}>
-        <Inp label="Grade" value={newCls.grade} onChange={v=>setNewCls(x=>({...x,grade:v}))} width={80}/>
-        <Inp label="Section" value={newCls.section} onChange={v=>setNewCls(x=>({...x,section:v}))} width={80}/>
-        <Btn onClick={addClass}>+ Add Class</Btn>
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
-        {settings.classes.map(cls=><ClassSubjCard
-          key={cls.id}
-          cls={cls}
-          examSubjects={getClassSubjects(settings,cls.id,"exam")}
-          timetableSubjects={getClassSubjects(settings,cls.id,"timetable")}
-          onAddExam={s=>addSubj(cls.id,s,"exam")}
-          onRemoveExam={s=>rmSubj(cls.id,s,"exam")}
-          onAddTimetable={s=>addSubj(cls.id,s,"timetable")}
-          onRemoveTimetable={s=>rmSubj(cls.id,s,"timetable")}
-          onRemoveClass={()=>removeClass(cls.id)}
-        />)}
-      </div>
-    </div>}
-
-    {tab==="staffProfiles"&&<StaffProfilesPage settings={settings} schools={schools||[]} staffProfiles={staffProfiles||[]} setSchools={setSchools} activeSchoolId={activeSchoolId} currentSession={currentSession}/>}
+    )}
 
     {tab==="common"&&<CommonTeachersEditor settings={settings} setSettings={setSettings}/>}
 
-    {tab==="time"&&<div style={{maxWidth:620}}>
-      <div style={{background:"#f9fafb",borderRadius:8,padding:14,marginBottom:14}}>
-        <h4 style={{margin:"0 0 10px",color:C.navy}}>School Hours</h4>
-        {[{key:"mondayToThursday",label:"Monday – Thursday"},{key:"friday",label:"Friday"},{key:"saturday",label:"Saturday"}].map(({key,label})=>(
-          <div key={key} style={{display:"grid",gridTemplateColumns:"160px 1fr 1fr",gap:8,marginBottom:8,alignItems:"flex-end"}}>
-            <span style={{fontSize:13,fontWeight:600}}>{label}</span>
-            <Inp label="Start" type="time" value={settings.schoolHours[key].start} onChange={v=>setSettings(s=>({...s,schoolHours:{...s.schoolHours,[key]:{...s.schoolHours[key],start:v}}}))}/>
-            <Inp label="End" type="time" value={settings.schoolHours[key].end} onChange={v=>setSettings(s=>({...s,schoolHours:{...s.schoolHours,[key]:{...s.schoolHours[key],end:v}}}))}/>
-          </div>
-        ))}
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
-        {[["assemblyTime","Assembly Time (min)"],["firstPeriodTime","P-1 (min)"],["otherPeriodTime","Other Periods (min)"],["periodsPerDay","Periods Per Day"]].map(([key,label])=>(
-          <div key={key}>
-            <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:3}}>{label}</label>
-            <input type="number" value={settings[key]} onChange={e=>setSettings(s=>({...s,[key]:+e.target.value}))} style={{width:"100%",padding:"7px 10px",border:"1.5px solid #d1d5db",borderRadius:5,fontSize:14,boxSizing:"border-box"}}/>
-          </div>
-        ))}
-      </div>
-      <div style={{background:"#f9fafb",borderRadius:8,padding:14}}>
-        <h4 style={{margin:"0 0 10px",color:C.navy}}>Break Settings</h4>
-        <label style={{display:"flex",alignItems:"center",gap:8,fontSize:14,fontWeight:600,marginBottom:10,cursor:"pointer"}}>
-          <input type="checkbox" checked={settings.breakRequired} onChange={e=>setSettings(s=>({...s,breakRequired:e.target.checked}))}/>
-          Break Required (Mon–Thu / Sat)
-        </label>
-        {settings.breakRequired&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
-          <div><label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:3}}>Break After Period #</label><input type="number" value={settings.breakAfterPeriod} onChange={e=>setSettings(s=>({...s,breakAfterPeriod:+e.target.value}))} style={{width:"100%",padding:"7px 10px",border:"1.5px solid #d1d5db",borderRadius:5,fontSize:14,boxSizing:"border-box"}}/></div>
-          <div><label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:3}}>Break Duration (min)</label><input type="number" value={settings.breakDuration} onChange={e=>setSettings(s=>({...s,breakDuration:+e.target.value}))} style={{width:"100%",padding:"7px 10px",border:"1.5px solid #d1d5db",borderRadius:5,fontSize:14,boxSizing:"border-box"}}/></div>
-        </div>}
-        <label style={{display:"flex",alignItems:"center",gap:8,fontSize:14,fontWeight:600,marginBottom:8,cursor:"pointer"}}>
-          <input type="checkbox" checked={settings.fridayBreak} onChange={e=>setSettings(s=>({...s,fridayBreak:e.target.checked}))}/>
-          Friday Break Required
-        </label>
-        {settings.fridayBreak&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <div><label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:3}}>Friday Break After Period #</label><input type="number" value={settings.fridayBreakAfter} onChange={e=>setSettings(s=>({...s,fridayBreakAfter:+e.target.value}))} style={{width:"100%",padding:"7px 10px",border:"1.5px solid #d1d5db",borderRadius:5,fontSize:14,boxSizing:"border-box"}}/></div>
-          <div><label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:3}}>Friday Break Duration (min)</label><input type="number" value={settings.fridayBreakDuration} onChange={e=>setSettings(s=>({...s,fridayBreakDuration:+e.target.value}))} style={{width:"100%",padding:"7px 10px",border:"1.5px solid #d1d5db",borderRadius:5,fontSize:14,boxSizing:"border-box"}}/></div>
-        </div>}
-      </div>
-    </div>}
+    {tab==="time"&&(
+      <div className="space-y-4">
+        <Card className="border-border/70 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-primary">School Hours</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {[{key:"mondayToThursday",label:"Monday – Thursday"},{key:"friday",label:"Friday"},{key:"saturday",label:"Saturday"}].map(({key,label})=>(
+              <div key={key} className="grid items-end gap-3 sm:grid-cols-[160px_1fr_1fr]">
+                <span className="text-sm font-semibold">{label}</span>
+                <div className="space-y-1.5">
+                  <Label>Start</Label>
+                  <Input type="time" value={settings.schoolHours?.[key]?.start || ""} onChange={e=>setSettings(s=>({...s,schoolHours:{...s.schoolHours,[key]:{...(s.schoolHours?.[key]||{}),start:e.target.value}}}))}/>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>End</Label>
+                  <Input type="time" value={settings.schoolHours?.[key]?.end || ""} onChange={e=>setSettings(s=>({...s,schoolHours:{...s.schoolHours,[key]:{...(s.schoolHours?.[key]||{}),end:e.target.value}}}))}/>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
 
-    {tab==="awardList"&&<div style={{maxWidth:560}}>
-      <p style={{fontSize:13,color:C.gray,marginBottom:14}}>Export a list of students per class for teachers with timetable assignments, then import after filling marks.</p>
-      <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:18}}>
-        <div>
-          <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Exam</label>
-          <select value={awardListExam} onChange={e=>setAwardListExam(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"1.5px solid #d1d5db",borderRadius:6,fontSize:13,background:"#fff"}}>
-            {AWARD_LIST_EXAMS.map(ex=><option key={ex} value={ex}>{ex}</option>)}
-          </select>
-        </div>
-        <div>
-          <label style={{fontSize:11,fontWeight:700,color:C.gray,display:"block",marginBottom:4}}>Teacher name</label>
-          <select value={awardListTeacher} onChange={e=>setAwardListTeacher(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"1.5px solid #d1d5db",borderRadius:6,fontSize:13,background:"#fff"}}>
-            <option value="">— Select teacher —</option>
-            {teachersWithAssignments.map(t=>{
-              const distinctCount=new Set((t.classes||[]).map(c=>{
-                return `${c.classId}|${awardListBaseSubject(c.subject||"")}`;
-              })).size;
-              return <option key={t.teacherName} value={t.teacherName}>{t.teacherName} ({distinctCount} {distinctCount===1?"subject":"subjects"})</option>;
-            })}
-          </select>
-        </div>
-      </div>
-      {teachersWithAssignments.length===0&&<div style={{padding:12,background:"#fef3c7",borderRadius:6,fontSize:12,color:"#92400e",marginBottom:14}}>No teachers with timetable assignments. Assign teachers to classes in Timetable first.</div>}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,maxWidth:400}}>
-        <Btn outline onClick={() => void exportAwardListTeacher()} disabled={!selectedTeacherData?.classes?.length}>Export List (Teacher Name)</Btn>
-        <Btn outline onClick={()=>void exportAwardListAllTeachersZip()} disabled={!teachersWithAssignments?.length}>Export All Teachers (ZIP)</Btn>
-        <Btn outline onClick={()=>awardListExcelRef.current?.click()} disabled={!setExamMarks}>Import Award List (Teacher)</Btn>
-        <input ref={awardListExcelRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={importAwardListTeacher}/>
-      </div>
-    </div>}
+        <Card className="border-border/70 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-primary">Period lengths</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {[["assemblyTime","Assembly Time (min)"],["firstPeriodTime","P-1 (min)"],["otherPeriodTime","Other Periods (min)"],["periodsPerDay","Periods Per Day"]].map(([key,label])=>(
+                <div key={key} className="space-y-1.5">
+                  <Label>{label}</Label>
+                  <Input type="number" value={settings[key]} onChange={e=>setSettings(s=>({...s,[key]:+e.target.value}))}/>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-  </div>;
+        <Card className="border-border/70 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-primary">Break Settings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
+              <Checkbox checked={!!settings.breakRequired} onCheckedChange={(v)=>setSettings(s=>({...s,breakRequired:!!v}))}/>
+              Break Required (Mon–Thu / Sat)
+            </label>
+            {settings.breakRequired&&(
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Break After Period #</Label>
+                  <Input type="number" value={settings.breakAfterPeriod} onChange={e=>setSettings(s=>({...s,breakAfterPeriod:+e.target.value}))}/>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Break Duration (min)</Label>
+                  <Input type="number" value={settings.breakDuration} onChange={e=>setSettings(s=>({...s,breakDuration:+e.target.value}))}/>
+                </div>
+              </div>
+            )}
+            <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
+              <Checkbox checked={!!settings.fridayBreak} onCheckedChange={(v)=>setSettings(s=>({...s,fridayBreak:!!v}))}/>
+              Friday Break Required
+            </label>
+            {settings.fridayBreak&&(
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Friday Break After Period #</Label>
+                  <Input type="number" value={settings.fridayBreakAfter} onChange={e=>setSettings(s=>({...s,fridayBreakAfter:+e.target.value}))}/>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Friday Break Duration (min)</Label>
+                  <Input type="number" value={settings.fridayBreakDuration} onChange={e=>setSettings(s=>({...s,fridayBreakDuration:+e.target.value}))}/>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    )}
+
+    {tab==="awardList"&&(
+      <Card className="border-border/70 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base text-primary">Award List</CardTitle>
+          <CardDescription>Export a list of students per class for teachers with timetable assignments, then import after filling marks.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Exam</Label>
+              <select value={awardListExam} onChange={e=>setAwardListExam(e.target.value)} className={selectClassName}>
+                {AWARD_LIST_EXAMS.map(ex=><option key={ex} value={ex}>{ex}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Teacher name</Label>
+              <select value={awardListTeacher} onChange={e=>setAwardListTeacher(e.target.value)} className={selectClassName}>
+                <option value="">— Select teacher —</option>
+                {teachersWithAssignments.map(t=>{
+                  const distinctCount=new Set((t.classes||[]).map(c=>{
+                    return `${c.classId}|${awardListBaseSubject(c.subject||"")}`;
+                  })).size;
+                  return <option key={t.teacherName} value={t.teacherName}>{t.teacherName} ({distinctCount} {distinctCount===1?"subject":"subjects"})</option>;
+                })}
+              </select>
+            </div>
+          </div>
+          {teachersWithAssignments.length===0&&(
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              No teachers with timetable assignments. Assign teachers to classes in Timetable first.
+            </div>
+          )}
+          <div className="grid max-w-md gap-2 sm:grid-cols-2">
+            <Button type="button" variant="outline" onClick={() => void exportAwardListTeacher()} disabled={!selectedTeacherData?.classes?.length}>Export List (Teacher Name)</Button>
+            <Button type="button" variant="outline" onClick={()=>void exportAwardListAllTeachersZip()} disabled={!teachersWithAssignments?.length}>Export All Teachers (ZIP)</Button>
+            <Button type="button" variant="outline" onClick={()=>awardListExcelRef.current?.click()} disabled={!setExamMarks}>Import Award List (Teacher)</Button>
+            <input ref={awardListExcelRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={importAwardListTeacher}/>
+          </div>
+        </CardContent>
+      </Card>
+    )}
+
+  </div>
+  );
 }
-
