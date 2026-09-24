@@ -40,7 +40,8 @@ const {
   isPortionMaskFull, formatPortionMaskLabel, getClassesByPortionMask, getStaffInPortionMask,
   normalizeStaffCategory, toProperCase, toProperCaseNameInput, staffDateToDDMMYYYY,
   staffFormatCNIC, staffFormatPhone, staffFormatDateInput, excelDateToDDMMYYYY,
-  parseMarksImportCell, parseWorkbook, getExportHeaderMeta, sanitizePdfFilenamePart,
+  parseMarksImportCell, parseWorkbook, parseResultCardSource, subjectsFromClassSheetHeader,
+  getExportHeaderMeta, sanitizePdfFilenamePart,
   sanitizePdfCell, sanitizePdfTableRows, pdfDataUrlFormat, getTeachersWithAssignments,
   DASHBOARD_EXAM_LS, exportTableToPdf, exportTableToExcel, exportTimetableBatchPlannerPdf,
   exportConsolidatedSheetToPdf, getTableDataFromElement, teacherPlannerFooterColumns,
@@ -263,13 +264,70 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
       let msg = [];
       let importedClasses = [];
       if (sheets.General && sheets.General.length >= 2) { const r = sheets.General[1] || []; setSettings(s => ({ ...s, schoolName: String(r[0] || s.schoolName || ""), principalName: String(r[1] || s.principalName || ""), schoolCode: String(r[2] || s.schoolCode || "") })); msg.push("General"); }
+      // Result Card Source sheet (classes + subjects + teachers) when no Classes template sheet
+      const sourceParsed = (!sheets.Classes || sheets.Classes.length < 2)
+        ? parseResultCardSource(sheets.Source || [])
+        : { classes: [], subjectsByClassId: {}, totals: [], meta: {}, examKey: "1st Term" };
+      let classTeachersMap = {};
+      if (sourceParsed.classes.length) {
+        const classSubjectsExam = {};
+        const classSubjectsTimetable = {};
+        const classes = sourceParsed.classes.map(({ teacher, sheetName, ...rest }) => {
+          if (teacher) classTeachersMap[rest.id] = teacher;
+          const subs = sourceParsed.subjectsByClassId[rest.id] || sourceParsed.subjectsByClassId[rest.name] || [];
+          classSubjectsExam[rest.id] = [...subs];
+          classSubjectsTimetable[rest.id] = [...subs];
+          return rest;
+        });
+        // Fill subjects from class sheet headers when Source subjects table is empty
+        if (sheets.ClassSheets) {
+          sheets.ClassSheets.forEach((sh) => {
+            const hdr = (sh.rows && sh.rows[0]) || [];
+            const subs = subjectsFromClassSheetHeader(hdr);
+            if (!subs.length) return;
+            const cls = classes.find((c) => String(c.id).toLowerCase() === String(sh.name).toLowerCase() || String(c.name).toLowerCase() === String(sh.name).toLowerCase());
+            if (!cls) return;
+            if (!classSubjectsExam[cls.id]?.length) {
+              classSubjectsExam[cls.id] = [...subs];
+              classSubjectsTimetable[cls.id] = [...subs];
+            }
+          });
+        }
+        importedClasses = classes;
+        setSettings((s) => {
+          const next = {
+            ...s,
+            classes: [...s.classes.filter((c) => !classes.find((n) => n.id === c.id)), ...classes],
+            classSubjects: { ...s.classSubjects, ...classSubjectsExam },
+            classSubjectsExam: { ...(s.classSubjectsExam || {}), ...classSubjectsExam },
+            classSubjectsTimetable: { ...(s.classSubjectsTimetable || {}), ...classSubjectsTimetable },
+          };
+          if (sourceParsed.meta.schoolName) next.schoolName = sourceParsed.meta.schoolName;
+          if (sourceParsed.meta.principalName) next.principalName = sourceParsed.meta.principalName;
+          if (sourceParsed.meta.principalDesignation) next.principalDesignation = sourceParsed.meta.principalDesignation;
+          return next;
+        });
+        msg.push(classes.length + " class(es) from Source");
+        if (Object.keys(classTeachersMap).length) msg.push(Object.keys(classTeachersMap).length + " class teacher(s)");
+        if (sourceParsed.totals.length && setExamMarks) {
+          const examKey = sourceParsed.examKey || "1st Term";
+          setExamMarks((prevTM) => {
+            const next = { ...(prevTM || {}) };
+            sourceParsed.totals.forEach(({ classId, subject, totalMarks }) => {
+              next[`${examKey}_${classId}_${subject}`] = totalMarks;
+            });
+            return next;
+          }, null);
+          msg.push(sourceParsed.totals.length + " total mark(s)");
+        }
+      }
       if (sheets.Classes && sheets.Classes.length >= 2) {
         const [, ...dataRows] = sheets.Classes;
         const classSubjectsExam = {};
         const classSubjectsTimetable = {};
         const conflicts = [];
         const byId = {};
-        const classTeachersMap = {};
+        classTeachersMap = {};
         dataRows.forEach(row => {
           const id = String(row[0] || "").trim();
           const name = String(row[1] || "").trim();
@@ -378,23 +436,25 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
             msg.push(profiles.length + " staff profile(s)");
           }
         }
-        // Update timetable with class teachers if imported from Classes sheet
-        if (Object.keys(classTeachersMap || {}).length > 0 && setSchools && activeSchoolId) {
-          setSchools(prev => prev.map(s => {
-            if (s.id !== activeSchoolId) return s;
-            const nextTimetable = { ...(s.timetable || {}) };
-            Object.entries(classTeachersMap).forEach(([cid, teacher]) => {
-              if (teacher) {
-                if (!nextTimetable[cid]) nextTimetable[cid] = {};
-                ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].forEach(day => {
-                  if (!nextTimetable[cid][day]) nextTimetable[cid][day] = {};
-                  nextTimetable[cid][day][0] = { subject: "", teacher };
-                });
-              }
-            });
-            return { ...s, timetable: nextTimetable };
-          }));
-          if (Object.keys(classTeachersMap).length) msg.push(Object.keys(classTeachersMap).length + " class teacher(s)");
+      }
+      // Apply class teachers from Source / Classes sheet to timetable
+      if (Object.keys(classTeachersMap || {}).length > 0 && setSchools && activeSchoolId) {
+        setSchools(prev => prev.map(s => {
+          if (s.id !== activeSchoolId) return s;
+          const nextTimetable = { ...(s.timetable || {}) };
+          Object.entries(classTeachersMap).forEach(([cid, teacher]) => {
+            if (teacher) {
+              if (!nextTimetable[cid]) nextTimetable[cid] = {};
+              ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].forEach(day => {
+                if (!nextTimetable[cid][day]) nextTimetable[cid][day] = {};
+                nextTimetable[cid][day][0] = { subject: "", teacher };
+              });
+            }
+          });
+          return { ...s, timetable: nextTimetable };
+        }));
+        if (!msg.some((m) => String(m).includes("class teacher"))) {
+          msg.push(Object.keys(classTeachersMap).length + " class teacher(s)");
         }
       }
       if (sheets.ClassSheets && sheets.ClassSheets.length) {
@@ -722,7 +782,96 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
           alert("No student sheets found in this file.\n\nSheets found: "+allSheetNames+"\n\nTip: Use the 'Classes List' button to download the student import template, fill it in, then click 'Import Students'.");
           reset();return;
         }
-        const allClasses=settings.classes||[];
+
+        // Result Card Source sheet → classes, subjects, class teachers, total marks
+        const sourceParsed=parseResultCardSource(sheets.Source||[]);
+        let sourceSubjects={...(sourceParsed.subjectsByClassId||{})};
+        // Fallback: subject columns on each class sheet header
+        classSheets.forEach(sh=>{
+          const headerRowIdx=(()=>{
+            const rows=sh.rows||[];
+            const scanLimit=Math.min(rows.length,10);
+            for(let i=0;i<scanLimit;i++){
+              const hdr=Array.isArray(rows[i])?rows[i]:[];
+              const joined=hdr.map(h=>String(h||"").toLowerCase()).join(" ");
+              if(joined.includes("name")||joined.includes("roll")) return i;
+            }
+            return 0;
+          })();
+          const hdrSubs=subjectsFromClassSheetHeader((sh.rows||[])[headerRowIdx]||[]);
+          if(!hdrSubs.length) return;
+          const key=String(sh.name||"").trim();
+          if(!key) return;
+          if(!sourceSubjects[key]?.length) sourceSubjects[key]=hdrSubs;
+        });
+        const sourceExtra=[];
+        let importedClassesList=[];
+        let classTeachersMap={};
+        if(sourceParsed.classes.length){
+          importedClassesList=sourceParsed.classes.map(({teacher,sheetName,...rest})=>({...rest}));
+          classTeachersMap=Object.fromEntries(
+            sourceParsed.classes.filter(c=>c.teacher).map(c=>[c.id,c.teacher])
+          );
+          const classSubjectsExam={};
+          const classSubjectsTimetable={};
+          importedClassesList.forEach(c=>{
+            const subs=sourceSubjects[c.id]||sourceSubjects[c.name]||[];
+            classSubjectsExam[c.id]=[...subs];
+            classSubjectsTimetable[c.id]=[...subs];
+          });
+          setSettings(s=>{
+            const next={
+              ...s,
+              classes:[
+                ...s.classes.filter(c=>!importedClassesList.find(n=>n.id===c.id)),
+                ...importedClassesList,
+              ],
+              classSubjects:{...s.classSubjects,...classSubjectsExam},
+              classSubjectsExam:{...(s.classSubjectsExam||{}),...classSubjectsExam},
+              classSubjectsTimetable:{...(s.classSubjectsTimetable||{}),...classSubjectsTimetable},
+            };
+            if(sourceParsed.meta.schoolName) next.schoolName=sourceParsed.meta.schoolName;
+            if(sourceParsed.meta.principalName) next.principalName=sourceParsed.meta.principalName;
+            if(sourceParsed.meta.principalDesignation) next.principalDesignation=sourceParsed.meta.principalDesignation;
+            return next;
+          });
+          sourceExtra.push(importedClassesList.length+" class(es)");
+          const subjCount=Object.values(classSubjectsExam).reduce((n,a)=>n+a.length,0);
+          if(subjCount) sourceExtra.push(subjCount+" subject assignment(s)");
+          if(Object.keys(classTeachersMap).length){
+            sourceExtra.push(Object.keys(classTeachersMap).length+" class teacher(s)");
+            if(setSchools&&activeSchoolId){
+              setSchools(prev=>prev.map(s=>{
+                if(s.id!==activeSchoolId) return s;
+                const nextTimetable={...(s.timetable||{})};
+                Object.entries(classTeachersMap).forEach(([cid,teacher])=>{
+                  if(!teacher) return;
+                  if(!nextTimetable[cid]) nextTimetable[cid]={};
+                  ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].forEach(day=>{
+                    if(!nextTimetable[cid][day]) nextTimetable[cid][day]={};
+                    nextTimetable[cid][day][0]={subject:"",teacher};
+                  });
+                });
+                return {...s,timetable:nextTimetable};
+              }));
+            }
+          }
+          if(sourceParsed.totals.length&&setExamMarks){
+            const examKey=sourceParsed.examKey||"1st Term";
+            setExamMarks(prevTM=>{
+              const next={...(prevTM||{})};
+              sourceParsed.totals.forEach(({classId,subject,totalMarks})=>{
+                next[`${examKey}_${classId}_${subject}`]=totalMarks;
+              });
+              return next;
+            },null);
+            sourceExtra.push(sourceParsed.totals.length+" total mark(s) → "+examKey);
+          }
+        }
+
+        const allClasses=importedClassesList.length
+          ? [...(settings.classes||[]).filter(c=>!importedClassesList.find(n=>n.id===c.id)),...importedClassesList]
+          : (settings.classes||[]);
         const pickClassByGradeSection=(value)=>{
           const txt=String(value||"").trim();
           if(!txt) return null;
@@ -868,6 +1017,7 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
         }));
         const unmatched=importedStudents.filter(s=>!resolveClass(allClasses,s.classId)).length;
         const msg="✓ Imported "+importedStudents.length+" student(s) from "+classSheets.length+" sheet(s)."
+          +(sourceExtra.length?"\nAlso from Source: "+sourceExtra.join(", ")+".":"")
           +"\nGo to Examination → Student Record to view them."
           +(skippedRows?"\n\nℹ Skipped "+skippedRows+" blank row(s).":"")
           +(unresolvedClassRows?"\n\n⚠ Skipped "+unresolvedClassRows+" row(s) because class could not be identified. Use class-wise sheet names from template, or add a 'Class' column.":"")

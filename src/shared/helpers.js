@@ -1092,6 +1092,172 @@ export function staffFormatDateInput(val) {
   if (digits.length <= 4) return digits.slice(0, 2) + "/" + digits.slice(2);
   return digits.slice(0, 2) + "/" + digits.slice(2, 4) + "/" + digits.slice(4, 8);
 }
+/** Map result-card class labels (One, Nine Arts, …) to grade/section. */
+export function parseResultCardClassLabel(label) {
+  const raw = String(label || "").trim();
+  if (!raw) return null;
+  const WORD_GRADE = {
+    ece: "ECE", nursery: "Nursery", kg: "Nursery", prep: "Nursery",
+    one: "1", two: "2", three: "3", four: "4", five: "5",
+    six: "6", seven: "7", eight: "8", nine: "9", ten: "10",
+  };
+  const m = raw.match(/^(ece|nursery|kg|prep|one|two|three|four|five|six|seven|eight|nine|ten)\b(?:\s+(.+))?$/i);
+  if (m) {
+    return {
+      grade: WORD_GRADE[m[1].toLowerCase()],
+      section: (m[2] || "").trim(),
+      name: raw,
+    };
+  }
+  const num = raw.match(/^(?:class|grade)?\s*(\d{1,2})(?:st|nd|rd|th)?(?:\s*[-_ ]\s*(.+))?$/i);
+  if (num) {
+    return {
+      grade: String(parseInt(num[1], 10)),
+      section: (num[2] || "").trim(),
+      name: raw,
+    };
+  }
+  return { grade: raw, section: "", name: raw };
+}
+
+export function mapResultCardExamName(examStr) {
+  const s = String(examStr || "").toLowerCase();
+  if (/\bmid\b/.test(s)) return "Mid Term";
+  if (/\bfinal\b/.test(s)) return "Final Term";
+  if (/\bannual\b/.test(s)) return "Annual";
+  if (/\b(1st|first)\b/.test(s) || /\bterm\s*1\b/.test(s)) return "1st Term";
+  return "1st Term";
+}
+
+/**
+ * Parse a Result Card "Source" sheet:
+ * - SCHOOL SETTINGS (School Name, Exam, Principal, …)
+ * - CLASSES AND CLASS TEACHER INCHARGE (Class | Class Teacher Incharge | Sheet Name)
+ * - CLASS SUBJECTS AND TOTAL MARKS (Class | Subject | Total Marks)
+ */
+export function parseResultCardSource(rows) {
+  const empty = { meta: {}, classes: [], subjectsByClassId: {}, totals: [], examKey: "1st Term" };
+  if (!Array.isArray(rows) || !rows.length) return empty;
+  const cell = (r, i) => String(r?.[i] ?? "").trim();
+  const meta = {};
+  for (const row of rows) {
+    const k = cell(row, 0);
+    const v = cell(row, 1);
+    if (!k || !v) continue;
+    const kl = k.toLowerCase();
+    if (kl === "school name") meta.schoolName = v;
+    else if (kl === "exam") meta.exam = v;
+    else if (kl === "principal") meta.principalName = v;
+    else if (kl === "principal title") meta.principalDesignation = v;
+    else if (kl === "teacher title") meta.teacherTitle = v;
+    else if (kl === "session") meta.session = v;
+  }
+
+  let classHeaderIdx = -1;
+  for (let i = 0; i < rows.length; i++) {
+    const a = cell(rows[i], 0).toLowerCase();
+    const b = cell(rows[i], 1).toLowerCase();
+    if (a === "class" && b.includes("teacher")) {
+      classHeaderIdx = i;
+      break;
+    }
+  }
+
+  const classes = [];
+  const aliasToId = {};
+  if (classHeaderIdx >= 0) {
+    for (let j = classHeaderIdx + 1; j < rows.length; j++) {
+      const classLabel = cell(rows[j], 0);
+      if (!classLabel) {
+        if (classes.length) break;
+        continue;
+      }
+      const lower = classLabel.toLowerCase();
+      if (lower === "class" && cell(rows[j], 1).toLowerCase() === "subject") break;
+      if (/^(class subjects|school settings|classes and)/i.test(classLabel)) break;
+      const teacher = cell(rows[j], 1);
+      const sheetName = cell(rows[j], 2) || classLabel;
+      const parsed = parseResultCardClassLabel(classLabel);
+      const id = sheetName || classLabel;
+      classes.push({
+        id,
+        name: parsed?.name || classLabel,
+        grade: parsed?.grade || classLabel,
+        section: parsed?.section || "",
+        teacher,
+        sheetName,
+      });
+      aliasToId[sheetName.toLowerCase()] = id;
+      aliasToId[classLabel.toLowerCase()] = id;
+    }
+  }
+
+  let subjHeaderIdx = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (cell(rows[i], 0).toLowerCase() === "class" && cell(rows[i], 1).toLowerCase() === "subject") {
+      subjHeaderIdx = i;
+      break;
+    }
+  }
+
+  const subjectsByClassId = {};
+  const totals = [];
+  if (subjHeaderIdx >= 0) {
+    for (let j = subjHeaderIdx + 1; j < rows.length; j++) {
+      const classLabel = cell(rows[j], 0);
+      const subject = cell(rows[j], 1);
+      const total = cell(rows[j], 2);
+      if (!subject) continue;
+      if (!classLabel) continue;
+      const id = aliasToId[classLabel.toLowerCase()] || classLabel;
+      if (!subjectsByClassId[id]) subjectsByClassId[id] = [];
+      if (!subjectsByClassId[id].includes(subject)) subjectsByClassId[id].push(subject);
+      if (total !== "" && !Number.isNaN(Number(total))) {
+        totals.push({ classId: id, subject, totalMarks: String(total) });
+      }
+    }
+  }
+
+  if (!classes.length && Object.keys(subjectsByClassId).length) {
+    for (const id of Object.keys(subjectsByClassId)) {
+      const parsed = parseResultCardClassLabel(id);
+      classes.push({
+        id,
+        name: parsed?.name || id,
+        grade: parsed?.grade || id,
+        section: parsed?.section || "",
+        teacher: "",
+        sheetName: id,
+      });
+    }
+  }
+
+  return {
+    meta,
+    classes,
+    subjectsByClassId,
+    totals,
+    examKey: mapResultCardExamName(meta.exam),
+  };
+}
+
+/** Subject columns on a class sheet (skip identity columns). */
+export function subjectsFromClassSheetHeader(headerRow) {
+  const skip = new Set([
+    "roll no", "roll#", "roll", "adm#", "admission no", "admission", "adm",
+    "name", "student name", "father's name", "father name", "fname", "father",
+    "date of birth", "dob", "birthdate", "form b", "bay form", "bay", "cnic",
+    "father cnic", "whatsapp", "mobile", "phone", "contact", "class", "class id",
+  ]);
+  return (Array.isArray(headerRow) ? headerRow : [])
+    .map((h) => String(h || "").trim())
+    .filter((h) => {
+      if (!h) return false;
+      const n = h.toLowerCase().replace(/[’']/g, "").replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+      return Boolean(n) && !skip.has(n);
+    });
+}
+
 export function parseWorkbook(file, cb){
   const r = new FileReader();
   r.onerror = () => cb(new Error("Could not read file. Make sure it is a valid .xlsx or .xls file."), null);
@@ -1102,26 +1268,36 @@ export function parseWorkbook(file, cb){
         const sh = wb.Sheets[name];
         return sh ? XLSX.utils.sheet_to_json(sh, { header: 1, defval: "" }) : null;
       };
+      const findSheet = (wanted) => {
+        const target = String(wanted || "").trim().toLowerCase();
+        const hit = (Array.isArray(wb.SheetNames) ? wb.SheetNames : []).find(
+          (n) => String(n || "").trim().toLowerCase() === target
+        );
+        return hit ? getSheet(hit) : null;
+      };
       const sheetNames = Array.isArray(wb.SheetNames) ? wb.SheetNames : [];
       const reserved = new Set([
-        "General",
-        "Classes & Subjects",
-        "Classes",
-        "Staff Profiles",
-        "Staff Profile",
-        "Staff",
-        "Student Records",
-        "Students",
+        "general",
+        "classes & subjects",
+        "classes",
+        "class",
+        "staff profiles",
+        "staff profile",
+        "staff",
+        "student records",
+        "students",
+        "source",
       ]);
       const classSheets = sheetNames
-        .filter((n) => !reserved.has(n))
+        .filter((n) => !reserved.has(String(n || "").trim().toLowerCase()))
         .map((name) => ({ name, rows: getSheet(name) }))
         .filter((s) => Array.isArray(s.rows) && s.rows.length >= 2);
       cb(null, {
-        General: getSheet("General"),
-        Classes: getSheet("Classes & Subjects") || getSheet("Classes"),
-        Staff: getSheet("Staff Profiles") || getSheet("Staff Profile") || getSheet("Staff"),
-        Students: getSheet("Student Records") || getSheet("Students"),
+        General: findSheet("General"),
+        Classes: findSheet("Classes & Subjects") || findSheet("Classes") || findSheet("Class"),
+        Staff: findSheet("Staff Profiles") || findSheet("Staff Profile") || findSheet("Staff"),
+        Students: findSheet("Student Records") || findSheet("Students"),
+        Source: findSheet("Source"),
         ClassSheets: classSheets,
         SheetNames: sheetNames,
       });
