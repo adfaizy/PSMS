@@ -33,6 +33,7 @@ const {
   exportConsolidatedSheetToPdf, getTableDataFromElement, teacherPlannerFooterColumns,
   drawTeacherPlannerFooterColumn, appendTeacherPlannerScheduleFooterPdf,
   isTeacherPlannerTimetablePdfTitle, downloadExcel, brandingLogoDataUrlForPdf,
+  processStudentPhotoWithBackground,
 } = H;
 
 const jsPDF =
@@ -48,6 +49,9 @@ const EXAM_TABS = [
   { id: "card", l: "Result Card" },
   { id: "datesheet", l: "Date Sheet" },
 ];
+
+/** Optional decorative border image for result cards; empty = CSS borders only */
+const RESULT_CARD_BORDER_URL = "";
 
 
 export function ResultCardHeader({ settings, sessionLabel, examLabel, className }) {
@@ -220,10 +224,18 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
   const formatWhatsappAf=(v)=>{ const d=(v||"").replace(/\D/g,"").slice(0,11); if(d.length<=4) return d; return d.slice(0,4)+"-"+d.slice(4); };
   const handleAdmissionPhotoFile=async (f)=>{
     if(!f) return;
+    if(!String(f.type||"").startsWith("image/") && !/\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(f.name||"")){
+      alert("Please choose an image file (JPG, PNG, etc.).");
+      return;
+    }
     setAdmissionPhotoBusy(true);
     try{
       const data=await processStudentPhotoWithBackground(f);
+      if(!data){ alert("Could not process this photo. Try another image."); return; }
       setAdmissionForm(x=>({...x,photo:data}));
+    }catch(err){
+      console.error("Admission photo failed",err);
+      alert("Photo upload failed: "+(err?.message||String(err)));
     }finally{
       setAdmissionPhotoBusy(false);
     }
@@ -1094,6 +1106,11 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                     <Btn type="button" small outline onClick={() => admissionPhotoCameraRef.current?.click()} disabled={admissionPhotoBusy}>
                       Camera
                     </Btn>
+                    {admissionForm.photo && !admissionPhotoBusy && (
+                      <Btn type="button" small danger onClick={() => setAdmissionForm((x) => ({ ...x, photo: null }))}>
+                        Remove
+                      </Btn>
+                    )}
                   </div>
                   <input
                     ref={admissionPhotoGalleryRef}
@@ -1101,9 +1118,9 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                     accept="image/*"
                     style={{ display: "none" }}
                     onChange={async (e) => {
-                      const f = e.target.files[0];
-                      if (!f) return;
+                      const f = e.target.files?.[0];
                       e.target.value = "";
+                      if (!f) return;
                       await handleAdmissionPhotoFile(f);
                     }}
                   />
@@ -1111,12 +1128,12 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                     ref={admissionPhotoCameraRef}
                     type="file"
                     accept="image/*"
-                    capture="environment"
+                    capture="user"
                     style={{ display: "none" }}
                     onChange={async (e) => {
-                      const f = e.target.files[0];
-                      if (!f) return;
+                      const f = e.target.files?.[0];
                       e.target.value = "";
+                      if (!f) return;
                       await handleAdmissionPhotoFile(f);
                     }}
                   />
@@ -1744,10 +1761,18 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
   const openEdit=(s)=>{ setEditingId(s.id); setForm({admissionNo:s.admissionNo||"",rollNo:s.rollNo||"",name:toProperCase(s.name||""),fatherName:toProperCase(s.fatherName||""),classId:s.classId||"",dob:formatDob(s.dob||""),bayForm:s.bayForm||"",fatherCnic:s.fatherCnic||"",whatsapp:s.whatsapp||"",photo:s.photo||null}); photoFileRef.current=null; setShowAdd(true); };
   const handleStudentPhotoFile=async (f)=>{
     if(!f) return;
+    if(!String(f.type||"").startsWith("image/") && !/\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(f.name||"")){
+      alert("Please choose an image file (JPG, PNG, etc.).");
+      return;
+    }
     setPhotoBusy(true);
     try{
       const data=await processStudentPhotoWithBackground(f);
+      if(!data){ alert("Could not process this photo. Try another image."); return; }
       setForm(x=>({...x,photo:data}));
+    }catch(err){
+      console.error("Student photo failed",err);
+      alert("Photo upload failed: "+(err?.message||String(err)));
     }finally{
       setPhotoBusy(false);
     }
@@ -2012,9 +2037,12 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
               <div style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"center"}}>
                 <Btn type="button" small outline onClick={()=>photoGalleryRef.current?.click()} disabled={photoBusy}>Gallery</Btn>
                 <Btn type="button" small outline onClick={()=>photoCameraRef.current?.click()} disabled={photoBusy}>Camera</Btn>
+                {form.photo&&!photoBusy&&(
+                  <Btn type="button" small danger onClick={()=>setForm(x=>({...x,photo:null}))}>Remove</Btn>
+                )}
               </div>
-              <input ref={photoGalleryRef} type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(!f)return;e.target.value="";photoFileRef.current=f;await handleStudentPhotoFile(f);}}/>
-              <input ref={photoCameraRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(!f)return;e.target.value="";photoFileRef.current=f;await handleStudentPhotoFile(f);}}/>
+              <input ref={photoGalleryRef} type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];e.target.value="";if(!f)return;photoFileRef.current=f;await handleStudentPhotoFile(f);}}/>
+              <input ref={photoCameraRef} type="file" accept="image/*" capture="user" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];e.target.value="";if(!f)return;photoFileRef.current=f;await handleStudentPhotoFile(f);}}/>
             </div>
             <div style={{flex:1,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
               <Inp label="Admission No" value={form.admissionNo} onChange={v=>setForm(x=>({...x,admissionNo:v}))} placeholder={editingId?"":("Next: "+suggestedFormAdm)}/>

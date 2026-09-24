@@ -80,6 +80,10 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: {
       // jspdf / jspdf-autotable ship ESM; forcing needsInterop breaks `import { jsPDF }` / constructor binding.
       needsInterop: ["jszip", "html2canvas"],
+      include: ["@imgly/background-removal", "onnxruntime-web"],
+    },
+    worker: {
+      format: "es",
     },
     build: {
       chunkSizeWarningLimit: 2500,

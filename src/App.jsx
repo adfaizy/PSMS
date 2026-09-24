@@ -54,8 +54,6 @@ const APP_MAIN_NAV = [
   { id: "settings", l: "Settings", i: "⚙️" },
 ];
 
-const RESULT_CARD_BORDER_URL = "";
-
 // ─── DEFAULT DATA ─────────────────────────────────────────────────────────────
 const defaultSettings = {
   schoolName: "",

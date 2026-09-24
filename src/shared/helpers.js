@@ -198,6 +198,7 @@ export const IMGLY_BACKGROUND_REMOVAL_DATA_VER ="1.7.0";
 export const IMGLY_BG_MODEL_BASE_URL =`https://staticimgly.com/@imgly/background-removal-data/${IMGLY_BACKGROUND_REMOVAL_DATA_VER}/dist/`;
 
 export async function processStudentPhotoWithBackground(file){
+  if(!file) throw new Error("No file selected");
   const compositeToWhiteJpeg=(src)=>{
     const sw="naturalWidth" in src&&src.naturalWidth?src.naturalWidth:src.width;
     const sh="naturalHeight" in src&&src.naturalHeight?src.naturalHeight:src.height;
@@ -209,6 +210,7 @@ export async function processStudentPhotoWithBackground(file){
     const canvas=document.createElement("canvas");
     canvas.width=w; canvas.height=h;
     const ctx=canvas.getContext("2d");
+    if(!ctx) return null;
     ctx.fillStyle="#ffffff";
     ctx.fillRect(0,0,w,h);
     ctx.imageSmoothingEnabled=true;
@@ -216,22 +218,34 @@ export async function processStudentPhotoWithBackground(file){
     ctx.drawImage(src,0,0,w,h);
     return canvas.toDataURL("image/jpeg",0.88);
   };
-  const fallbackFromFile=()=>new Promise(resolve=>{
+  const loadImageFromBlobOrFile=(src)=>new Promise((resolve,reject)=>{
     const img=new Image();
-    const url=URL.createObjectURL(file);
+    const url=typeof src==="string"?src:URL.createObjectURL(src);
+    const revoke=()=>{ if(typeof src!=="string") URL.revokeObjectURL(url); };
     img.onload=async ()=>{
-      URL.revokeObjectURL(url);
       try{ if(img.decode) await img.decode(); }catch{ /* ignore */ }
-      resolve(compositeToWhiteJpeg(img)||"");
+      revoke();
+      resolve(img);
     };
     img.onerror=()=>{
-      URL.revokeObjectURL(url);
-      const r=new FileReader();
-      r.onload=e=>resolve(e.target.result);
-      r.readAsDataURL(file);
+      revoke();
+      reject(new Error("Could not decode image"));
     };
     img.src=url;
   });
+  const fallbackFromFile=async ()=>{
+    try{
+      const img=await loadImageFromBlobOrFile(file);
+      const out=compositeToWhiteJpeg(img);
+      if(out) return out;
+    }catch{ /* fall through to FileReader */ }
+    return await new Promise((resolve,reject)=>{
+      const r=new FileReader();
+      r.onload=()=>resolve(r.result||"");
+      r.onerror=()=>reject(new Error("Could not read image file"));
+      r.readAsDataURL(file);
+    });
+  };
   try{
     const { removeBackground }=await import("@imgly/background-removal");
     const blob=await removeBackground(file,{
@@ -250,22 +264,10 @@ export async function processStudentPhotoWithBackground(file){
         }finally{ bmp.close(); }
       }catch{ /* fall through to Image() */ }
     }
-    const objUrl=URL.createObjectURL(blob);
-    return await new Promise((resolve,reject)=>{
-      const img=new Image();
-      img.onload=async ()=>{
-        URL.revokeObjectURL(objUrl);
-        try{ if(img.decode) await img.decode(); }catch{ /* ignore */ }
-        const out=compositeToWhiteJpeg(img);
-        if(out) resolve(out);
-        else reject(new Error("composite failed"));
-      };
-      img.onerror=()=>{
-        URL.revokeObjectURL(objUrl);
-        reject(new Error("PNG decode failed"));
-      };
-      img.src=objUrl;
-    });
+    const img=await loadImageFromBlobOrFile(blob);
+    const out=compositeToWhiteJpeg(img);
+    if(out) return out;
+    throw new Error("composite failed");
   }catch(e){
     console.warn("Background removal failed, using fallback",e);
     return fallbackFromFile();
