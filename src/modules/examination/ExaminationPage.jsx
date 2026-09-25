@@ -88,6 +88,52 @@ function studentPhotoInitials(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+/** Circular school stamp: logo in center, school name curved along the rim. */
+function ResultCardSchoolStamp({ logoSrc, schoolName, size = 92 }) {
+  const reactId = React.useId();
+  const pathId = `seal-top-${String(reactId).replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  const name = String(schoolName || "SCHOOL").trim().toUpperCase() || "SCHOOL";
+  const fontSize = name.length > 32 ? 4.8 : name.length > 24 ? 5.4 : name.length > 16 ? 6 : 6.8;
+  const letterSpacing = name.length > 28 ? 0.4 : name.length > 18 ? 0.8 : 1.2;
+  return (
+    <div
+      className="result-card-school-stamp"
+      style={{ width: size, height: size, margin: "0 auto", position: "relative", flexShrink: 0 }}
+      title={name}
+    >
+      <svg viewBox="0 0 100 100" width={size} height={size} style={{ display: "block", overflow: "visible" }}>
+        <defs>
+          {/* Upper arc (left → right over the top) for curved school name */}
+          <path id={pathId} d="M 10,58 A 40,40 0 0,1 90,58" fill="none" />
+        </defs>
+        <circle cx="50" cy="50" r="49" fill="#fff" stroke="#111" strokeWidth="2.2" />
+        <circle cx="50" cy="50" r="43" fill="none" stroke="#111" strokeWidth="0.9" />
+        <image
+          href={logoSrc}
+          xlinkHref={logoSrc}
+          x="26"
+          y="30"
+          width="48"
+          height="48"
+          preserveAspectRatio="xMidYMid meet"
+        />
+        <text
+          fill="#111"
+          fontSize={fontSize}
+          fontWeight="800"
+          fontFamily={RC_SERIF}
+          letterSpacing={letterSpacing}
+          style={{ textTransform: "uppercase" }}
+        >
+          <textPath href={`#${pathId}`} xlinkHref={`#${pathId}`} startOffset="50%" textAnchor="middle">
+            {name}
+          </textPath>
+        </text>
+      </svg>
+    </div>
+  );
+}
+
 /** Formal result-card header matching consolidated statement design; data from settings. */
 export function ResultCardHeader({
   settings,
@@ -946,7 +992,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
           {subjectList.map((subj,i)=>{
             const s=subjectStat(mode,classId,st.id,subj);
             const cellPad={padding:"7px 6px",lineHeight:1.4,verticalAlign:"middle",borderTop:"1px solid #ccc"};
-            return <tr key={subj} style={{background:i%2===0?"#fff":"#f7f7f7"}}>
+            return <tr key={subj} style={{background:"#fff"}}>
               <td style={{...cellPad,textAlign:"center",borderRight:"1px solid #ddd",fontWeight:600}}>{i+1}</td>
               <td style={{...cellPad,paddingLeft:8,textAlign:"left",borderRight:"1px solid #ddd",fontWeight:700}}>{subj}</td>
               <td style={{...cellPad,textAlign:"center",borderRight:"1px solid #ddd"}}>{s.tot>0?s.tot:"—"}</td>
@@ -997,16 +1043,11 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
           </div>
         </div>
         <div style={{textAlign:"center",paddingBottom:4}}>
-          <div style={{
-            width:72,height:72,borderRadius:"50%",border:"2px solid #111",
-            display:"flex",alignItems:"center",justifyContent:"center",
-            margin:"0 auto",background:"#fff",overflow:"hidden",
-          }}>
-            <img src={schoolOrBrandLogo(settings?.logo)} alt="" style={{width:58,height:58,objectFit:"contain"}}/>
-          </div>
-          <div style={{fontSize:7,fontWeight:700,marginTop:4,maxWidth:90,lineHeight:1.35,fontFamily:RC_SERIF,textTransform:"uppercase"}}>
-            {String(settings?.schoolName||"").trim()||"School Seal"}
-          </div>
+          <ResultCardSchoolStamp
+            logoSrc={schoolOrBrandLogo(settings?.logo)}
+            schoolName={String(settings?.schoolName||"").trim()||"School Seal"}
+            size={96}
+          />
         </div>
         <div style={{textAlign:"center",fontFamily:RC_SERIF,position:"relative"}}>
           <div style={{minHeight:40,position:"relative"}}>
