@@ -17,6 +17,8 @@ import { yieldToMain } from "./yieldToMain.js";
 import { UI } from "./uiTokens.js";
 import { C, schoolOrBrandLogo, APP_BRAND_LOGO, genId } from "./shared/theme";
 import { Btn, Sel, Inp, SchoolHeader } from "./components/AppControls";
+import { AppZoomControls } from "./components/AppZoomControls";
+import { useAppZoom } from "./useAppZoom";
 import {
   formatGradeLabel, formatClassDisplay, resolveClass, getClassLabel, normKey,
   getClassSubjects, isTeachingStaffMember, teachingStaffList, normalizeRollNo,
@@ -290,10 +292,11 @@ const MOBILE_CSS = [
   ".mobile-menu-panel .mobile-menu-footer{padding:12px 16px;border-top:1px solid rgba(148,163,184,0.35);font-size:11px;opacity:0.9;line-height:1.45;flex-shrink:0;background:rgba(15,23,42,0.5)}",
   "@media (max-width:768px){",
   "  .app-topbar-grid{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto;align-items:center!important}",
-  "  .app-topbar-left{grid-column:1;grid-row:1}",
+  "  .app-topbar-left{grid-column:1;grid-row:1;display:flex!important;align-items:center!important;gap:8px!important;width:100%!important}",
   "  .app-topbar-right{display:none!important}",
   "  .app-topbar-center{display:none!important}",
   "  .app-topbar-brandtext{display:none!important}",
+  "  .app-zoom-mobile-only{display:flex!important;margin-left:auto!important}",
   "  .app-topbar-logo{width:40px!important;height:40px!important}",
   "  .app-body-row{flex-direction:column!important}",
   "  .app-sidebar{display:none!important}",
@@ -943,6 +946,7 @@ function App(){
   const [barSubtitle,setBarSubtitle]=useState("");
   useEffect(()=>{ queueMicrotask(()=>setBarSubtitle("")); },[page]);
   const [mobileMenuOpen,setMobileMenuOpen]=useState(false);
+  const appZoom=useAppZoom();
   const [themeMode]=useState(()=>{
     try{
       const stored=window.localStorage.getItem("sms_theme_mode");
@@ -1197,13 +1201,41 @@ function App(){
     <>
       <style>{PRINT_CSS}</style>
     <style>{MOBILE_CSS}</style>
-    <div className={page==="timetable"?"app-layout app-page-timetable":"app-layout"} style={{display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",fontFamily:UI.fontApp,background:UI.shellBg,padding:page==="timetable"?"0 max(6px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left))":"0 max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left))",boxSizing:"border-box",width:"100%",maxWidth:"100vw"}}>
+    <div
+      className={page==="timetable"?"app-layout app-page-timetable":"app-layout"}
+      style={{
+        display:"flex",
+        flexDirection:"column",
+        overflow:"hidden",
+        fontFamily:UI.fontApp,
+        background:UI.shellBg,
+        padding:page==="timetable"?"0 max(6px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left))":"0 max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left))",
+        boxSizing:"border-box",
+        zoom:appZoom.zoom,
+        // Compensate so zoomed layout still fills the real viewport
+        width:`${100 / appZoom.zoom}vw`,
+        maxWidth:`${100 / appZoom.zoom}vw`,
+        height:`${100 / appZoom.zoom}vh`,
+        ["--psms-zoom"]:String(appZoom.zoom),
+      }}
+    >
       <header className="app-header no-print" style={{flexShrink:0,zIndex:20,margin:"8px 0 0",background:"#ffffff",borderBottom:"1px solid #e5e7eb",boxShadow:"0 1px 4px rgba(15,23,42,0.06)",borderRadius:12}}>
         <div className="app-topbar-grid" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,auto) minmax(0,1fr)",alignItems:"center",gap:12,padding:"10px 16px",maxWidth:"100%"}}>
           <div className="app-topbar-left" style={{display:"flex",alignItems:"center",gap:12,minWidth:0}}>
             <button type="button" className="mobile-menu-btn" aria-label="Open menu" aria-expanded={mobileMenuOpen} style={{alignItems:"center",justifyContent:"center",width:UI.mobileMenuBtn,height:UI.mobileMenuBtn,minWidth:UI.mobileMenuBtn,minHeight:UI.mobileMenuBtn,padding:0,border:"none",background:C.navy,color:"#fff",borderRadius:UI.radiusControl,cursor:"pointer",flexShrink:0,touchAction:"manipulation",WebkitTapHighlightColor:"transparent",position:"relative",zIndex:30,pointerEvents:"auto"}} onClick={()=>setMobileMenuOpen(true)}>
               <Menu size={UI.iconMenu} strokeWidth={2} aria-hidden />
             </button>
+            <div className="app-zoom-mobile-only" style={{display:"none"}}>
+              <AppZoomControls
+                compact
+                percent={appZoom.percent}
+                zoomIn={appZoom.zoomIn}
+                zoomOut={appZoom.zoomOut}
+                resetZoom={appZoom.resetZoom}
+                canZoomIn={appZoom.canZoomIn}
+                canZoomOut={appZoom.canZoomOut}
+              />
+            </div>
             <img src={APP_BRAND_LOGO} alt="" className="app-topbar-logo" style={{width:UI.logoApp/2,height:UI.logoApp/2,objectFit:"contain",flexShrink:0}} />
             <div className="app-topbar-brandtext" style={{display:"flex",flexDirection:"column",minWidth:0,justifyContent:"center"}}>
               <div style={{fontFamily:UI.fontHeading,fontWeight:800,fontSize:13,color:C.navy,lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Punjab School Management System</div>
@@ -1224,6 +1256,14 @@ function App(){
           </div>
           <div className="app-topbar-right" style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:10,flexWrap:"wrap",minWidth:0}}>
             {saveStatus!=="idle"&&<span style={{fontSize:11,fontWeight:600,color:saveStatus==="saved"?C.green:C.gray,whiteSpace:"nowrap"}}>{saveStatus==="saved"?"✓ Saved":saveStatus==="saving"?"Saving…":""}</span>}
+            <AppZoomControls
+              percent={appZoom.percent}
+              zoomIn={appZoom.zoomIn}
+              zoomOut={appZoom.zoomOut}
+              resetZoom={appZoom.resetZoom}
+              canZoomIn={appZoom.canZoomIn}
+              canZoomOut={appZoom.canZoomOut}
+            />
             <HeaderNow />
           </div>
         </div>
