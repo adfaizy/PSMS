@@ -1441,7 +1441,7 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
     setBarSubtitle(t?.label||"");
   },[tab,setBarSubtitle]);
   return (
-  <div className="mx-auto max-w-[1100px] space-y-5">
+  <div className="psms-page mx-auto max-w-[1100px] space-y-5 w-full min-w-0">
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 className="m-0 text-2xl font-bold tracking-tight text-primary">Settings</h1>

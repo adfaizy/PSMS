@@ -279,7 +279,6 @@ const MOBILE_CSS = [
   ".mobile-menu-btn{display:none!important}",
   ".app-page-timetable .timetable-print-area,.app-page-timetable .timetable-main-content{min-width:0;max-width:100%;box-sizing:border-box;}",
   ".app-page-timetable .timetable-main-content > div{max-width:100%;box-sizing:border-box;}",
-  "/* Drawer + backdrop: global so they work whenever the hamburger is shown (e.g. Timetable enables it up to 1280px). */",
   "@keyframes mobile-nav-drawer-in{from{transform:translateX(-100%);opacity:0.9}to{transform:translateX(0);opacity:1}}",
   ".mobile-menu-backdrop{position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:10000;-webkit-tap-highlight-color:transparent}",
   ".mobile-menu-panel{position:fixed;top:0;left:0;bottom:0;width:min(300px,88vw);max-width:100vw;background:linear-gradient(180deg,#0f172a 0%,#1e293b 100%);color:#f9fafb;z-index:10001;box-shadow:8px 0 32px rgba(0,0,0,0.35);display:flex;flex-direction:column;overflow:hidden;padding-bottom:env(safe-area-inset-bottom,0);animation:mobile-nav-drawer-in 0.22s ease-out}",
@@ -289,9 +288,6 @@ const MOBILE_CSS = [
   ".mobile-menu-panel nav button{width:100%;padding:14px 16px;background:transparent;border:none;color:#e5e7eb;cursor:pointer;text-align:left;font-size:15px;display:flex;align-items:center;gap:12px;border-left:4px solid transparent;-webkit-tap-highlight-color:transparent}",
   ".mobile-menu-panel nav button.active{background:rgba(248,250,252,0.1);border-left-color:#fbbf24;color:#fff;font-weight:600}",
   ".mobile-menu-panel .mobile-menu-footer{padding:12px 16px;border-top:1px solid rgba(148,163,184,0.35);font-size:11px;opacity:0.9;line-height:1.45;flex-shrink:0;background:rgba(15,23,42,0.5)}",
-  "@media (max-width:1199px){",
-  "  .app-right-sidebar{display:none!important}",
-  "}",
   "@media (max-width:768px){",
   "  .app-topbar-grid{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto;align-items:center!important}",
   "  .app-topbar-left{grid-column:1;grid-row:1}",
@@ -304,10 +300,6 @@ const MOBILE_CSS = [
   "  .app-main{flex:1 1 100%!important;min-width:0;width:100%!important}",
   "  .mobile-menu-btn{display:flex!important;align-items:center!important;justify-content:center!important;width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;touch-action:manipulation!important;-webkit-tap-highlight-color:transparent!important}",
   "  .hide-on-mobile{display:none!important}",
-  "}",
-  "/* Timetable: hide sidebars + edge padding when width is tight; menu button stays available (769–1280). */",
-  "@media (max-width:1400px){",
-  "  .app-page-timetable .app-right-sidebar{display:none!important}",
   "}",
   "@media (max-width:1280px){",
   "  .app-page-timetable .app-sidebar{display:none!important}",
@@ -1205,7 +1197,7 @@ function App(){
     <>
       <style>{PRINT_CSS}</style>
     <style>{MOBILE_CSS}</style>
-    <div className={page==="timetable"?"app-layout app-page-timetable":"app-layout"} style={{display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",fontFamily:UI.fontApp,background:UI.shellBg,padding:page==="timetable"?"0 max(6px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left))":"0 10px 10px",boxSizing:"border-box"}}>
+    <div className={page==="timetable"?"app-layout app-page-timetable":"app-layout"} style={{display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",fontFamily:UI.fontApp,background:UI.shellBg,padding:page==="timetable"?"0 max(6px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left))":"0 max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left))",boxSizing:"border-box",width:"100%",maxWidth:"100vw"}}>
       <header className="app-header no-print" style={{flexShrink:0,zIndex:20,margin:"8px 0 0",background:"#ffffff",borderBottom:"1px solid #e5e7eb",boxShadow:"0 1px 4px rgba(15,23,42,0.06)",borderRadius:12}}>
         <div className="app-topbar-grid" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,auto) minmax(0,1fr)",alignItems:"center",gap:12,padding:"10px 16px",maxWidth:"100%"}}>
           <div className="app-topbar-left" style={{display:"flex",alignItems:"center",gap:12,minWidth:0}}>

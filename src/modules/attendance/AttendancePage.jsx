@@ -191,7 +191,7 @@ export function AttendancePage({settings,students,currentSession,activeSchoolId,
   });
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18 }}>
+    <div className="psms-page" style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18, width: "100%", minWidth: 0, boxSizing: "border-box" }}>
       {/* Header */}
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: 14 }}>
         <div style={{ minWidth: 0 }}>

@@ -1,0 +1,391 @@
+/**
+ * PSMS system-wide responsive layout
+ * Breakpoints: 1280 (tablet landscape), 1024, 768 (mobile), 480 (small phones)
+ */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html,
+body,
+#root {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.app-layout {
+  max-width: 100vw;
+  min-width: 0;
+}
+
+.app-body-row,
+.app-main,
+#print-section {
+  min-width: 0;
+  max-width: 100%;
+}
+
+#print-section {
+  box-sizing: border-box;
+}
+
+/* Horizontal scroll wrappers for wide tables */
+.psms-scroll-x,
+#print-section [style*="overflowX"],
+#print-section [style*="overflow-x"] {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+#print-section table {
+  border-collapse: collapse;
+}
+
+/* Utility: 2-col grids collapse on narrow screens */
+.psms-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  min-width: 0;
+}
+
+.psms-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.psms-page {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.psms-ctrl {
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+
+/* Inputs / selects never blow out the viewport */
+#print-section input,
+#print-section select,
+#print-section textarea,
+#print-section button {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+#print-section img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Result card capture roots stay within viewport on screen */
+.result-card-page-wrap {
+  max-width: min(736px, 100%) !important;
+  box-sizing: border-box;
+}
+
+.result-card-capture-root,
+.result-card-border-outer,
+.result-card-border-inner {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* ——— Tablet landscape / small desktop ——— */
+@media (max-width: 1280px) {
+  .app-layout:not(.app-page-timetable) {
+    padding-left: max(6px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(6px, env(safe-area-inset-right, 0px)) !important;
+  }
+
+  #print-section {
+    padding: 14px !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .app-sidebar {
+    width: 196px !important;
+  }
+
+  .app-sidebar nav button {
+    font-size: 12px !important;
+    padding: 7px 8px !important;
+  }
+
+  #print-section {
+    padding: 12px !important;
+  }
+
+  .app-topbar-center {
+    max-width: min(40vw, 360px) !important;
+  }
+}
+
+/* ——— Phones & small tablets ——— */
+@media (max-width: 768px) {
+  .app-layout {
+    padding: 0 0 max(6px, env(safe-area-inset-bottom, 0px)) 0 !important;
+  }
+
+  .app-header {
+    margin: 0 !important;
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+  }
+
+  .app-topbar-grid {
+    padding: 8px 10px !important;
+    gap: 8px !important;
+  }
+
+  .app-body-row {
+    margin-top: 0 !important;
+    gap: 0 !important;
+  }
+
+  .app-main {
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    box-shadow: none !important;
+  }
+
+  #print-section {
+    padding: 10px 10px 20px !important;
+  }
+
+  .psms-grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .psms-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  /* Module titles */
+  #print-section h1,
+  #print-section h2 {
+    font-size: clamp(16px, 4.5vw, 22px) !important;
+    line-height: 1.3 !important;
+  }
+
+  /* Tab chips / pill groups wrap and stay tappable */
+  #print-section button {
+    min-height: 40px;
+  }
+
+  /* Fixed-width controls become fluid */
+  #print-section select,
+  #print-section input[type="text"],
+  #print-section input[type="number"],
+  #print-section input[type="password"],
+  #print-section input[type="email"],
+  #print-section input[type="tel"],
+  #print-section input[type="date"],
+  #print-section textarea {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 42px;
+    font-size: 16px !important; /* avoid iOS zoom */
+  }
+
+  /* Keep Result Card toolbar on one scrollable line */
+  .result-card-toolbar select,
+  .result-card-toolbar input[type="text"],
+  .result-card-toolbar input[type="number"] {
+    width: auto !important;
+    max-width: none !important;
+    min-height: 36px !important;
+    height: 36px !important;
+    font-size: 13px !important;
+  }
+
+  .result-card-toolbar .result-card-roll-input {
+    width: 2.75em !important;
+    min-width: 2.75em !important;
+    max-width: 2.75em !important;
+  }
+
+  .result-card-toolbar button {
+    min-height: 36px !important;
+    height: 36px !important;
+  }
+
+  /* Student / admission photo + form stacks */
+  .psms-photo-form-row {
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+
+  .psms-photo-form-row > div[style*="flex: 1"],
+  .psms-photo-form-row > .psms-grid-2 {
+    width: 100% !important;
+  }
+
+  /* Result card: tighten for narrow screens */
+  .result-card-page-wrap {
+    margin-bottom: 16px !important;
+    padding: 0 2px !important;
+  }
+
+  .result-card-border-outer {
+    padding: 3px !important;
+  }
+
+  .result-card-border-inner {
+    padding: 10px 8px !important;
+    min-height: 0 !important;
+  }
+
+  .result-card-doc-header {
+    margin-bottom: 8px !important;
+  }
+
+  .result-card-info-grid {
+    grid-template-columns: 1fr !important;
+    column-gap: 0 !important;
+  }
+
+  .result-card-header-grid {
+    grid-template-columns: minmax(0, 48px) minmax(0, 1fr) minmax(0, 64px) !important;
+    gap: 6px !important;
+    overflow: hidden !important;
+  }
+
+  .result-card-header-logo img {
+    max-width: 44px !important;
+  }
+
+  .result-card-header-photo {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .result-card-border-inner {
+    overflow: hidden !important;
+  }
+
+  .result-card-summary-row {
+    flex-wrap: wrap !important;
+  }
+
+  .result-card-summary-row > * {
+    flex: 1 1 calc(50% - 6px) !important;
+    min-width: 100px !important;
+  }
+
+  .result-card-grade-scale {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  .result-card-footer-sign {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  /* Modals fill safe viewport */
+  body [style*="position: fixed"][style*="inset: 0"] > div,
+  body [style*="position:fixed"][style*="inset:0"] > div {
+    max-width: min(560px, calc(100vw - 24px)) !important;
+    max-height: min(90vh, calc(100dvh - 24px)) !important;
+  }
+
+  /* Dashboard cards */
+  .dash-stat-card,
+  .dash-class-card {
+    min-width: 0 !important;
+  }
+
+  .psms-fluid-card {
+    min-width: 0 !important;
+    flex: 1 1 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Fee month input */
+  .fees-page input[type="month"] {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* Result card toolbar: one line, equal control heights */
+.result-card-toolbar {
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+}
+
+.result-card-toolbar select,
+.result-card-toolbar input:not([type="hidden"]),
+.result-card-toolbar button {
+  height: 36px !important;
+  min-height: 36px !important;
+  box-sizing: border-box !important;
+}
+
+/* Roll No field: tight width matching a few digits */
+.result-card-toolbar .result-card-roll-input,
+.result-card-roll-input {
+  width: 2.75em !important;
+  min-width: 2.75em !important;
+  max-width: 2.75em !important;
+  flex: 0 0 2.75em !important;
+  padding-left: 2px !important;
+  padding-right: 2px !important;
+}
+
+/* ——— Small phones ——— */
+@media (max-width: 480px) {
+  #print-section {
+    padding: 8px 8px 18px !important;
+  }
+
+  .app-topbar-logo {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  .result-card-header-grid {
+    grid-template-columns: minmax(0, 40px) minmax(0, 1fr) minmax(0, 56px) !important;
+    gap: 4px !important;
+  }
+
+  .result-card-summary-row > * {
+    flex: 1 1 100% !important;
+  }
+
+  .result-card-grade-scale {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Hide decorative corner marks that crowd tiny screens */
+  .result-card-border-inner > [aria-hidden="true"] {
+    display: none !important;
+  }
+}
+
+/* Tablet portrait: keep hamburger available a bit earlier for crowded pages */
+@media (max-width: 900px) {
+  .psms-hide-lt-900 {
+    display: none !important;
+  }
+}
+
+/* Prefer dynamic viewport height where supported */
+@supports (height: 100dvh) {
+  .app-layout {
+    height: 100dvh !important;
+  }
+}

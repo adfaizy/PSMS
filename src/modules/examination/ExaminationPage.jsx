@@ -105,20 +105,27 @@ export function ResultCardHeader({
   return (
     <div className="result-card-doc-header print-header-universal" style={{ marginBottom: 10 }}>
       <div
+        className="result-card-header-grid"
         style={{
           display: "grid",
-          gridTemplateColumns: "72px minmax(0, 1fr) 88px",
-          gap: 12,
+          gridTemplateColumns: "minmax(0, 68px) minmax(0, 1fr) minmax(0, 80px)",
+          gap: 10,
           alignItems: "start",
+          width: "100%",
+          maxWidth: "100%",
+          boxSizing: "border-box",
+          overflow: "hidden",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "center", paddingTop: 2 }}>
+        <div className="result-card-header-logo" style={{ display: "flex", justifyContent: "center", paddingTop: 2, minWidth: 0, maxWidth: "100%" }}>
           <img
             src={schoolOrBrandLogo(settings?.logo)}
             alt=""
             style={{
-              width: 68,
-              height: 68,
+              width: "100%",
+              maxWidth: 64,
+              aspectRatio: "1",
+              height: "auto",
               objectFit: "contain",
               borderRadius: "50%",
               border: "1.5px solid #111",
@@ -126,7 +133,7 @@ export function ResultCardHeader({
             }}
           />
         </div>
-        <div style={{ textAlign: "center", minWidth: 0, fontFamily: RC_SERIF }}>
+        <div style={{ textAlign: "center", minWidth: 0, maxWidth: "100%", overflow: "hidden", fontFamily: RC_SERIF }}>
           <div
             style={{
               fontSize: 9,
@@ -148,6 +155,8 @@ export function ResultCardHeader({
               lineHeight: 1.35,
               textTransform: "uppercase",
               paddingBottom: 2,
+              overflowWrap: "anywhere",
+              wordBreak: "break-word",
             }}
           >
             {schoolName}
@@ -161,6 +170,7 @@ export function ResultCardHeader({
               textTransform: "uppercase",
               lineHeight: 1.4,
               paddingBottom: 1,
+              overflowWrap: "anywhere",
             }}
           >
             {examLabel || "—"}
@@ -193,14 +203,18 @@ export function ResultCardHeader({
           </div>
         </div>
         <div
+          className="result-card-header-photo"
           style={{
-            width: 88,
+            width: "100%",
+            maxWidth: "100%",
+            minWidth: 0,
             border: "2px solid #111",
             background: "#fff",
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
-            minHeight: 108,
+            minHeight: 96,
+            boxSizing: "border-box",
           }}
         >
           <div
@@ -210,17 +224,19 @@ export function ResultCardHeader({
               alignItems: "center",
               justifyContent: "center",
               background: "#fafafa",
-              minHeight: 84,
+              minHeight: 72,
+              minWidth: 0,
+              overflow: "hidden",
             }}
           >
             {photo ? (
               <img src={photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             ) : (
-              <div style={{ textAlign: "center", padding: 6 }}>
+              <div style={{ textAlign: "center", padding: 4, maxWidth: "100%", boxSizing: "border-box" }}>
                 <div
                   style={{
-                    width: 44,
-                    height: 44,
+                    width: 36,
+                    height: 36,
                     borderRadius: "50%",
                     background: "#111",
                     color: "#fff",
@@ -228,14 +244,14 @@ export function ResultCardHeader({
                     alignItems: "center",
                     justifyContent: "center",
                     margin: "0 auto 4px",
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: 800,
                     fontFamily: RC_SERIF,
                   }}
                 >
                   {initials}
                 </div>
-                <div style={{ fontSize: 8, color: "#555", lineHeight: 1.2 }}>Add student photo</div>
+                <div style={{ fontSize: 7, color: "#555", lineHeight: 1.2 }}>Add photo</div>
               </div>
             )}
           </div>
@@ -243,12 +259,16 @@ export function ResultCardHeader({
             style={{
               background: "#111",
               color: "#fff",
-              fontSize: 8,
+              fontSize: 6,
               fontWeight: 800,
               textAlign: "center",
-              padding: "5px 2px",
+              padding: "4px 1px",
               textTransform: "uppercase",
-              lineHeight: 1.35,
+              lineHeight: 1.25,
+              letterSpacing: "0.02em",
+              overflow: "hidden",
+              whiteSpace: "nowrap",
+              textOverflow: "ellipsis",
             }}
           >
             Student Photo
@@ -899,7 +919,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
         photo={st.photo}
         studentName={st.name}
       />
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",columnGap:28,rowGap:0,marginBottom:14,alignItems:"stretch"}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",columnGap:28,rowGap:0,marginBottom:14,alignItems:"stretch"}} className="result-card-info-grid">
         <div style={{display:"flex",flexDirection:"column",justifyContent:"center"}}>
           {infoCell("Student Name", st.name)}
           {infoCell("Father's Name", st.fatherName)}
@@ -944,7 +964,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
           </tr>
         </tbody>
       </table>
-      <div style={{display:"flex",gap:6,marginTop:10}}>
+      <div className="result-card-summary-row" style={{display:"flex",gap:6,marginTop:10}}>
         {summaryBox("Obtained", o.tot>0?`${o.obt} / ${o.tot}`:"—")}
         {summaryBox("Percentage", o.pctStr==="—"?"—":`${o.pctStr}%`)}
         {summaryBox("Grade", o.gradeStr)}
@@ -953,7 +973,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
       </div>
       <div style={{marginTop:12,border:"1.5px solid #111"}}>
         <div style={{textAlign:"center",fontSize:9,fontWeight:800,padding:"6px 6px",borderBottom:"1px solid #111",textTransform:"uppercase",fontFamily:RC_SERIF,lineHeight:1.4}}>Grading Scale</div>
-        <div style={{display:"grid",gridTemplateColumns:`repeat(${gradeScale.length},1fr)`}}>
+        <div className="result-card-grade-scale" style={{display:"grid",gridTemplateColumns:`repeat(${gradeScale.length},1fr)`}}>
           {gradeScale.map((g,i)=>(
             <div key={g.grade} style={{borderRight:i===gradeScale.length-1?"none":"1px solid #ccc",textAlign:"center",padding:"7px 3px"}}>
               <div style={{fontSize:9,fontWeight:700,fontFamily:RC_SERIF,lineHeight:1.4}}>{g.range}</div>
@@ -968,7 +988,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
           {remarks}
         </div>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr auto 1fr",gap:10,alignItems:"end",marginTop:28,paddingTop:8}}>
+      <div className="result-card-footer-sign" style={{display:"grid",gridTemplateColumns:"1fr auto 1fr",gap:10,alignItems:"end",marginTop:28,paddingTop:8}}>
         <div style={{textAlign:"center",fontFamily:RC_SERIF}}>
           <div style={{minHeight:40}}/>
           <div style={{borderTop:"1.5px solid #111",paddingTop:6,margin:"0 auto",width:"90%"}}>
@@ -1180,7 +1200,10 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
     boxShadow: "0 1px 3px rgba(15,23,42,0.06)",
   };
   const toolbar = {
-    ...panel,
+    background: "#fff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 12,
+    boxShadow: "0 1px 3px rgba(15,23,42,0.06)",
     display: "flex",
     flexWrap: "wrap",
     alignItems: "flex-end",
@@ -1202,10 +1225,10 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
   };
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
-      <div className="no-print" style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: 14 }}>
-        <div style={{ minWidth: 0 }}>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: "#1B5E20", letterSpacing: "-0.02em" }}>Examination</h1>
+    <div className="psms-page" style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16, width: "100%", minWidth: 0, boxSizing: "border-box" }}>
+      <div className="no-print psms-toolbar" style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: 14 }}>
+        <div style={{ minWidth: 0, flex: "1 1 200px" }}>
+          <h1 style={{ margin: 0, fontSize: "clamp(18px, 4vw, 24px)", fontWeight: 800, color: "#1B5E20", letterSpacing: "-0.02em" }}>Examination</h1>
           <p style={{ margin: "6px 0 0", fontSize: 13, color: "#6b7280" }}>
             {EXAM_TABS.find((x) => x.id === tab)?.l || "Exams"} · session {currentSession || "—"}
           </p>
@@ -1236,7 +1259,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
 
       {tab === "admission" && (
         <div>
-          <div style={{ ...toolbar }}>
+          <div className="psms-toolbar" style={{ ...toolbar }}>
             <p style={{ fontSize: 13, color: "#6b7280", margin: 0, maxWidth: 560 }}>
               Fill the form to admit a new student. After saving, they appear in Student Record.
             </p>
@@ -1270,7 +1293,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
           <div id="admission-form-print" style={{ maxWidth: 720, margin: "0 auto" }}>
             <SchoolHeader settings={settings} subtitle="ADMISSION FORM" />
             <div style={{ ...panel, padding: 20, marginTop: 12 }}>
-              <div style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 14 }}>
+              <div className="psms-photo-form-row" style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 14, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
                   <div style={{ width: 80, height: 100, border: "2px dashed #d1d5db", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", background: "#fafafa" }}>
                     {admissionPhotoBusy ? (
@@ -1320,7 +1343,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                     }}
                   />
                 </div>
-                <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div className="psms-grid-2" style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, minWidth: 0 }}>
                   <Inp label="Admission No" value={admissionForm.admissionNo} onChange={(v) => setAdmissionForm((x) => ({ ...x, admissionNo: v }))} placeholder={"Next: " + suggestedNextAdm} width="100%" />
                   <Inp label="Roll No" value={admissionForm.rollNo} onChange={(v) => setAdmissionForm((x) => ({ ...x, rollNo: v }))} placeholder={"Next in class: " + suggestedNextRoll} width="100%" />
                   <Inp label="Student Name" value={admissionForm.name} onChange={(v) => setAdmissionForm((x) => ({ ...x, name: toProperCaseNameInput(v) }))} width="100%" />
@@ -1590,31 +1613,69 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
 
       {tab === "card" && (
         <div>
-          <div className="no-print" style={toolbar}>
-            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
-              <Sel label="Class" value={rcCls} onChange={setRcCls} options={settings.classes.map((c) => ({ value: c.id, label: formatClassDisplay(c) }))} width={ctrlW} />
-              <Sel label="Exam" value={rcExam} onChange={setRcExam} options={[{ value: "overall", label: "Overall (All Terms)" }, ...exams.map((e) => ({ value: e, label: e }))]} width={ctrlW} />
-              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                <label style={{ fontSize: 11, fontWeight: 700, color: C.gray, textTransform: "uppercase", letterSpacing: 0.4 }}>Pass %</label>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={settings.passPercent ?? 50}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      if (!isNaN(v) && v >= 0 && v <= 100 && setSettings) setSettings((s) => ({ ...s, passPercent: v }));
-                    }}
-                    style={{ padding: "6px 10px", border: "1.5px solid #d1d5db", borderRadius: 5, fontSize: 13, background: "#fff", width: ctrlW, boxSizing: "border-box" }}
-                  />
-                  <span style={{ fontSize: 13, color: C.gray, fontWeight: 600 }}>%</span>
-                </div>
+          <div
+            className="no-print result-card-toolbar"
+            style={{
+              ...panel,
+              display: "flex",
+              flexWrap: "nowrap",
+              alignItems: "flex-end",
+              gap: 10,
+              padding: "12px 14px",
+              marginBottom: 14,
+              overflowX: "auto",
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
+            <Sel
+              label="Class"
+              value={rcCls}
+              onChange={setRcCls}
+              options={settings.classes.map((c) => ({ value: c.id, label: formatClassDisplay(c) }))}
+              width={140}
+              selectClassName="!h-9 !min-h-9 !py-1.5 !text-sm"
+            />
+            <Sel
+              label="Exam"
+              value={rcExam}
+              onChange={setRcExam}
+              options={[{ value: "overall", label: "Overall (All Terms)" }, ...exams.map((e) => ({ value: e, label: e }))]}
+              width={140}
+              selectClassName="!h-9 !min-h-9 !py-1.5 !text-sm"
+            />
+            <div style={{ display: "flex", flexDirection: "column", gap: 3, flexShrink: 0 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: C.gray, textTransform: "uppercase", letterSpacing: 0.4 }}>Pass %</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, height: 36 }}>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={settings.passPercent ?? 50}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (!isNaN(v) && v >= 0 && v <= 100 && setSettings) setSettings((s) => ({ ...s, passPercent: v }));
+                  }}
+                  style={{
+                    height: 36,
+                    width: 72,
+                    padding: "0 10px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 6,
+                    fontSize: 13,
+                    background: "#fff",
+                    boxSizing: "border-box",
+                  }}
+                />
+                <span style={{ fontSize: 13, color: C.gray, fontWeight: 600 }}>%</span>
               </div>
-              <div style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 3, flexShrink: 0 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: C.gray, textTransform: "uppercase", letterSpacing: 0.4 }}>Roll No</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, height: 36 }}>
                 <button
                   type="button"
+                  aria-label="Previous roll"
                   onClick={() => {
                     const list = cs(rcCls);
                     const rolls = list
@@ -1632,16 +1693,46 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                       setRcRoll(String(max));
                       return;
                     }
-                    const next = Math.max(min, cur - 1);
-                    setRcRoll(String(next));
+                    setRcRoll(String(Math.max(min, cur - 1)));
                   }}
-                  style={{ border: "1px solid #d1d5db", background: "#fff", borderRadius: 4, padding: "6px 8px", cursor: "pointer", fontSize: 13 }}
+                  style={{
+                    height: 36,
+                    width: 36,
+                    border: "1px solid #d1d5db",
+                    background: "#fff",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    fontSize: 14,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
                 >
                   ←
                 </button>
-                <Inp label="Roll No" value={rcRoll} onChange={setRcRoll} placeholder="Enter Roll No" width={ctrlW} />
+                <input
+                  type="text"
+                  className="result-card-roll-input"
+                  value={rcRoll}
+                  onChange={(e) => setRcRoll(e.target.value)}
+                  placeholder="#"
+                  size={3}
+                  inputMode="numeric"
+                  style={{
+                    height: 36,
+                    padding: "0 2px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 6,
+                    fontSize: 13,
+                    background: "#fff",
+                    boxSizing: "border-box",
+                    textAlign: "center",
+                  }}
+                />
                 <button
                   type="button"
+                  aria-label="Next roll"
                   onClick={() => {
                     const list = cs(rcCls);
                     const rolls = list
@@ -1659,22 +1750,47 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                       setRcRoll(String(min));
                       return;
                     }
-                    const next = Math.min(max, cur + 1);
-                    setRcRoll(String(next));
+                    setRcRoll(String(Math.min(max, cur + 1)));
                   }}
-                  style={{ border: "1px solid #d1d5db", background: "#fff", borderRadius: 4, padding: "6px 8px", cursor: "pointer", fontSize: 13 }}
+                  style={{
+                    height: 36,
+                    width: 36,
+                    border: "1px solid #d1d5db",
+                    background: "#fff",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    fontSize: 14,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
                 >
                   →
                 </button>
               </div>
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              <Btn small outline disabled={singlePdfBusy || classPdfBusy || !String(rcRoll || "").trim()} onClick={() => void exportSingleResultCardPdf()}>
-                {singlePdfBusy ? "⏳ PDF…" : "📄 PDF"}
-              </Btn>
-              <Btn small disabled={classPdfBusy || singlePdfBusy} onClick={requestClassPdfExport}>
-                {classPdfBusy ? "⏳ Class PDF…" : "📄 Class PDF"}
-              </Btn>
+            <div style={{ display: "flex", flexDirection: "column", gap: 3, flexShrink: 0, marginLeft: "auto" }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: "transparent", textTransform: "uppercase", letterSpacing: 0.4, userSelect: "none" }}>Actions</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, height: 36 }}>
+                <Btn
+                  small
+                  outline
+                  disabled={singlePdfBusy || classPdfBusy || !String(rcRoll || "").trim()}
+                  onClick={() => void exportSingleResultCardPdf()}
+                  style={{ height: 36, minHeight: 36, padding: "0 12px", display: "inline-flex", alignItems: "center" }}
+                >
+                  {singlePdfBusy ? "⏳ PDF…" : "📄 PDF"}
+                </Btn>
+                <Btn
+                  small
+                  disabled={classPdfBusy || singlePdfBusy}
+                  onClick={requestClassPdfExport}
+                  style={{ height: 36, minHeight: 36, padding: "0 12px", display: "inline-flex", alignItems: "center" }}
+                >
+                  {classPdfBusy ? "⏳ Class PDF…" : "📄 Class PDF"}
+                </Btn>
+              </div>
             </div>
           </div>
           {rcRoll &&
@@ -2211,7 +2327,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
           <button onClick={closeModal} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>×</button>
         </div>
         <div style={{padding:20}}>
-          <div style={{display:"flex",gap:16,alignItems:"flex-start",marginBottom:14}}>
+          <div style={{display:"flex",gap:16,alignItems:"flex-start",marginBottom:14,flexWrap:"wrap"}} className="psms-photo-form-row">
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,flexShrink:0}}>
               <div style={{width:80,height:100,border:"2px dashed #d1d5db",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",background:"#fafafa"}}>
                 {photoBusy?<span style={{fontSize:10,color:C.gray,textAlign:"center",padding:4}}>Processing…</span>:form.photo?<img src={form.photo} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:10,color:C.gray,textAlign:"center"}}>Photo</span>}
@@ -2226,7 +2342,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
               <input ref={photoGalleryRef} type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];e.target.value="";if(!f)return;photoFileRef.current=f;await handleStudentPhotoFile(f);}}/>
               <input ref={photoCameraRef} type="file" accept="image/*" capture="user" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];e.target.value="";if(!f)return;photoFileRef.current=f;await handleStudentPhotoFile(f);}}/>
             </div>
-            <div style={{flex:1,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            <div className="psms-grid-2" style={{flex:1,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,minWidth:0}}>
               <Inp label="Admission No" value={form.admissionNo} onChange={v=>setForm(x=>({...x,admissionNo:v}))} placeholder={editingId?"":("Next: "+suggestedFormAdm)}/>
               <Inp label="Roll No" value={form.rollNo} onChange={v=>setForm(x=>({...x,rollNo:v}))} placeholder={editingId?"":("Next in class: "+suggestedFormRoll)}/>
               <Inp label="Student Name" value={form.name} onChange={v=>setForm(x=>({...x,name:toProperCaseNameInput(v)}))} disabled={!!editingId&&personalLocked}/>

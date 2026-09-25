@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
+import "./responsive.css";
 import Root from "./Root.jsx";
 
 /** Keys left by the removed Finance module (see git: FinanceContext + docs). */

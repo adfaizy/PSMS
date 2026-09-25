@@ -195,7 +195,7 @@ export function DashboardPage({settings,students,staffProfiles=[],exam_tm:examTm
   const examHelp=dashExam==="overall"
     ?"Uses the same marks and pass rule as Result Card → Overall (all terms combined). Pass if overall % ≥ Pass %."
     :`Uses the same totals and pass rule as Enter Marks / Consolidated / Result Card for "${dashExam}". Pass if % ≥ ${passThreshold}%.`;
-  return <div className="space-y-5">
+  return <div className="psms-page space-y-5" style={{ width: "100%", minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }}>
     <style>{`
       .dash-stat-card{ transition:transform 0.2s ease,box-shadow 0.2s ease; }
       .dash-stat-card:hover{ transform:translateY(-2px); box-shadow:0 10px 26px rgba(15,23,42,0.14); }
@@ -251,7 +251,7 @@ export function DashboardPage({settings,students,staffProfiles=[],exam_tm:examTm
         {dashView==="class"&&(
           <div style={{display:"flex",flexWrap:"wrap",gap:10}}>
             {classStats.map(row=>(
-              <div key={row.id} style={{flex:"1 1 300px",maxWidth:380,minWidth:260}}>
+              <div key={row.id} className="psms-fluid-card" style={{flex:"1 1 300px",maxWidth:380,minWidth:260}}>
                 <div className="dash-class-card" style={{background:"#f3f4ff",borderRadius:12,padding:10,boxShadow:"0 1px 6px rgba(15,23,42,0.06)",border:"1px solid rgba(148,163,184,0.35)"}}>
                   <div style={{fontSize:13,fontWeight:700,color:C.navy,marginBottom:6,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{row.name}</div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:5}}>
@@ -297,7 +297,7 @@ export function DashboardPage({settings,students,staffProfiles=[],exam_tm:examTm
               {subjectStats.map(row=>{
                 const passRatePct=row.total>0?Math.round((100*row.pass)/row.total*10)/10:0;
                 const noMark=row.total===0;
-                return <div key={row.name} style={{flex:"1 1 240px",maxWidth:340,minWidth:220}}>
+                return <div key={row.name} className="psms-fluid-card" style={{flex:"1 1 240px",maxWidth:340,minWidth:220}}>
                   <div className="dash-class-card" style={{background:"#f0f9ff",borderRadius:12,padding:10,boxShadow:"0 1px 6px rgba(15,23,42,0.06)",border:"1px solid rgba(148,163,184,0.35)"}}>
                     <div style={{fontSize:13,fontWeight:700,color:"#0369a1",marginBottom:6,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",display:"flex",alignItems:"center",gap:6}}>
                       <span style={{fontSize:16}}>📚</span>{row.name}

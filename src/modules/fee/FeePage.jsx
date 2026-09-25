@@ -325,7 +325,7 @@ export function FeePage({ settings, students, activeSchoolId, setBarSubtitle }) 
   }
 
   return (
-    <div className="fees-page mx-auto max-w-[1200px] space-y-5">
+    <div className="fees-page psms-page mx-auto max-w-[1200px] space-y-5 w-full min-w-0">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
           <h1 className="m-0 text-2xl font-bold tracking-tight text-primary">Fee Collection</h1>
@@ -338,7 +338,7 @@ export function FeePage({ settings, students, activeSchoolId, setBarSubtitle }) 
           <Input
             id="fee-month"
             type="month"
-            className="w-[180px]"
+            className="w-full max-w-[180px]"
             value={`${selectedMonth.year}-${String(selectedMonth.month).padStart(2, "0")}`}
             onChange={handleMonthChange}
           />
