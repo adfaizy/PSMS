@@ -52,118 +52,208 @@ const EXAM_TABS = [
 
 /** Optional decorative border image for result cards; empty = CSS borders only */
 const RESULT_CARD_BORDER_URL = "";
+const RC_SERIF = '"Times New Roman", Times, Georgia, serif';
 
+function resultCardOrdinal(n) {
+  const num = Number(n);
+  if (!Number.isFinite(num) || num < 1) return "—";
+  const j = num % 10;
+  const k = num % 100;
+  if (k >= 11 && k <= 13) return `${num}th`;
+  if (j === 1) return `${num}st`;
+  if (j === 2) return `${num}nd`;
+  if (j === 3) return `${num}rd`;
+  return `${num}th`;
+}
 
-export function ResultCardHeader({ settings, sessionLabel, examLabel, className }) {
-  const passPctNum = Number(settings?.passPercent);
-  const passPercentLabel = `${Number.isFinite(passPctNum) ? Math.max(0, Math.min(100, passPctNum)) : 50}%`;
-  const dateStr = new Date().toLocaleDateString("en-PK", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-  const pipeStyle = { margin: "0 8px", color: "#9ca3af", fontWeight: 300 };
+function resultCardTeacherRemarks(pctStr, status, passThreshold = 50) {
+  if (status === "FAIL") return "Needs improvement. Extra effort required.";
+  const p = parseFloat(pctStr);
+  if (Number.isNaN(p)) return "Keep working hard.";
+  if (p >= 90) return "Outstanding performance. Keep it up!";
+  if (p >= 80) return "Excellent work. Well done!";
+  if (p >= 70) return "Very good performance. Keep improving.";
+  if (p >= 60) return "Good effort. Aim higher next term.";
+  if (p >= passThreshold) return "Satisfactory. Continue to work hard.";
+  return "Needs improvement. Extra effort required.";
+}
+
+function studentPhotoInitials(name) {
+  const parts = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) return "SP";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/** Formal result-card header matching consolidated statement design; data from settings. */
+export function ResultCardHeader({
+  settings,
+  sessionLabel,
+  examLabel,
+  className,
+  photo,
+  studentName,
+}) {
+  const schoolName = String(settings?.schoolName || "").trim() || "School Name";
+  const motto =
+    String(settings?.schoolMotto || settings?.institutionName || "").trim() ||
+    "KNOWLEDGE · CHARACTER · EXCELLENCE";
+  const initials = studentPhotoInitials(studentName);
   return (
-    <div
-      className="result-card-doc-header print-header-universal"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "auto minmax(0, 1fr) auto",
-        gridTemplateRows: "auto auto",
-        rowGap: 4,
-        columnGap: 14,
-        alignItems: "center",
-        padding: "10px 16px",
-        borderBottom: `2px solid ${C.navy}`,
-        marginBottom: 12,
-        background: "#fafbfc",
-      }}
-    >
-      <div style={{ gridColumn: 1, gridRow: 1, alignSelf: "center" }}>
-        <img
-          src={schoolOrBrandLogo(settings?.logo)}
-          alt=""
-          style={{ width: 52, height: 52, borderRadius: 8, objectFit: "cover", border: `1px solid ${C.navy}` }}
-        />
-      </div>
+    <div className="result-card-doc-header print-header-universal" style={{ marginBottom: 10 }}>
       <div
         style={{
-          gridColumn: 2,
-          gridRow: 1,
-          minWidth: 0,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          textAlign: "center",
-          padding: "0 8px",
+          display: "grid",
+          gridTemplateColumns: "72px minmax(0, 1fr) 88px",
+          gap: 12,
+          alignItems: "start",
         }}
       >
+        <div style={{ display: "flex", justifyContent: "center", paddingTop: 2 }}>
+          <img
+            src={schoolOrBrandLogo(settings?.logo)}
+            alt=""
+            style={{
+              width: 68,
+              height: 68,
+              objectFit: "contain",
+              borderRadius: "50%",
+              border: "1.5px solid #111",
+              background: "#fff",
+            }}
+          />
+        </div>
+        <div style={{ textAlign: "center", minWidth: 0, fontFamily: RC_SERIF }}>
+          <div
+            style={{
+              fontSize: 9,
+              fontWeight: 600,
+              color: "#222",
+              textTransform: "uppercase",
+              marginBottom: 4,
+              lineHeight: 1.4,
+              paddingBottom: 1,
+            }}
+          >
+            {motto}
+          </div>
+          <div
+            style={{
+              fontSize: 18,
+              fontWeight: 800,
+              color: "#000",
+              lineHeight: 1.35,
+              textTransform: "uppercase",
+              paddingBottom: 2,
+            }}
+          >
+            {schoolName}
+          </div>
+          <div
+            style={{
+              marginTop: 4,
+              fontSize: 11,
+              fontWeight: 600,
+              color: "#222",
+              textTransform: "uppercase",
+              lineHeight: 1.4,
+              paddingBottom: 1,
+            }}
+          >
+            {examLabel || "—"}
+          </div>
+          <div
+            style={{
+              marginTop: 8,
+              background: "#111",
+              color: "#fff",
+              fontWeight: 800,
+              fontSize: 12,
+              padding: "8px 10px",
+              textTransform: "uppercase",
+              lineHeight: 1.4,
+            }}
+          >
+            Consolidated Result Statement
+          </div>
+          <div
+            style={{
+              marginTop: 6,
+              fontSize: 13,
+              fontWeight: 800,
+              textTransform: "uppercase",
+              lineHeight: 1.4,
+              paddingBottom: 2,
+            }}
+          >
+            {className || "—"}
+          </div>
+        </div>
         <div
-          title={settings?.schoolName || "School Name"}
           style={{
-            fontWeight: 700,
-            fontSize: 15,
-            color: C.navy,
-            lineHeight: 1.2,
-            whiteSpace: "nowrap",
+            width: 88,
+            border: "2px solid #111",
+            background: "#fff",
+            display: "flex",
+            flexDirection: "column",
             overflow: "hidden",
-            textOverflow: "ellipsis",
-            maxWidth: "100%",
-            width: "100%",
+            minHeight: 108,
           }}
         >
-          {settings?.schoolName || "School Name"}
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "#fafafa",
+              minHeight: 84,
+            }}
+          >
+            {photo ? (
+              <img src={photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            ) : (
+              <div style={{ textAlign: "center", padding: 6 }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: "50%",
+                    background: "#111",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    margin: "0 auto 4px",
+                    fontSize: 14,
+                    fontWeight: 800,
+                    fontFamily: RC_SERIF,
+                  }}
+                >
+                  {initials}
+                </div>
+                <div style={{ fontSize: 8, color: "#555", lineHeight: 1.2 }}>Add student photo</div>
+              </div>
+            )}
+          </div>
+          <div
+            style={{
+              background: "#111",
+              color: "#fff",
+              fontSize: 8,
+              fontWeight: 800,
+              textAlign: "center",
+              padding: "5px 2px",
+              textTransform: "uppercase",
+              lineHeight: 1.35,
+            }}
+          >
+            Student Photo
+          </div>
         </div>
-        <div
-          style={{
-            marginTop: 4,
-            fontSize: 11,
-            fontWeight: 700,
-            color: C.gray,
-            letterSpacing: "0.06em",
-            lineHeight: 1.25,
-          }}
-        >
-          STUDENT RESULT CARD
-        </div>
-      </div>
-      <div style={{ gridColumn: 3, gridRow: 1, fontSize: 11, color: "#4b5563", textAlign: "right", lineHeight: 1.5, minWidth: 0, alignSelf: "center" }}>
-        <div style={{ marginTop: 2 }}>
-          <strong>Session:</strong> {sessionLabel || "—"}
-        </div>
-      </div>
-      <div
-        style={{
-          gridColumn: "1 / -1",
-          gridRow: 2,
-          fontSize: 12,
-          color: "#4b5563",
-          lineHeight: 1.35,
-          display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "flex-start",
-          alignItems: "baseline",
-          gap: "0 2px",
-          justifySelf: "stretch",
-        }}
-      >
-        <span>
-          <strong style={{ color: "#374151" }}>Exam:</strong> {examLabel || "—"}
-        </span>
-        <span style={pipeStyle}>|</span>
-        <span>
-          <strong style={{ color: "#374151" }}>Class:</strong> {className || "—"}
-        </span>
-        <span style={pipeStyle}>|</span>
-        <span>
-          <strong style={{ color: "#374151" }}>Pass %:</strong> {passPercentLabel}
-        </span>
-        <span style={pipeStyle}>|</span>
-        <span>
-          <strong style={{ color: "#374151" }}>Date:</strong> {dateStr}
-        </span>
       </div>
     </div>
   );
@@ -741,77 +831,170 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
     let pos=0;
     sortedByObt.forEach((row,i)=>{ if(i===0||row.obt!==sortedByObt[i-1].obt) pos++; row.position=pos; });
     const myPosition=sortedByObt.find(r=>r.s.id===st.id)?.position??"—";
-    const detailRows=[["Name",st.name],["Father",st.fatherName],["Class",className],["Roll No",st.rollNo],["Adm No",st.admissionNo],["Position",String(myPosition)],["Pass %",o.pctStr==="—"?"—":o.pctStr+"%"],["Result",o.status]];
     const presentExams=presentExamsForCard(mode,classId,st.id);
-    const examLabel=mode==="overall"
+    const examLabelRaw=mode==="overall"
       ?(presentExams.length?presentExams.join(" + "):"Overall")
       :String(mode||"—");
-    const marksColLabel=mode==="overall"&&presentExams.length>1
-      ?presentExams.join(" + ")
-      :"Marks";
     const sessionLabel=String(currentSession||"").trim()||academicSession();
+    const sessionYear=String(sessionLabel).match(/\d{4}/)?.[0]||"";
+    const examLabel=mode==="overall"
+      ?`OVERALL RESULT${sessionYear?` ${sessionYear}`:""}`
+      :`${String(examLabelRaw).toUpperCase()}${sessionYear?` ${sessionYear}`:""}`;
     const promoBanner=settings.banner;
     const resultSigSrc=settings.resultCardSignature||signImg;
-    const stampLine1=(String(settings.resultCardStampLine1||"").trim()||String(settings.principalName||"").trim()||"Principal / Headmaster");
-    const stampLine2=(String(settings.resultCardStampLine2||"").trim()||String(settings.schoolName||"").trim());
+    const principalName=(String(settings.resultCardStampLine1||"").trim()||String(settings.principalName||"").trim()||"Principal");
+    const principalTitle=(String(settings.principalDesignation||"").trim()||"PRINCIPAL").toUpperCase();
+    const inchargeTitle="CLASS INCHARGE";
+    const classStrength=cs(classId).length;
+    const positionLabel=resultCardOrdinal(myPosition);
+    const remarks=resultCardTeacherRemarks(o.pctStr,o.status,passThreshold);
+    const subjectList=subjs(classId);
+    const gradeScale=[
+      { range: "80% – 100%", grade: "A+" },
+      { range: "70% – 79%", grade: "A" },
+      { range: "60% – 69%", grade: "B" },
+      { range: "50% – 59%", grade: "C" },
+      { range: "40% – 49%", grade: "D" },
+      { range: `Below ${passThreshold}%`, grade: "F" },
+    ];
+    const infoCell=(label,value)=>(
+      <div
+        style={{
+          display:"flex",
+          flexDirection:"column",
+          justifyContent:"center",
+          minHeight:28,
+          padding:"6px 0 7px",
+          marginBottom:2,
+          borderBottom:"1px dotted #555",
+          boxSizing:"border-box",
+          fontFamily:RC_SERIF,
+        }}
+      >
+        <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0,lineHeight:1.45}}>
+          <span style={{fontSize:12,fontWeight:700,color:"#000",flexShrink:0,lineHeight:1.45,paddingBottom:1}}>{label}:</span>
+          <span style={{fontSize:12,fontWeight:700,color:"#000",lineHeight:1.45,paddingBottom:1,wordBreak:"break-word"}}>{value||"—"}</span>
+        </div>
+      </div>
+    );
+    const summaryBox=(label,value)=>(
+      <div style={{flex:1,minWidth:0,border:"1.5px solid #111",textAlign:"center"}}>
+        <div style={{background:"#111",color:"#fff",fontSize:8,fontWeight:800,padding:"5px 3px",lineHeight:1.35,textTransform:"uppercase"}}>{label}</div>
+        <div style={{padding:"9px 4px",fontSize:13,fontWeight:800,fontFamily:RC_SERIF,lineHeight:1.4}}>{value}</div>
+      </div>
+    );
     return <div key={st.id} className="result-card-page-wrap" style={{maxWidth:736,margin:"0 auto 28px",padding:"0 10px",boxSizing:"border-box",pageBreakAfter:"always",page:"resultCard"}}>
       <div id={cardRef?"result-card":undefined} ref={cardRef} className="result-card-capture-root" style={{position:"relative",background:"transparent"}}>
-      {/* Real borders (not box-shadow) so html2canvas / PDF capture shows green + red frame */}
-      <div className="result-card-border-outer" style={{border:`6px solid ${C.red}`,borderRadius:14,boxSizing:"border-box",width:"100%",background:C.red}}>
-      <div className="result-card-border-inner" style={{position:"relative",padding:36,background:"#fff",border:`5px solid ${C.green}`,borderRadius:8,boxSizing:"border-box",...(RESULT_CARD_BORDER_URL?{backgroundImage:`url(${RESULT_CARD_BORDER_URL})`,backgroundRepeat:"no-repeat",backgroundPosition:"center",backgroundSize:"contain"}:{}),...(promoBanner?{}:{minHeight:990})}}>
+      <div className="result-card-border-outer" style={{border:"3px solid #111",boxSizing:"border-box",width:"100%",background:"#fff",padding:5}}>
+      <div className="result-card-border-inner" style={{position:"relative",padding:"16px 18px 14px",background:"#fff",border:"1.5px solid #111",boxSizing:"border-box",...(RESULT_CARD_BORDER_URL?{backgroundImage:`url(${RESULT_CARD_BORDER_URL})`,backgroundRepeat:"no-repeat",backgroundPosition:"center",backgroundSize:"contain"}:{}),...(promoBanner?{}:{minHeight:980})}}>
+        <div aria-hidden style={{position:"absolute",top:6,left:6,width:14,height:14,borderTop:"2.5px solid #111",borderLeft:"2.5px solid #111",pointerEvents:"none"}}/>
+        <div aria-hidden style={{position:"absolute",top:6,right:6,width:14,height:14,borderTop:"2.5px solid #111",borderRight:"2.5px solid #111",pointerEvents:"none"}}/>
+        <div aria-hidden style={{position:"absolute",bottom:6,left:6,width:14,height:14,borderBottom:"2.5px solid #111",borderLeft:"2.5px solid #111",pointerEvents:"none"}}/>
+        <div aria-hidden style={{position:"absolute",bottom:6,right:6,width:14,height:14,borderBottom:"2.5px solid #111",borderRight:"2.5px solid #111",pointerEvents:"none"}}/>
       <ResultCardHeader
         settings={settings}
         sessionLabel={sessionLabel}
         examLabel={examLabel}
         className={className}
+        photo={st.photo}
+        studentName={st.name}
       />
-      <div style={{display:"flex",gap:18,marginBottom:14,alignItems:"flex-start"}}>
-        <div style={{flex:1,display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 20px",alignContent:"start"}}>{detailRows.map(([k,v])=>(
-          <div key={k} style={{display:"flex",gap:8,fontSize:13,alignItems:"baseline",minWidth:0}}><span style={{fontWeight:700,minWidth:72,flexShrink:0,color:"#374151"}}>{k}:</span><span style={k==="Result"?{fontWeight:700,color:v==="PASS"?C.green:v==="FAIL"?C.red:C.gray,wordBreak:"break-word"}:{wordBreak:"break-word"}}>{v}</span></div>
-        ))}</div>
-        <div style={{width:80,height:100,border:"2px solid #d1d5db",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",background:"#f3f4f6"}}>
-          {st.photo?<img src={st.photo} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:10,color:C.gray,textAlign:"center"}}>Photo</span>}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",columnGap:28,rowGap:0,marginBottom:14,alignItems:"stretch"}}>
+        <div style={{display:"flex",flexDirection:"column",justifyContent:"center"}}>
+          {infoCell("Student Name", st.name)}
+          {infoCell("Father's Name", st.fatherName)}
+          {infoCell("Admission No", st.admissionNo)}
+        </div>
+        <div style={{display:"flex",flexDirection:"column",justifyContent:"center"}}>
+          {infoCell("Roll No.", st.rollNo)}
+          {infoCell("Class Strength", classStrength)}
+          {infoCell("Session", sessionLabel)}
         </div>
       </div>
-      <div style={{overflowX:"auto"}}><table style={{borderCollapse:"collapse",fontSize:12,width:"100%",background:"#fff"}}>
+      <div style={{textAlign:"center",fontFamily:RC_SERIF,fontWeight:800,fontSize:12,margin:"6px 0 10px",textTransform:"uppercase",lineHeight:1.4,paddingBottom:2}}>
+        Statement of Marks
+      </div>
+      <table style={{borderCollapse:"collapse",fontSize:12,width:"100%",background:"#fff",fontFamily:RC_SERIF,border:"1.5px solid #111",lineHeight:1.4}}>
         <thead>
-          <tr style={{background:C.navy,color:"#fff"}}>
-            <th style={{padding:"5px 8px"}}>Subject</th>
-            <th style={{padding:"5px 8px",textAlign:"center"}}>{marksColLabel}</th>
-            <th style={{padding:"5px 8px",textAlign:"center"}}>Pass %</th>
-            <th style={{padding:"5px 8px",textAlign:"center"}}>Grade</th>
-            <th style={{padding:"5px 8px",textAlign:"center"}}>Result</th>
+          <tr style={{background:"#111",color:"#fff"}}>
+            {["SR.","SUBJECT","TOTAL","OBTAINED","%","GRADE"].map((h)=>(
+              <th key={h} style={{padding:"8px 6px",textAlign:h==="SUBJECT"?"left":"center",fontWeight:800,fontSize:10,lineHeight:1.4,verticalAlign:"middle",borderRight:h==="GRADE"?"none":"1px solid #333"}}>{h}</th>
+            ))}
           </tr>
         </thead>
         <tbody>
-          {subjs(classId).map((subj,i)=>{
+          {subjectList.map((subj,i)=>{
             const s=subjectStat(mode,classId,st.id,subj);
-            return <tr key={subj} style={{background:i%2===0?"#f9fafb":"#fff"}}>
-              <td style={{padding:"5px 8px",fontWeight:600}}>{subj}</td>
-              <td style={{padding:"5px 8px",textAlign:"center"}}>{s.tot>0?`${s.obt}/${s.tot}`:"—"}</td>
-              <td style={{padding:"5px 8px",textAlign:"center"}}>{s.pctStr==="—"?"—":`${s.pctStr}%`}</td>
-              <td style={{padding:"5px 8px",textAlign:"center"}}>{s.gradeStr}</td>
-              <td style={{padding:"5px 8px",textAlign:"center",fontWeight:700,color:s.status==="PASS"?C.green:s.status==="FAIL"?C.red:C.gray}}>{s.status}</td>
+            const cellPad={padding:"7px 6px",lineHeight:1.4,verticalAlign:"middle",borderTop:"1px solid #ccc"};
+            return <tr key={subj} style={{background:i%2===0?"#fff":"#f7f7f7"}}>
+              <td style={{...cellPad,textAlign:"center",borderRight:"1px solid #ddd",fontWeight:600}}>{i+1}</td>
+              <td style={{...cellPad,paddingLeft:8,textAlign:"left",borderRight:"1px solid #ddd",fontWeight:700}}>{subj}</td>
+              <td style={{...cellPad,textAlign:"center",borderRight:"1px solid #ddd"}}>{s.tot>0?s.tot:"—"}</td>
+              <td style={{...cellPad,textAlign:"center",borderRight:"1px solid #ddd"}}>{s.tot>0?s.obt:"—"}</td>
+              <td style={{...cellPad,textAlign:"center",borderRight:"1px solid #ddd"}}>{s.pctStr==="—"?"—":`${s.pctStr}%`}</td>
+              <td style={{...cellPad,textAlign:"center",fontWeight:700}}>{s.gradeStr}</td>
             </tr>;
           })}
-          {(()=>{const o=overallStat(mode,classId,st.id);return (
-            <tr style={{background:"#dbeafe",fontWeight:700}}>
-              <td style={{padding:"5px 8px"}}>Overall</td>
-              <td style={{padding:"5px 8px",textAlign:"center"}}>{o.tot>0?`${o.obt}/${o.tot}`:"—"}</td>
-              <td style={{padding:"5px 8px",textAlign:"center"}}>{o.pctStr==="—"?"—":`${o.pctStr}%`}</td>
-              <td style={{padding:"5px 8px",textAlign:"center"}}>{o.gradeStr}</td>
-              <td style={{padding:"5px 8px",textAlign:"center",fontWeight:700,color:o.status==="PASS"?C.green:o.status==="FAIL"?C.red:C.gray}}>{o.status}</td>
-            </tr>
-          );})()}
+          <tr style={{background:"#fff",fontWeight:800,borderTop:"2px solid #111"}}>
+            <td style={{padding:"8px 6px",textAlign:"center",borderRight:"1px solid #ddd",lineHeight:1.4,verticalAlign:"middle"}} colSpan={2}>TOTAL</td>
+            <td style={{padding:"8px 6px",textAlign:"center",borderRight:"1px solid #ddd",lineHeight:1.4,verticalAlign:"middle"}}>{o.tot>0?o.tot:"—"}</td>
+            <td style={{padding:"8px 6px",textAlign:"center",borderRight:"1px solid #ddd",lineHeight:1.4,verticalAlign:"middle"}}>{o.tot>0?o.obt:"—"}</td>
+            <td style={{padding:"8px 6px",textAlign:"center",borderRight:"1px solid #ddd",lineHeight:1.4,verticalAlign:"middle"}}>{o.pctStr==="—"?"—":`${o.pctStr}%`}</td>
+            <td style={{padding:"8px 6px",textAlign:"center",lineHeight:1.4,verticalAlign:"middle"}}>{o.gradeStr}</td>
+          </tr>
         </tbody>
-      </table></div>
-      <div style={{display:"flex",justifyContent:"space-between",marginTop:50,paddingTop:12,borderTop:"1px solid #e5e7eb"}}>
-        <div style={{textAlign:"center"}}><div style={{borderTop:"1px solid #374151",paddingTop:4,fontSize:11,width:130}}>{classTeacher||"Class Teacher"}</div></div>
-        <div style={{textAlign:"center", position:"relative"}}>
-          <img src={resultSigSrc} style={{width:130, position:"absolute", top:-60, left:"50%", transform:"translateX(-50%)"}} alt="Signature"/>
-          <div style={{borderTop:"1px solid #374151",paddingTop:4,fontSize:10,width:180,fontWeight:600}}>
-            {stampLine1}
-            {stampLine2 ? <><br/>{stampLine2}</> : null}
+      </table>
+      <div style={{display:"flex",gap:6,marginTop:10}}>
+        {summaryBox("Obtained", o.tot>0?`${o.obt} / ${o.tot}`:"—")}
+        {summaryBox("Percentage", o.pctStr==="—"?"—":`${o.pctStr}%`)}
+        {summaryBox("Grade", o.gradeStr)}
+        {summaryBox("Position", positionLabel)}
+        {summaryBox("Status", o.status)}
+      </div>
+      <div style={{marginTop:12,border:"1.5px solid #111"}}>
+        <div style={{textAlign:"center",fontSize:9,fontWeight:800,padding:"6px 6px",borderBottom:"1px solid #111",textTransform:"uppercase",fontFamily:RC_SERIF,lineHeight:1.4}}>Grading Scale</div>
+        <div style={{display:"grid",gridTemplateColumns:`repeat(${gradeScale.length},1fr)`}}>
+          {gradeScale.map((g,i)=>(
+            <div key={g.grade} style={{borderRight:i===gradeScale.length-1?"none":"1px solid #ccc",textAlign:"center",padding:"7px 3px"}}>
+              <div style={{fontSize:9,fontWeight:700,fontFamily:RC_SERIF,lineHeight:1.4}}>{g.range}</div>
+              <div style={{fontSize:12,fontWeight:800,marginTop:3,fontFamily:RC_SERIF,lineHeight:1.35}}>{g.grade}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{marginTop:12}}>
+        <div style={{background:"#111",color:"#fff",textAlign:"center",fontSize:10,fontWeight:800,padding:"7px 8px",textTransform:"uppercase",lineHeight:1.4}}>Teacher Remarks</div>
+        <div style={{border:"1.5px solid #111",borderTop:"none",padding:"12px 12px",fontFamily:RC_SERIF,fontStyle:"italic",fontSize:13,fontWeight:600,minHeight:40,lineHeight:1.45}}>
+          {remarks}
+        </div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr auto 1fr",gap:10,alignItems:"end",marginTop:28,paddingTop:8}}>
+        <div style={{textAlign:"center",fontFamily:RC_SERIF}}>
+          <div style={{minHeight:40}}/>
+          <div style={{borderTop:"1.5px solid #111",paddingTop:6,margin:"0 auto",width:"90%"}}>
+            <div style={{fontSize:12,fontWeight:800,lineHeight:1.4,paddingBottom:1}}>{classTeacher||"—"}</div>
+            <div style={{fontSize:9,fontWeight:700,marginTop:3,lineHeight:1.35}}>{inchargeTitle}</div>
+          </div>
+        </div>
+        <div style={{textAlign:"center",paddingBottom:4}}>
+          <div style={{
+            width:72,height:72,borderRadius:"50%",border:"2px solid #111",
+            display:"flex",alignItems:"center",justifyContent:"center",
+            margin:"0 auto",background:"#fff",overflow:"hidden",
+          }}>
+            <img src={schoolOrBrandLogo(settings?.logo)} alt="" style={{width:58,height:58,objectFit:"contain"}}/>
+          </div>
+          <div style={{fontSize:7,fontWeight:700,marginTop:4,maxWidth:90,lineHeight:1.35,fontFamily:RC_SERIF,textTransform:"uppercase"}}>
+            {String(settings?.schoolName||"").trim()||"School Seal"}
+          </div>
+        </div>
+        <div style={{textAlign:"center",fontFamily:RC_SERIF,position:"relative"}}>
+          <div style={{minHeight:40,position:"relative"}}>
+            <img src={resultSigSrc} alt="" style={{width:110,position:"absolute",left:"50%",bottom:2,transform:"translateX(-50%)",opacity:0.95}}/>
+          </div>
+          <div style={{borderTop:"1.5px solid #111",paddingTop:6,margin:"0 auto",width:"90%"}}>
+            <div style={{fontSize:12,fontWeight:800,lineHeight:1.4,paddingBottom:1}}>{principalName}</div>
+            <div style={{fontSize:9,fontWeight:700,marginTop:3,lineHeight:1.35}}>{principalTitle}</div>
           </div>
         </div>
       </div>
@@ -819,9 +1002,9 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
         <div
           className="result-card-promo-banner"
           style={{
-            marginTop: 20,
-            paddingTop: 16,
-            borderTop: "1px solid #e5e7eb",
+            marginTop: 16,
+            paddingTop: 12,
+            borderTop: "1px solid #ccc",
             width: "100%",
             boxSizing: "border-box",
             lineHeight: 0,
@@ -835,7 +1018,6 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
               width: "100%",
               maxWidth: "100%",
               height: "auto",
-              borderRadius: 6,
               objectFit: "contain",
               objectPosition: "center top",
             }}

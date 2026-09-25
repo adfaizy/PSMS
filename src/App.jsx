@@ -1380,38 +1380,6 @@ function App(){
           {page==="settings"&&!isTeacher&&<SettingsPage settings={effectiveSettings} setSettings={setSettingsForActive} setSchools={setSchools} students={students} setStudents={setStudentsForActive} schools={schools} activeSchoolId={activeSchoolId} timetable={timetable} exam_tm={exam_tm} exam_om={exam_om} setExamMarks={setExamMarksForActive} currentSession={curSession} sessions={activeSchool.sessions||[curSession]} setCurrentSession={setCurrentSessionForActive} addSession={addSessionForActive} staffProfiles={staffProfiles} setBarSubtitle={setBarSubtitle} session={session}/>}
         </div>
       </div>
-      <aside
-        className="app-right-sidebar no-print"
-        style={{
-          width:272,
-          flexShrink:0,
-          height:"100%",
-          minHeight:0,
-          overflowY:"auto",
-          overflowX:"hidden",
-          background:"#fff",
-          borderRadius:12,
-          border:"1px solid #e2e8f0",
-          boxShadow:"0 2px 12px rgba(15,23,42,0.06)",
-          display:"flex",
-          flexDirection:"column",
-          gap:12,
-          padding:14,
-          boxSizing:"border-box",
-        }}
-      >
-        <div>
-          <div style={{fontFamily:UI.fontHeading,fontWeight:800,fontSize:12,color:C.navy,marginBottom:10,letterSpacing:"0.02em"}}>Updates and tips</div>
-          <div style={{borderRadius:10,background:"linear-gradient(135deg,#eff6ff 0%,#f8fafc 100%)",border:"1px solid #bfdbfe",padding:12,marginBottom:10}}>
-            <div style={{fontSize:11,fontWeight:800,color:"#1d4ed8",marginBottom:4}}>Stay organised</div>
-            <p style={{margin:0,fontSize:11,color:"#334155",lineHeight:1.45}}>Pin attendance and exam prep in your routine—consistency keeps records audit-ready.</p>
-          </div>
-          <div style={{borderRadius:10,background:"#f8fafc",border:"1px dashed #cbd5e1",padding:12}}>
-            <div style={{fontSize:10,fontWeight:700,color:C.gray,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Community</div>
-            <p style={{margin:0,fontSize:11,color:"#64748b",lineHeight:1.45}}>Follow your school board or publisher for exam schedules and resource drops—placeholder for social or promo links.</p>
-          </div>
-        </div>
-      </aside>
       </div>
       <PWAInstallBanner />
     </div>
