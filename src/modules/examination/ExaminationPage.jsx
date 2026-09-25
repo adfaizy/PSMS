@@ -261,6 +261,7 @@ export function ResultCardHeader({
             overflow: "hidden",
             minHeight: 96,
             boxSizing: "border-box",
+            aspectRatio: "4 / 5",
           }}
         >
           <div
@@ -270,7 +271,7 @@ export function ResultCardHeader({
               alignItems: "center",
               justifyContent: "center",
               background: "#fafafa",
-              minHeight: 72,
+              minHeight: 0,
               minWidth: 0,
               overflow: "hidden",
             }}
@@ -289,7 +290,7 @@ export function ResultCardHeader({
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    margin: "0 auto 4px",
+                    margin: "0 auto",
                     fontSize: 12,
                     fontWeight: 800,
                     fontFamily: RC_SERIF,
@@ -297,27 +298,8 @@ export function ResultCardHeader({
                 >
                   {initials}
                 </div>
-                <div style={{ fontSize: 7, color: "#555", lineHeight: 1.2 }}>Add photo</div>
               </div>
             )}
-          </div>
-          <div
-            style={{
-              background: "#111",
-              color: "#fff",
-              fontSize: 6,
-              fontWeight: 800,
-              textAlign: "center",
-              padding: "4px 1px",
-              textTransform: "uppercase",
-              lineHeight: 1.25,
-              letterSpacing: "0.02em",
-              overflow: "hidden",
-              whiteSpace: "nowrap",
-              textOverflow: "ellipsis",
-            }}
-          >
-            Student Photo
           </div>
         </div>
       </div>
@@ -2279,13 +2261,48 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
 
   return <div>
     {embedded&&<div className="print-only" style={{display:"none",marginBottom:10}}><SchoolHeader settings={settings} subtitle={printSubtitle}/></div>}
-    <div className="no-print" style={{display:"flex",gap:12,marginBottom:14,flexWrap:"wrap",alignItems:"flex-end"}}>
-      <Sel label="Filter by Class" value={filterCls} onChange={setFilterCls} options={settings.classes.map(c=>({value:c.id,label:formatClassDisplay(c)}))}/>
-      <Inp label="Search" value={search} onChange={setSearch} placeholder="Name or Adm No…"/>
-      <div style={{marginLeft:"auto",display:"flex",gap:8,flexWrap:"wrap"}}>
-        <Btn onClick={openAdd}>+ Add Student</Btn>
-        <Btn small outline onClick={()=>void doExportStudents("pdf").catch(()=>alert("PDF export failed."))}>📄 PDF</Btn>
-        <Btn small outline onClick={()=>photosDirRef.current?.click()}>📷 Import photos (folder)</Btn>
+    <div className="no-print students-record-toolbar" style={{display:"flex",gap:12,marginBottom:14,flexWrap:"wrap",alignItems:"flex-end"}}>
+      <Sel
+        label="Filter by Class"
+        value={filterCls}
+        onChange={setFilterCls}
+        options={[{value:"all",label:"All Classes"},...settings.classes.map(c=>({value:c.id,label:formatClassDisplay(c)}))]}
+        selectClassName="!h-9 !min-h-9 !py-1.5 !text-sm"
+        width={180}
+      />
+      <Inp
+        label="Search"
+        value={search}
+        onChange={setSearch}
+        placeholder="Name or Adm No…"
+        width={200}
+        className="students-record-search"
+        inputClassName="!h-9 !min-h-9"
+      />
+      <div style={{marginLeft:"auto",display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <Btn
+          onClick={openAdd}
+          className="!h-9 !min-h-9 !px-3 !text-sm"
+          style={{ height: 36, minHeight: 36 }}
+        >
+          + Add Student
+        </Btn>
+        <Btn
+          outline
+          onClick={()=>void doExportStudents("pdf").catch(()=>alert("PDF export failed."))}
+          className="!h-9 !min-h-9 !px-3 !text-sm"
+          style={{ height: 36, minHeight: 36 }}
+        >
+          📄 PDF
+        </Btn>
+        <Btn
+          outline
+          onClick={()=>photosDirRef.current?.click()}
+          className="!h-9 !min-h-9 !px-3 !text-sm"
+          style={{ height: 36, minHeight: 36 }}
+        >
+          📷 Import photos (folder)
+        </Btn>
         <input
           ref={photosDirRef}
           type="file"

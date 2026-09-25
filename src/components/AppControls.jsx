@@ -69,7 +69,7 @@ export function Sel({ label, value, onChange, options, width, className, selectC
   );
 }
 
-export function Inp({ label, value, onChange, type = "text", width, className, ...rest }) {
+export function Inp({ label, value, onChange, type = "text", width, className, inputClassName, ...rest }) {
   return (
     <div className={cn("flex flex-col gap-1 min-w-0", className)} style={{ width: width || undefined, maxWidth: "100%" }}>
       {label && <Label>{label}</Label>}
@@ -77,6 +77,7 @@ export function Inp({ label, value, onChange, type = "text", width, className, .
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        className={inputClassName}
         style={{ width: width || "auto", maxWidth: "100%", boxSizing: "border-box" }}
         {...rest}
       />

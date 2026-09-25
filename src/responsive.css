@@ -99,8 +99,12 @@ body,
   box-sizing: border-box;
 }
 
-.result-card-school-stamp {
-  max-width: 100%;
+.students-record-toolbar select,
+.students-record-toolbar input,
+.students-record-toolbar button {
+  height: 36px !important;
+  min-height: 36px !important;
+  box-sizing: border-box !important;
 }
 
 .result-card-school-stamp svg {
