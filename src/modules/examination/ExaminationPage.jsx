@@ -160,7 +160,7 @@ export function ResultCardHeader({
           width: "100%",
           maxWidth: "100%",
           boxSizing: "border-box",
-          overflow: "hidden",
+          overflow: "visible",
         }}
       >
         <div className="result-card-header-logo" style={{ display: "flex", justifyContent: "center", paddingTop: 2, minWidth: 0, maxWidth: "100%" }}>
@@ -179,7 +179,7 @@ export function ResultCardHeader({
             }}
           />
         </div>
-        <div style={{ textAlign: "center", minWidth: 0, maxWidth: "100%", overflow: "hidden", fontFamily: RC_SERIF }}>
+        <div style={{ textAlign: "center", minWidth: 0, maxWidth: "100%", overflow: "visible", fontFamily: RC_SERIF }}>
           <div
             style={{
               fontSize: 9,
@@ -187,8 +187,7 @@ export function ResultCardHeader({
               color: "#222",
               textTransform: "uppercase",
               marginBottom: 4,
-              lineHeight: 1.4,
-              paddingBottom: 1,
+              lineHeight: 1.5,
             }}
           >
             {motto}
@@ -198,9 +197,8 @@ export function ResultCardHeader({
               fontSize: 18,
               fontWeight: 800,
               color: "#000",
-              lineHeight: 1.35,
+              lineHeight: 1.45,
               textTransform: "uppercase",
-              paddingBottom: 2,
               overflowWrap: "anywhere",
               wordBreak: "break-word",
             }}
@@ -214,8 +212,7 @@ export function ResultCardHeader({
               fontWeight: 600,
               color: "#222",
               textTransform: "uppercase",
-              lineHeight: 1.4,
-              paddingBottom: 1,
+              lineHeight: 1.5,
               overflowWrap: "anywhere",
             }}
           >
@@ -230,19 +227,25 @@ export function ResultCardHeader({
               fontSize: 12,
               padding: "8px 10px",
               textTransform: "uppercase",
-              lineHeight: 1.4,
+              lineHeight: 1.5,
             }}
           >
             Consolidated Result Statement
           </div>
           <div
+            className="result-card-class-name"
             style={{
-              marginTop: 6,
+              marginTop: 8,
+              marginBottom: 4,
               fontSize: 13,
               fontWeight: 800,
               textTransform: "uppercase",
-              lineHeight: 1.4,
-              paddingBottom: 2,
+              lineHeight: 1.65,
+              paddingTop: 6,
+              paddingBottom: 10,
+              overflow: "visible",
+              display: "block",
+              minHeight: "1.65em",
             }}
           >
             {className || "—"}
@@ -458,6 +461,56 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
   const RESULT_CARD_PDF_JPEG_Q=0.92;
   /** Parallel captures; keep at 3 with HD scale to limit peak memory on large classes. */
   const CLASS_PDF_H2C_CONCURRENCY=3;
+  const resultCardH2cOpts={
+    scale:RESULT_CARD_PDF_H2C_SCALE,
+    backgroundColor:"#ffffff",
+    useCORS:true,
+    logging:false,
+    foreignObjectRendering:false,
+    // Prevent responsive/overflow rules from clipping text in the cloned DOM used for PDF.
+    onclone:(clonedDoc)=>{
+      clonedDoc.body?.classList?.add("result-card-capturing");
+      clonedDoc.querySelectorAll(
+        ".result-card-border-inner,.result-card-grade-cell,.result-card-grade-range,.result-card-grade-letter,.result-card-sign-name,.result-card-sign-title,.result-card-footer-sign,.result-card-sign-block,.result-card-header-grid,.result-card-class-name,.result-card-doc-header"
+      ).forEach((node)=>{
+        node.style.overflow="visible";
+        node.style.textOverflow="clip";
+        node.style.whiteSpace="normal";
+        node.style.lineHeight="1.55";
+      });
+      clonedDoc.querySelectorAll(".result-card-class-name").forEach((node)=>{
+        node.style.fontSize="13px";
+        node.style.fontWeight="800";
+        node.style.lineHeight="1.65";
+        node.style.paddingTop="6px";
+        node.style.paddingBottom="10px";
+        node.style.overflow="visible";
+        node.style.display="block";
+        node.style.minHeight="1.65em";
+      });
+      const layout=clonedDoc.querySelector(".app-layout");
+      if(layout){
+        layout.style.zoom="1";
+        layout.style.transform="none";
+        layout.style.width="100vw";
+        layout.style.maxWidth="100vw";
+        layout.style.height="auto";
+      }
+      clonedDoc.querySelectorAll(".result-card-grade-range").forEach((node)=>{
+        node.style.fontSize="9px";
+        node.style.fontWeight="700";
+      });
+      clonedDoc.querySelectorAll(".result-card-grade-letter").forEach((node)=>{
+        node.style.fontSize="12px";
+      });
+      clonedDoc.querySelectorAll(".result-card-sign-name").forEach((node)=>{
+        node.style.fontSize="12px";
+      });
+      clonedDoc.querySelectorAll(".result-card-sign-title").forEach((node)=>{
+        node.style.fontSize="9px";
+      });
+    },
+  };
   const [rcExam,setRcExam]=useState("overall");
   const tm=exam_tmProp&&typeof exam_tmProp==="object"?exam_tmProp:{};
   const om=exam_omProp&&typeof exam_omProp==="object"?exam_omProp:{};
@@ -898,11 +951,11 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
     const remarks=resultCardTeacherRemarks(o.pctStr,o.status,passThreshold);
     const subjectList=subjs(classId);
     const gradeScale=[
-      { range: "80% – 100%", grade: "A+" },
-      { range: "70% – 79%", grade: "A" },
-      { range: "60% – 69%", grade: "B" },
-      { range: "50% – 59%", grade: "C" },
-      { range: "40% – 49%", grade: "D" },
+      { range: "80%-100%", grade: "A+" },
+      { range: "70%-79%", grade: "A" },
+      { range: "60%-69%", grade: "B" },
+      { range: "50%-59%", grade: "C" },
+      { range: "40%-49%", grade: "D" },
       { range: `Below ${passThreshold}%`, grade: "F" },
     ];
     const infoCell=(label,value)=>(
@@ -910,31 +963,31 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
         style={{
           display:"flex",
           flexDirection:"column",
-          justifyContent:"center",
-          minHeight:28,
-          padding:"6px 0 7px",
+          justifyContent:"flex-end",
+          minHeight:30,
+          padding:"8px 0 6px",
           marginBottom:2,
           borderBottom:"1px dotted #555",
           boxSizing:"border-box",
           fontFamily:RC_SERIF,
         }}
       >
-        <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0,lineHeight:1.45}}>
-          <span style={{fontSize:12,fontWeight:700,color:"#000",flexShrink:0,lineHeight:1.45,paddingBottom:1}}>{label}:</span>
-          <span style={{fontSize:12,fontWeight:700,color:"#000",lineHeight:1.45,paddingBottom:1,wordBreak:"break-word"}}>{value||"—"}</span>
+        <div style={{display:"flex",alignItems:"baseline",gap:8,minWidth:0,lineHeight:1.5}}>
+          <span style={{fontSize:12,fontWeight:700,color:"#000",flexShrink:0,lineHeight:1.5}}>{label}:</span>
+          <span style={{fontSize:12,fontWeight:700,color:"#000",lineHeight:1.5,wordBreak:"break-word"}}>{value||"—"}</span>
         </div>
       </div>
     );
     const summaryBox=(label,value)=>(
       <div className="result-card-summary-box" style={{flex:"1 1 0",minWidth:0,border:"1.5px solid #111",textAlign:"center",boxSizing:"border-box"}}>
-        <div className="result-card-summary-label" style={{background:"#111",color:"#fff",fontSize:8,fontWeight:800,padding:"5px 2px",lineHeight:1.3,textTransform:"uppercase",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{label}</div>
-        <div className="result-card-summary-value" style={{padding:"9px 2px",fontSize:13,fontWeight:800,fontFamily:RC_SERIF,lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{value}</div>
+        <div className="result-card-summary-label" style={{background:"#111",color:"#fff",fontSize:8,fontWeight:800,padding:"6px 2px",lineHeight:1.45,textTransform:"uppercase"}}>{label}</div>
+        <div className="result-card-summary-value" style={{padding:"10px 2px",fontSize:13,fontWeight:800,fontFamily:RC_SERIF,lineHeight:1.45}}>{value}</div>
       </div>
     );
     return <div key={st.id} className="result-card-page-wrap" style={{maxWidth:736,margin:"0 auto 28px",padding:"0 10px",boxSizing:"border-box",pageBreakAfter:"always",page:"resultCard"}}>
       <div id={cardRef?"result-card":undefined} ref={cardRef} className="result-card-capture-root" style={{position:"relative",background:"transparent"}}>
       <div className="result-card-border-outer" style={{border:"3px solid #111",boxSizing:"border-box",width:"100%",background:"#fff",padding:5}}>
-      <div className="result-card-border-inner" style={{position:"relative",padding:"16px 18px 14px",background:"#fff",border:"1.5px solid #111",boxSizing:"border-box",...(RESULT_CARD_BORDER_URL?{backgroundImage:`url(${RESULT_CARD_BORDER_URL})`,backgroundRepeat:"no-repeat",backgroundPosition:"center",backgroundSize:"contain"}:{}),...(promoBanner?{}:{minHeight:980})}}>
+      <div className="result-card-border-inner" style={{position:"relative",padding:"16px 18px 20px",background:"#fff",border:"1.5px solid #111",boxSizing:"border-box",overflow:"visible",...(RESULT_CARD_BORDER_URL?{backgroundImage:`url(${RESULT_CARD_BORDER_URL})`,backgroundRepeat:"no-repeat",backgroundPosition:"center",backgroundSize:"contain"}:{}),...(promoBanner?{}:{minHeight:980})}}>
         <div aria-hidden style={{position:"absolute",top:6,left:6,width:14,height:14,borderTop:"2.5px solid #111",borderLeft:"2.5px solid #111",pointerEvents:"none"}}/>
         <div aria-hidden style={{position:"absolute",top:6,right:6,width:14,height:14,borderTop:"2.5px solid #111",borderRight:"2.5px solid #111",pointerEvents:"none"}}/>
         <div aria-hidden style={{position:"absolute",bottom:6,left:6,width:14,height:14,borderBottom:"2.5px solid #111",borderLeft:"2.5px solid #111",pointerEvents:"none"}}/>
@@ -1000,12 +1053,12 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
         {summaryBox("Status", o.status)}
       </div>
       <div style={{marginTop:12,border:"1.5px solid #111"}}>
-        <div style={{textAlign:"center",fontSize:9,fontWeight:800,padding:"6px 6px",borderBottom:"1px solid #111",textTransform:"uppercase",fontFamily:RC_SERIF,lineHeight:1.4}}>Grading Scale</div>
+        <div style={{textAlign:"center",fontSize:9,fontWeight:800,padding:"6px 6px",borderBottom:"1px solid #111",textTransform:"uppercase",fontFamily:RC_SERIF,lineHeight:1.5}}>Grading Scale</div>
         <div className="result-card-grade-scale" style={{display:"grid",gridTemplateColumns:`repeat(${gradeScale.length},minmax(0,1fr))`,width:"100%",minWidth:0}}>
           {gradeScale.map((g,i)=>(
-            <div key={g.grade} className="result-card-grade-cell" style={{borderRight:i===gradeScale.length-1?"none":"1px solid #ccc",textAlign:"center",padding:"7px 2px",minWidth:0,overflow:"hidden"}}>
-              <div className="result-card-grade-range" style={{fontSize:9,fontWeight:700,fontFamily:RC_SERIF,lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.range}</div>
-              <div className="result-card-grade-letter" style={{fontSize:12,fontWeight:800,marginTop:3,fontFamily:RC_SERIF,lineHeight:1.3}}>{g.grade}</div>
+            <div key={g.grade} className="result-card-grade-cell" style={{borderRight:i===gradeScale.length-1?"none":"1px solid #ccc",textAlign:"center",padding:"8px 3px 9px",minWidth:0,overflow:"visible",boxSizing:"border-box"}}>
+              <div className="result-card-grade-range" style={{fontSize:9,fontWeight:700,fontFamily:RC_SERIF,lineHeight:1.55,whiteSpace:"normal",overflow:"visible"}}>{g.range}</div>
+              <div className="result-card-grade-letter" style={{fontSize:12,fontWeight:800,marginTop:4,fontFamily:RC_SERIF,lineHeight:1.45,overflow:"visible"}}>{g.grade}</div>
             </div>
           ))}
         </div>
@@ -1016,28 +1069,28 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
           {remarks}
         </div>
       </div>
-      <div className="result-card-footer-sign" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto minmax(0,1fr)",gap:8,alignItems:"end",marginTop:28,paddingTop:8,width:"100%",boxSizing:"border-box",minWidth:0}}>
-        <div className="result-card-sign-block" style={{textAlign:"center",fontFamily:RC_SERIF,minWidth:0}}>
-          <div style={{minHeight:40}}/>
-          <div style={{borderTop:"1.5px solid #111",paddingTop:6,margin:"0 auto",width:"90%",maxWidth:"100%",boxSizing:"border-box"}}>
-            <div className="result-card-sign-name" style={{fontSize:12,fontWeight:800,lineHeight:1.3,paddingBottom:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{classTeacher||"—"}</div>
-            <div className="result-card-sign-title" style={{fontSize:9,fontWeight:700,marginTop:3,lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{inchargeTitle}</div>
+      <div className="result-card-footer-sign" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto minmax(0,1fr)",gap:8,alignItems:"end",marginTop:28,paddingTop:8,paddingBottom:8,width:"100%",boxSizing:"border-box",minWidth:0,overflow:"visible"}}>
+        <div className="result-card-sign-block" style={{textAlign:"center",fontFamily:RC_SERIF,minWidth:0,overflow:"visible"}}>
+          <div style={{minHeight:44}}/>
+          <div style={{borderTop:"1.5px solid #111",paddingTop:8,paddingBottom:4,margin:"0 auto",width:"90%",maxWidth:"100%",boxSizing:"border-box"}}>
+            <div className="result-card-sign-name" style={{fontSize:12,fontWeight:800,lineHeight:1.45}}>{classTeacher||"—"}</div>
+            <div className="result-card-sign-title" style={{fontSize:9,fontWeight:700,marginTop:4,lineHeight:1.45}}>{inchargeTitle}</div>
           </div>
         </div>
-        <div className="result-card-sign-seal" style={{textAlign:"center",paddingBottom:4,flexShrink:0}}>
+        <div className="result-card-sign-seal" style={{textAlign:"center",paddingBottom:8,flexShrink:0}}>
           <ResultCardSchoolStamp
             logoSrc={schoolOrBrandLogo(settings?.logo)}
             schoolName={String(settings?.schoolName||"").trim()||"School Seal"}
             size={96}
           />
         </div>
-        <div className="result-card-sign-block" style={{textAlign:"center",fontFamily:RC_SERIF,position:"relative",minWidth:0}}>
-          <div style={{minHeight:40,position:"relative"}}>
+        <div className="result-card-sign-block" style={{textAlign:"center",fontFamily:RC_SERIF,position:"relative",minWidth:0,overflow:"visible"}}>
+          <div style={{minHeight:44,position:"relative"}}>
             <img className="result-card-sign-img" src={resultSigSrc} alt="" style={{width:110,maxWidth:"100%",position:"absolute",left:"50%",bottom:2,transform:"translateX(-50%)",opacity:0.95}}/>
           </div>
-          <div style={{borderTop:"1.5px solid #111",paddingTop:6,margin:"0 auto",width:"90%",maxWidth:"100%",boxSizing:"border-box"}}>
-            <div className="result-card-sign-name" style={{fontSize:12,fontWeight:800,lineHeight:1.3,paddingBottom:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{principalName}</div>
-            <div className="result-card-sign-title" style={{fontSize:9,fontWeight:700,marginTop:3,lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{principalTitle}</div>
+          <div style={{borderTop:"1.5px solid #111",paddingTop:8,paddingBottom:4,margin:"0 auto",width:"90%",maxWidth:"100%",boxSizing:"border-box"}}>
+            <div className="result-card-sign-name" style={{fontSize:12,fontWeight:800,lineHeight:1.45}}>{principalName}</div>
+            <div className="result-card-sign-title" style={{fontSize:9,fontWeight:700,marginTop:4,lineHeight:1.45}}>{principalTitle}</div>
           </div>
         </div>
       </div>
@@ -1095,15 +1148,10 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
       return;
     }
     setSinglePdfBusy(true);
+    document.body.classList.add("result-card-capturing");
     try{
       await new Promise((r)=>requestAnimationFrame(r));
-      const canvas=await html2canvas(el,{
-        scale:RESULT_CARD_PDF_H2C_SCALE,
-        backgroundColor:"#ffffff",
-        useCORS:true,
-        logging:false,
-        foreignObjectRendering:false,
-      });
+      const canvas=await html2canvas(el,resultCardH2cOpts);
       const imgData=canvas.toDataURL("image/jpeg",RESULT_CARD_PDF_JPEG_Q);
       const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
       const pageW=doc.internal.pageSize.getWidth();
@@ -1128,6 +1176,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
       console.error(e);
       alert("PDF export failed.");
     }finally{
+      document.body.classList.remove("result-card-capturing");
       setSinglePdfBusy(false);
     }
   };
@@ -1135,24 +1184,20 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
   useEffect(()=>{
     if(!classPdfExportList?.length) return undefined;
     let cancelled=false;
-    const h2cOpts={
-      scale:RESULT_CARD_PDF_H2C_SCALE,
-      backgroundColor:"#ffffff",
-      useCORS:true,
-      logging:false,
-      foreignObjectRendering:false,
-    };
     const run=async()=>{
+      document.body.classList.add("result-card-capturing");
       await new Promise((r)=>requestAnimationFrame(r));
       if(cancelled) return;
       const container=classResultPdfContainerRef.current;
       if(!container){
+        document.body.classList.remove("result-card-capturing");
         setClassPdfExportList(null);
         setClassPdfBusy(false);
         return;
       }
       const roots=container.querySelectorAll(".result-card-capture-root");
       if(!roots.length){
+        document.body.classList.remove("result-card-capturing");
         if(!cancelled) alert("No result cards found for export.");
         setClassPdfExportList(null);
         setClassPdfBusy(false);
@@ -1170,7 +1215,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
         for(let b=0;b<rootArr.length;b+=CLASS_PDF_H2C_CONCURRENCY){
           if(cancelled) return;
           const slice=rootArr.slice(b,b+CLASS_PDF_H2C_CONCURRENCY);
-          const batch=await Promise.all(slice.map((node)=>html2canvas(node,h2cOpts)));
+          const batch=await Promise.all(slice.map((node)=>html2canvas(node,resultCardH2cOpts)));
           canvases.push(...batch);
         }
         for(let i=0;i<canvases.length;i++){
@@ -1198,6 +1243,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
         console.error(e);
         if(!cancelled) alert("Class PDF export failed.");
       }finally{
+        document.body.classList.remove("result-card-capturing");
         if(!cancelled){
           setClassPdfExportList(null);
           setClassPdfBusy(false);
@@ -1205,7 +1251,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
       }
     };
     void run();
-    return()=>{ cancelled=true; };
+    return()=>{ cancelled=true; document.body.classList.remove("result-card-capturing"); };
     // Intentionally only classPdfExportList: avoid re-running when settings/rc* identity changes mid-export.
   },[classPdfExportList]);
 
