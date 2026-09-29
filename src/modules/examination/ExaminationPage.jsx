@@ -1412,10 +1412,9 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                   <Inp label="Student Name" value={admissionForm.name} onChange={(v) => setAdmissionForm((x) => ({ ...x, name: toProperCaseNameInput(v) }))} width="100%" />
                   <Inp label="Father's Name" value={admissionForm.fatherName} onChange={(v) => setAdmissionForm((x) => ({ ...x, fatherName: toProperCaseNameInput(v) }))} width="100%" />
                   <Inp label="Form B / Bay Form" value={admissionForm.bayForm} onChange={(v) => setAdmissionForm((x) => ({ ...x, bayForm: formatCnicAf(v) }))} placeholder="00000-0000000-0" width="100%" />
-                  <Inp label="Father's CNIC" value={admissionForm.fatherCnic} onChange={(v) => setAdmissionForm((x) => ({ ...x, fatherCnic: formatCnicAf(v) }))} placeholder="00000-0000000-0" width="100%" />
+                  <Inp label="Date of Birth" value={admissionForm.dob} onChange={(v) => setAdmissionForm((x) => ({ ...x, dob: formatDobAf(v) }))} placeholder="dd/mm/yyyy" width="100%" />
                   <Inp label="WhatsApp No" value={admissionForm.whatsapp} onChange={(v) => setAdmissionForm((x) => ({ ...x, whatsapp: formatWhatsappAf(v) }))} placeholder="0000-0000000" width="100%" />
                   <Sel label="Class" value={admissionForm.classId} onChange={(v) => setAdmissionForm((x) => ({ ...x, classId: v }))} options={settings.classes.map((c) => ({ value: c.id, label: formatClassDisplay(c) }))} width="100%" />
-                  <Inp label="Date of Birth" value={admissionForm.dob} onChange={(v) => setAdmissionForm((x) => ({ ...x, dob: formatDobAf(v) }))} placeholder="dd/mm/yyyy" width="100%" />
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
@@ -2042,19 +2041,55 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
     const cur=resolveClass(settings.classes,classId);
     if(!cur) return null;
     const curGrade=classGradeNum(cur.id);
-    if(curGrade==null) return null;
-    const targetGrade=direction==="up"?curGrade+1:curGrade-1;
-    const targetPool=(settings.classes||[]).filter(c=>classGradeNum(c.id)===targetGrade);
-    if(!targetPool.length) return null;
-    const curSection=String(cur.section||"").trim().toUpperCase();
-    const sameSection=curSection?targetPool.find(c=>String(c.section||"").trim().toUpperCase()===curSection):null;
-    return sameSection||targetPool[0]||null;
+    if(curGrade!=null){
+      const targetGrade=direction==="up"?curGrade+1:curGrade-1;
+      const targetPool=(settings.classes||[]).filter(c=>classGradeNum(c.id)===targetGrade);
+      if(targetPool.length){
+        const curSection=String(cur.section||"").trim().toUpperCase();
+        const sameSection=curSection?targetPool.find(c=>String(c.section||"").trim().toUpperCase()===curSection):null;
+        return sameSection||targetPool[0]||null;
+      }
+    }
+    // Fallback when grade number is missing (e.g. ECE): use class list order
+    const list=settings.classes||[];
+    const idx=list.findIndex(c=>c.id===cur.id);
+    if(idx<0) return null;
+    const nextIdx=direction==="up"?idx+1:idx-1;
+    return list[nextIdx]||null;
   };
   const moveStudentClass=(student,direction)=>{
     const target=getNeighborClass(student?.classId,direction);
     if(!target){ alert(direction==="up"?"No upper class found.":"No lower class found."); return; }
     changeStudentSection(student,target.id);
   };
+  /** Swap roll numbers with the previous (up) or next (down) student in the same class. */
+  const swapStudentRoll=(student,direction)=>{
+    if(!setStudents||!student?.id) return;
+    const resolved=resolveClass(settings.classes,student.classId);
+    const classKey=resolved?.id||student.classId;
+    const peers=students
+      .filter(s=>{
+        const c=resolveClass(settings.classes,s.classId);
+        return (c?.id||s.classId)===classKey;
+      })
+      .sort((a,b)=>String(a.rollNo||"").localeCompare(String(b.rollNo||""),undefined,{numeric:true,sensitivity:"base"}));
+    const idx=peers.findIndex(s=>s.id===student.id);
+    if(idx<0) return;
+    const swapIdx=direction==="up"?idx-1:idx+1;
+    if(swapIdx<0||swapIdx>=peers.length){
+      alert(direction==="up"?"Already first in roll order.":"Already last in roll order.");
+      return;
+    }
+    const other=peers[swapIdx];
+    const rollA=student.rollNo;
+    const rollB=other.rollNo;
+    setStudents(prev=>prev.map(st=>{
+      if(st.id===student.id) return {...st,rollNo:rollB};
+      if(st.id===other.id) return {...st,rollNo:rollA};
+      return st;
+    }));
+  };
+  const arrowBtnStyle={padding:"2px 6px",fontSize:11,border:"1px solid #cbd5e1",borderRadius:4,background:"#fff",cursor:"pointer",lineHeight:1.2,minWidth:22};
   const photosDirRef=useRef(null);
   const matchesClassFilter=(student,classFilter)=>{
     if(classFilter==="all") return true;
@@ -2103,14 +2138,13 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
     if(len<=4) return `${digits.slice(0,2)}/${digits.slice(2)}`;
     return `${digits.slice(0,2)}/${digits.slice(2,4)}/${digits.slice(4)}`;
   };
-  const PERSONAL_INFO_FIELDS=["name","fatherName","whatsapp","bayForm","fatherCnic","dob"];
+  const PERSONAL_INFO_FIELDS=["name","fatherName","whatsapp","bayForm","dob"];
   const personalLabel=(field)=>{
     const labels={
       name:"Student Name",
       fatherName:"Father's Name",
       whatsapp:"WhatsApp",
       bayForm:"Form B",
-      fatherCnic:"Father CNIC",
       dob:"Date of Birth",
     };
     return labels[field]||field;
@@ -2216,7 +2250,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
   const doExportStudents=async(format)=>{
     if(format!=="pdf") return;
     if(!filtered.length){ alert("No data to export."); return; }
-    const headers=["Photo","Adm#","Roll#","Student Name","Father's Name","Form B","Father CNIC","WhatsApp","Grade","DOB"];
+    const headers=["Photo","Adm#","Roll#","Student Name","Father's Name","Form B","DOB","WhatsApp","Grade"];
     const rows=filtered.map(s=>{
       const gradeLabel=(getClassLabel(settings,s.classId)||"").replace(/-$/,"");
       return [
@@ -2226,10 +2260,9 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
         s.name||"",
         s.fatherName||"",
         s.bayForm?formatCnic(s.bayForm):"—",
-        s.fatherCnic?formatCnic(s.fatherCnic):"—",
+        s.dob||"",
         s.whatsapp?formatWhatsapp(s.whatsapp):"—",
         gradeLabel,
-        s.dob||""
       ];
     });
     const meta=getExportHeaderMeta(settings,currentSession,printSubtitle);
@@ -2391,16 +2424,26 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
     <div className="no-print" style={{fontSize:12,color:C.gray,marginBottom:8}}>Showing {filtered.length} of {students.length} students</div>
     <div ref={studentsTableRef} className="students-record-print" style={{overflowX:"auto",width:"100%"}}>
       <table style={{borderCollapse:"collapse",fontSize:13,minWidth:"100%"}}>
-        <thead><tr style={{background:C.navy,color:"#fff"}}>{["Photo","Adm#","Roll#","Student Name","Father's Name","Form B","Father CNIC","WhatsApp","Class","DOB","Action"].map(h=><th key={h} style={{padding:"7px 10px",textAlign:"left",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+        <thead><tr style={{background:C.navy,color:"#fff"}}>{["Photo","Adm#","Roll#","Student Name","Father's Name","Form B","DOB","WhatsApp","Class","Action"].map(h=><th key={h} style={{padding:"7px 10px",textAlign:"left",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
         <tbody>{filtered.map((s,i)=><tr key={s.id} style={{background:i%2===0?"#f9fafb":"#fff"}}>
           <td style={{padding:"5px 10px"}}><div style={{width:34,height:34,borderRadius:"50%",overflow:"hidden",border:"2px solid #d1d5db",background:"#e5e7eb",display:"flex",alignItems:"center",justifyContent:"center"}}>{s.photo?<img src={s.photo} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:"👤"}</div></td>
-          <td style={{padding:"5px 10px"}}>{s.admissionNo}</td><td style={{padding:"5px 10px",fontWeight:700}}>{s.rollNo}</td><td style={{padding:"5px 10px"}}>{s.name}</td><td style={{padding:"5px 10px"}}>{s.fatherName}</td>
-          <td style={{padding:"5px 10px"}}>{s.bayForm?formatCnic(s.bayForm):"—"}</td><td style={{padding:"5px 10px"}}>{s.fatherCnic?formatCnic(s.fatherCnic):"—"}</td><td style={{padding:"5px 10px"}}>{s.whatsapp?formatWhatsapp(s.whatsapp):"—"}</td>
+          <td style={{padding:"5px 10px"}}>{s.admissionNo}</td>
+          <td style={{padding:"5px 10px"}}>
+            <div style={{fontWeight:700}}>{s.rollNo}</div>
+            <div style={{display:"flex",gap:4,marginTop:4,alignItems:"center"}}>
+              <button type="button" onClick={()=>swapStudentRoll(s,"up")} title="Move roll up (swap with previous)" style={arrowBtnStyle}>↑</button>
+              <button type="button" onClick={()=>swapStudentRoll(s,"down")} title="Move roll down (swap with next)" style={arrowBtnStyle}>↓</button>
+            </div>
+          </td>
+          <td style={{padding:"5px 10px"}}>{s.name}</td><td style={{padding:"5px 10px"}}>{s.fatherName}</td>
+          <td style={{padding:"5px 10px"}}>{s.bayForm?formatCnic(s.bayForm):"—"}</td>
+          <td style={{padding:"5px 10px"}}>{s.dob||"—"}</td>
+          <td style={{padding:"5px 10px"}}>{s.whatsapp?formatWhatsapp(s.whatsapp):"—"}</td>
           <td style={{padding:"5px 10px"}}>
             <div>{getClassLabel(settings,s.classId)}</div>
             <div style={{display:"flex",gap:4,marginTop:4,alignItems:"center",flexWrap:"wrap"}}>
-              <button type="button" onClick={()=>moveStudentClass(s,"up")} title="Move up class" style={{padding:"2px 6px",fontSize:11,border:"1px solid #cbd5e1",borderRadius:4,background:"#fff",cursor:"pointer"}}>↑</button>
-              <button type="button" onClick={()=>moveStudentClass(s,"down")} title="Move down class" style={{padding:"2px 6px",fontSize:11,border:"1px solid #cbd5e1",borderRadius:4,background:"#fff",cursor:"pointer"}}>↓</button>
+              <button type="button" onClick={()=>moveStudentClass(s,"down")} title="Move to lower class" style={arrowBtnStyle}>←</button>
+              <button type="button" onClick={()=>moveStudentClass(s,"up")} title="Move to upper class" style={arrowBtnStyle}>→</button>
             </div>
             {sectionClassOptions(s.classId).length>1&&(
               <select
@@ -2411,10 +2454,10 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
                 {sectionClassOptions(s.classId).map(c=><option key={c.id} value={c.id}>{formatClassDisplay(c)}</option>)}
               </select>
             )}
-          </td><td style={{padding:"5px 10px"}}>{s.dob}</td>
+          </td>
           <td style={{padding:"5px 10px"}}><div style={{display:"flex",flexDirection:"column",gap:4}}><Btn small outline onClick={()=>openEdit(s)}>Edit</Btn><Btn small danger disabled={isPromotedStudent(s)} onClick={()=>{if(isPromotedStudent(s)) return; setStudents(x=>x.filter(st=>st.id!==s.id));}}>{isPromotedStudent(s)?"Promoted":"Remove"}</Btn></div></td>
         </tr>)}
-        {filtered.length===0&&<tr><td colSpan={11} style={{padding:20,textAlign:"center",color:C.gray}}>No students found</td></tr>}
+        {filtered.length===0&&<tr><td colSpan={10} style={{padding:20,textAlign:"center",color:C.gray}}>No students found</td></tr>}
         </tbody>
       </table>
     </div>
@@ -2446,10 +2489,9 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
               <Inp label="Student Name" value={form.name} onChange={v=>setForm(x=>({...x,name:toProperCaseNameInput(v)}))} disabled={!!editingId&&personalLocked}/>
               <Inp label="Father's Name" value={form.fatherName} onChange={v=>setForm(x=>({...x,fatherName:toProperCaseNameInput(v)}))} disabled={!!editingId&&personalLocked}/>
               <Inp label="Bay Form" value={form.bayForm} onChange={v=>setForm(x=>({...x,bayForm:formatCnic(v)}))} placeholder="00000-0000000-0" disabled={!!editingId&&personalLocked}/>
-              <Inp label="Father's CNIC" value={form.fatherCnic} onChange={v=>setForm(x=>({...x,fatherCnic:formatCnic(v)}))} placeholder="00000-0000000-0" disabled={!!editingId&&personalLocked}/>
+              <Inp label="Date of Birth" value={form.dob} onChange={v=>setForm(x=>({...x,dob:formatDob(v)}))} placeholder="dd/mm/yyyy" disabled={!!editingId&&personalLocked}/>
               <Inp label="WhatsApp No" value={form.whatsapp} onChange={v=>setForm(x=>({...x,whatsapp:formatWhatsapp(v)}))} placeholder="0000-0000000" disabled={!!editingId&&personalLocked}/>
               <Sel label="Class" value={form.classId} onChange={v=>setForm(x=>({...x,classId:v}))} options={settings.classes.map(c=>({value:c.id,label:formatClassDisplay(c)}))}/>
-              <Inp label="Date of Birth" value={form.dob} onChange={v=>setForm(x=>({...x,dob:formatDob(v)}))} placeholder="dd/mm/yyyy" disabled={!!editingId&&personalLocked}/>
             </div>
           </div>
           {editingId&&personalLocked&&(
