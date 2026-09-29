@@ -926,9 +926,9 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
       </div>
     );
     const summaryBox=(label,value)=>(
-      <div style={{flex:1,minWidth:0,border:"1.5px solid #111",textAlign:"center"}}>
-        <div style={{background:"#111",color:"#fff",fontSize:8,fontWeight:800,padding:"5px 3px",lineHeight:1.35,textTransform:"uppercase"}}>{label}</div>
-        <div style={{padding:"9px 4px",fontSize:13,fontWeight:800,fontFamily:RC_SERIF,lineHeight:1.4}}>{value}</div>
+      <div className="result-card-summary-box" style={{flex:"1 1 0",minWidth:0,border:"1.5px solid #111",textAlign:"center",boxSizing:"border-box"}}>
+        <div className="result-card-summary-label" style={{background:"#111",color:"#fff",fontSize:8,fontWeight:800,padding:"5px 2px",lineHeight:1.3,textTransform:"uppercase",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{label}</div>
+        <div className="result-card-summary-value" style={{padding:"9px 2px",fontSize:13,fontWeight:800,fontFamily:RC_SERIF,lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{value}</div>
       </div>
     );
     return <div key={st.id} className="result-card-page-wrap" style={{maxWidth:736,margin:"0 auto 28px",padding:"0 10px",boxSizing:"border-box",pageBreakAfter:"always",page:"resultCard"}}>
@@ -947,7 +947,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
         photo={st.photo}
         studentName={st.name}
       />
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",columnGap:28,rowGap:0,marginBottom:14,alignItems:"stretch"}} className="result-card-info-grid">
+      <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",columnGap:28,rowGap:0,marginBottom:14,alignItems:"stretch",width:"100%",minWidth:0}} className="result-card-info-grid">
         <div style={{display:"flex",flexDirection:"column",justifyContent:"center"}}>
           {infoCell("Student Name", st.name)}
           {infoCell("Father's Name", st.fatherName)}
@@ -992,7 +992,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
           </tr>
         </tbody>
       </table>
-      <div className="result-card-summary-row" style={{display:"flex",gap:6,marginTop:10}}>
+      <div className="result-card-summary-row" style={{display:"flex",flexWrap:"nowrap",gap:6,marginTop:10,width:"100%",minWidth:0,boxSizing:"border-box"}}>
         {summaryBox("Obtained", o.tot>0?`${o.obt} / ${o.tot}`:"—")}
         {summaryBox("Percentage", o.pctStr==="—"?"—":`${o.pctStr}%`)}
         {summaryBox("Grade", o.gradeStr)}
@@ -1001,11 +1001,11 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
       </div>
       <div style={{marginTop:12,border:"1.5px solid #111"}}>
         <div style={{textAlign:"center",fontSize:9,fontWeight:800,padding:"6px 6px",borderBottom:"1px solid #111",textTransform:"uppercase",fontFamily:RC_SERIF,lineHeight:1.4}}>Grading Scale</div>
-        <div className="result-card-grade-scale" style={{display:"grid",gridTemplateColumns:`repeat(${gradeScale.length},1fr)`}}>
+        <div className="result-card-grade-scale" style={{display:"grid",gridTemplateColumns:`repeat(${gradeScale.length},minmax(0,1fr))`,width:"100%",minWidth:0}}>
           {gradeScale.map((g,i)=>(
-            <div key={g.grade} style={{borderRight:i===gradeScale.length-1?"none":"1px solid #ccc",textAlign:"center",padding:"7px 3px"}}>
-              <div style={{fontSize:9,fontWeight:700,fontFamily:RC_SERIF,lineHeight:1.4}}>{g.range}</div>
-              <div style={{fontSize:12,fontWeight:800,marginTop:3,fontFamily:RC_SERIF,lineHeight:1.35}}>{g.grade}</div>
+            <div key={g.grade} className="result-card-grade-cell" style={{borderRight:i===gradeScale.length-1?"none":"1px solid #ccc",textAlign:"center",padding:"7px 2px",minWidth:0,overflow:"hidden"}}>
+              <div className="result-card-grade-range" style={{fontSize:9,fontWeight:700,fontFamily:RC_SERIF,lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.range}</div>
+              <div className="result-card-grade-letter" style={{fontSize:12,fontWeight:800,marginTop:3,fontFamily:RC_SERIF,lineHeight:1.3}}>{g.grade}</div>
             </div>
           ))}
         </div>
@@ -1016,28 +1016,28 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
           {remarks}
         </div>
       </div>
-      <div className="result-card-footer-sign" style={{display:"grid",gridTemplateColumns:"1fr auto 1fr",gap:10,alignItems:"end",marginTop:28,paddingTop:8}}>
-        <div style={{textAlign:"center",fontFamily:RC_SERIF}}>
+      <div className="result-card-footer-sign" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto minmax(0,1fr)",gap:8,alignItems:"end",marginTop:28,paddingTop:8,width:"100%",boxSizing:"border-box",minWidth:0}}>
+        <div className="result-card-sign-block" style={{textAlign:"center",fontFamily:RC_SERIF,minWidth:0}}>
           <div style={{minHeight:40}}/>
-          <div style={{borderTop:"1.5px solid #111",paddingTop:6,margin:"0 auto",width:"90%"}}>
-            <div style={{fontSize:12,fontWeight:800,lineHeight:1.4,paddingBottom:1}}>{classTeacher||"—"}</div>
-            <div style={{fontSize:9,fontWeight:700,marginTop:3,lineHeight:1.35}}>{inchargeTitle}</div>
+          <div style={{borderTop:"1.5px solid #111",paddingTop:6,margin:"0 auto",width:"90%",maxWidth:"100%",boxSizing:"border-box"}}>
+            <div className="result-card-sign-name" style={{fontSize:12,fontWeight:800,lineHeight:1.3,paddingBottom:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{classTeacher||"—"}</div>
+            <div className="result-card-sign-title" style={{fontSize:9,fontWeight:700,marginTop:3,lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{inchargeTitle}</div>
           </div>
         </div>
-        <div style={{textAlign:"center",paddingBottom:4}}>
+        <div className="result-card-sign-seal" style={{textAlign:"center",paddingBottom:4,flexShrink:0}}>
           <ResultCardSchoolStamp
             logoSrc={schoolOrBrandLogo(settings?.logo)}
             schoolName={String(settings?.schoolName||"").trim()||"School Seal"}
             size={96}
           />
         </div>
-        <div style={{textAlign:"center",fontFamily:RC_SERIF,position:"relative"}}>
+        <div className="result-card-sign-block" style={{textAlign:"center",fontFamily:RC_SERIF,position:"relative",minWidth:0}}>
           <div style={{minHeight:40,position:"relative"}}>
-            <img src={resultSigSrc} alt="" style={{width:110,position:"absolute",left:"50%",bottom:2,transform:"translateX(-50%)",opacity:0.95}}/>
+            <img className="result-card-sign-img" src={resultSigSrc} alt="" style={{width:110,maxWidth:"100%",position:"absolute",left:"50%",bottom:2,transform:"translateX(-50%)",opacity:0.95}}/>
           </div>
-          <div style={{borderTop:"1.5px solid #111",paddingTop:6,margin:"0 auto",width:"90%"}}>
-            <div style={{fontSize:12,fontWeight:800,lineHeight:1.4,paddingBottom:1}}>{principalName}</div>
-            <div style={{fontSize:9,fontWeight:700,marginTop:3,lineHeight:1.35}}>{principalTitle}</div>
+          <div style={{borderTop:"1.5px solid #111",paddingTop:6,margin:"0 auto",width:"90%",maxWidth:"100%",boxSizing:"border-box"}}>
+            <div className="result-card-sign-name" style={{fontSize:12,fontWeight:800,lineHeight:1.3,paddingBottom:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{principalName}</div>
+            <div className="result-card-sign-title" style={{fontSize:9,fontWeight:700,marginTop:3,lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{principalTitle}</div>
           </div>
         </div>
       </div>
@@ -1249,13 +1249,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
 
   return (
     <div className="psms-page" style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16, width: "100%", minWidth: 0, boxSizing: "border-box" }}>
-      <div className="no-print psms-toolbar" style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: 14 }}>
-        <div style={{ minWidth: 0, flex: "1 1 200px" }}>
-          <h1 style={{ margin: 0, fontSize: "clamp(18px, 4vw, 24px)", fontWeight: 800, color: "#1B5E20", letterSpacing: "-0.02em" }}>Examination</h1>
-          <p style={{ margin: "6px 0 0", fontSize: 13, color: "#6b7280" }}>
-            {EXAM_TABS.find((x) => x.id === tab)?.l || "Exams"} · session {currentSession || "—"}
-          </p>
-        </div>
+      <div className="no-print psms-toolbar" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-start", gap: 10 }}>
         <div style={{ display: "inline-flex", flexWrap: "wrap", background: "#e8f5e9", borderRadius: 10, padding: 4, gap: 4, border: "1px solid #c8e6c9", maxWidth: "100%" }}>
           {EXAM_TABS.map((t) => (
             <button

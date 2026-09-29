@@ -284,8 +284,13 @@ body,
   }
 
   .result-card-info-grid {
-    grid-template-columns: 1fr !important;
-    column-gap: 0 !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    column-gap: 10px !important;
+    min-width: 0 !important;
+  }
+
+  .result-card-info-grid span {
+    font-size: 10px !important;
   }
 
   .result-card-header-grid {
@@ -308,22 +313,91 @@ body,
     overflow: hidden !important;
   }
 
+  /* Summary boxes stay on one line; shrink text instead of wrapping */
   .result-card-summary-row {
-    flex-wrap: wrap !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 3px !important;
+    min-width: 0 !important;
   }
 
+  .result-card-summary-row > .result-card-summary-box,
   .result-card-summary-row > * {
-    flex: 1 1 calc(50% - 6px) !important;
-    min-width: 100px !important;
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
   }
 
+  .result-card-summary-label {
+    font-size: 6.5px !important;
+    padding: 4px 1px !important;
+  }
+
+  .result-card-summary-value {
+    font-size: 10px !important;
+    padding: 6px 1px !important;
+  }
+
+  .result-card-border-inner table {
+    font-size: 10px !important;
+  }
+
+  .result-card-border-inner table th,
+  .result-card-border-inner table td {
+    padding: 5px 3px !important;
+  }
+
+  /* Grading scale stays one row (column count from inline style); shrink text */
   .result-card-grade-scale {
-    grid-template-columns: repeat(3, 1fr) !important;
+    width: 100% !important;
+    min-width: 0 !important;
   }
 
+  .result-card-grade-range {
+    font-size: 6.5px !important;
+  }
+
+  .result-card-grade-letter {
+    font-size: 10px !important;
+    margin-top: 2px !important;
+  }
+
+  .result-card-grade-cell {
+    padding: 5px 1px !important;
+  }
+
+  /* Keep Class Incharge | Seal | Principal on one line; shrink so they don't overlap */
   .result-card-footer-sign {
-    grid-template-columns: 1fr !important;
-    gap: 16px !important;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
+    gap: 4px !important;
+    align-items: end !important;
+    min-width: 0 !important;
+  }
+
+  .result-card-footer-sign .result-card-sign-block {
+    min-width: 0 !important;
+  }
+
+  .result-card-footer-sign .result-card-school-stamp {
+    width: 64px !important;
+    height: 64px !important;
+  }
+
+  .result-card-footer-sign .result-card-school-stamp svg {
+    width: 64px !important;
+    height: 64px !important;
+  }
+
+  .result-card-footer-sign .result-card-sign-img {
+    width: 72px !important;
+    max-width: 100% !important;
+  }
+
+  .result-card-footer-sign .result-card-sign-name {
+    font-size: 10px !important;
+  }
+
+  .result-card-footer-sign .result-card-sign-title {
+    font-size: 7px !important;
   }
 
   /* Modals fill safe viewport */
@@ -393,12 +467,56 @@ body,
     gap: 4px !important;
   }
 
-  .result-card-summary-row > * {
-    flex: 1 1 100% !important;
+  .result-card-info-grid {
+    column-gap: 6px !important;
   }
 
-  .result-card-grade-scale {
-    grid-template-columns: repeat(2, 1fr) !important;
+  .result-card-info-grid span {
+    font-size: 9px !important;
+  }
+
+  .result-card-summary-row {
+    gap: 2px !important;
+  }
+
+  .result-card-summary-label {
+    font-size: 5.5px !important;
+    padding: 3px 0 !important;
+  }
+
+  .result-card-summary-value {
+    font-size: 9px !important;
+    padding: 5px 0 !important;
+  }
+
+  .result-card-grade-range {
+    font-size: 5.5px !important;
+  }
+
+  .result-card-grade-letter {
+    font-size: 9px !important;
+  }
+
+  .result-card-footer-sign .result-card-school-stamp {
+    width: 52px !important;
+    height: 52px !important;
+  }
+
+  .result-card-footer-sign .result-card-school-stamp svg {
+    width: 52px !important;
+    height: 52px !important;
+  }
+
+  .result-card-footer-sign .result-card-sign-img {
+    width: 56px !important;
+  }
+
+  .result-card-footer-sign .result-card-sign-name {
+    font-size: 9px !important;
+  }
+
+  .result-card-footer-sign .result-card-sign-title {
+    font-size: 6.5px !important;
   }
 
   /* Hide decorative corner marks that crowd tiny screens */
