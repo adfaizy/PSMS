@@ -55,6 +55,7 @@ function patchManifestScope(base) {
 
 export default defineConfig(({ mode }) => {
   const base = viteBase(mode);
+  const photosRoot = path.resolve(__dirname, "Photos");
   return {
     base,
     resolve: {
@@ -71,6 +72,60 @@ export default defineConfig(({ mode }) => {
       }),
       patchHtmlPublicLinks(base),
       patchManifestScope(base),
+      {
+        name: "psms-serve-photos",
+        configureServer(server) {
+          server.middlewares.use("/Photos-api", (req, res, next) => {
+            try {
+              const url = new URL(req.url || "/", "http://psms.local");
+              if (url.pathname === "/folder-exists" || url.pathname.endsWith("/folder-exists")) {
+                const name = String(url.searchParams.get("name") || "").trim();
+                const dir = path.normalize(path.join(photosRoot, name));
+                const ok =
+                  !!name &&
+                  dir.startsWith(photosRoot) &&
+                  fs.existsSync(dir) &&
+                  fs.statSync(dir).isDirectory();
+                res.setHeader("Content-Type", "application/json");
+                res.end(JSON.stringify({ exists: ok }));
+                return;
+              }
+              next();
+            } catch {
+              next();
+            }
+          });
+          server.middlewares.use("/Photos", (req, res, next) => {
+            try {
+              const rel = decodeURIComponent((req.url || "/").split("?")[0] || "/");
+              const filePath = path.normalize(path.join(photosRoot, rel));
+              if (!filePath.startsWith(photosRoot)) {
+                res.statusCode = 403;
+                res.end("Forbidden");
+                return;
+              }
+              if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+                next();
+                return;
+              }
+              const ext = path.extname(filePath).toLowerCase();
+              const types = {
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".png": "image/png",
+                ".webp": "image/webp",
+                ".gif": "image/gif",
+                ".bmp": "image/bmp",
+              };
+              res.setHeader("Content-Type", types[ext] || "application/octet-stream");
+              res.setHeader("Cache-Control", "no-cache");
+              fs.createReadStream(filePath).pipe(res);
+            } catch {
+              next();
+            }
+          });
+        },
+      },
     ],
     /**
      * Dev dependency pre-bundling needs esbuild (default). Disabling esbuild globally
@@ -84,6 +139,12 @@ export default defineConfig(({ mode }) => {
     },
     worker: {
       format: "es",
+    },
+    server: {
+      watch: {
+        // Student photo files lock on Windows and crash Vite's watcher
+        ignored: ["**/Photos/**", "**/node_modules/**"],
+      },
     },
     build: {
       chunkSizeWarningLimit: 2500,

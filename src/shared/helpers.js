@@ -273,6 +273,53 @@ export async function processStudentPhotoWithBackground(file){
     return fallbackFromFile();
   }
 }
+
+/** Fast photo load for bulk folder import (no AI background removal). */
+export async function readStudentPhotoAsJpeg(file){
+  if(!file) throw new Error("No file selected");
+  const loadImageFromBlobOrFile=(src)=>new Promise((resolve,reject)=>{
+    const img=new Image();
+    const url=typeof src==="string"?src:URL.createObjectURL(src);
+    const revoke=()=>{ if(typeof src!=="string") URL.revokeObjectURL(url); };
+    img.onload=async ()=>{
+      try{ if(img.decode) await img.decode(); }catch{ /* ignore */ }
+      revoke();
+      resolve(img);
+    };
+    img.onerror=()=>{
+      revoke();
+      reject(new Error("Could not decode image"));
+    };
+    img.src=url;
+  });
+  try{
+    const img=await loadImageFromBlobOrFile(file);
+    const sw=img.naturalWidth||img.width;
+    const sh=img.naturalHeight||img.height;
+    if(!sw||!sh) throw new Error("empty image");
+    const MAX_W=400,MAX_H=500;
+    const ratio=Math.min(MAX_W/sw,MAX_H/sh,1);
+    const w=Math.round(sw*ratio);
+    const h=Math.round(sh*ratio);
+    const canvas=document.createElement("canvas");
+    canvas.width=w; canvas.height=h;
+    const ctx=canvas.getContext("2d");
+    if(!ctx) throw new Error("no canvas");
+    ctx.fillStyle="#ffffff";
+    ctx.fillRect(0,0,w,h);
+    ctx.imageSmoothingEnabled=true;
+    ctx.imageSmoothingQuality="high";
+    ctx.drawImage(img,0,0,w,h);
+    return canvas.toDataURL("image/jpeg",0.88);
+  }catch{
+    return await new Promise((resolve,reject)=>{
+      const r=new FileReader();
+      r.onload=()=>resolve(r.result||"");
+      r.onerror=()=>reject(new Error("Could not read image file"));
+      r.readAsDataURL(file);
+    });
+  }
+}
 /**
  * One row per pupil when admission is missing or class_id strings differ across sync (e.g. operator devices).
  * Prefers the record with more filled fields.

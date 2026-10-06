@@ -34,6 +34,7 @@ const {
   drawTeacherPlannerFooterColumn, appendTeacherPlannerScheduleFooterPdf,
   isTeacherPlannerTimetablePdfTitle, downloadExcel, brandingLogoDataUrlForPdf,
   processStudentPhotoWithBackground,
+  readStudentPhotoAsJpeg,
 } = H;
 
 const jsPDF =
@@ -2370,53 +2371,345 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
         </Btn>
         <Btn
           outline
-          onClick={()=>photosDirRef.current?.click()}
+          onClick={async ()=>{
+            const classes=settings.classes||[];
+            if(!classes.length){ alert("No classes found for this school login."); return; }
+            const folderNames=[...new Set(classes.map(c=>{
+              const label=String(formatClassDisplay(c)||c.name||c.grade||"").trim();
+              return label.replace(/[<>:"/\\|?*]/g,"-").replace(/\s+/g," ").trim();
+            }).filter(Boolean))];
+            if(!folderNames.length){ alert("Could not build class folder names."); return; }
+            // Prefer File System Access API so folders match this login's classes
+            if(typeof window.showDirectoryPicker==="function"){
+              try{
+                const root=await window.showDirectoryPicker({id:"psms-photos",mode:"readwrite",startIn:"documents"});
+                for(const name of folderNames){
+                  await root.getDirectoryHandle(name,{create:true});
+                }
+                alert(`Created/updated ${folderNames.length} class folder(s) in the selected Photos directory:\n\n`+folderNames.join("\n"));
+                return;
+              }catch(err){
+                if(err&&(err.name==="AbortError"||err.name==="NotAllowedError")) return;
+                console.warn(err);
+              }
+            }
+            alert(
+              "Class folders for this login (create these under PSMS/Photos):\n\n"+
+              folderNames.join("\n")+
+              "\n\nThen put photos as: Photos/<Class>/<roll>.jpg"
+            );
+          }}
           className="!h-9 !min-h-9 !px-3 !text-sm"
           style={{ height: 36, minHeight: 36 }}
+          title="Create Photos subfolders for classes of this school login"
         >
-          📷 Import photos (folder)
+          📁 Create class folders
+        </Btn>
+        <Btn
+          outline
+          onClick={async ()=>{
+            const classes=settings.classes||[];
+            if(!classes.length){ alert("No classes found for this school login."); return; }
+            const list=filterCls==="all"?students:filtered;
+            if(!list.length){ alert("No students to sync photos for."); return; }
+            if(filterCls==="all"){
+              const ok=confirm(
+                "Sync all classes from Photos folder?\n\n"+
+                "• Files found → update student photo\n"+
+                "• File removed from class folder → remove photo from student record\n\n"+
+                "Tip: Filter by one class (e.g. ECE) for safer sync."
+              );
+              if(!ok) return;
+            }
+            const exts=[".jpg",".jpeg",".png",".webp",".bmp",".gif"];
+            const folderNamesForClass=(c)=>{
+              const names=new Set();
+              [formatClassDisplay(c),c.name,c.id,c.grade,formatGradeLabel(c.grade),`${c.grade||""}${c.section?`-${c.section}`:""}`]
+                .map(v=>String(v||"").trim())
+                .filter(Boolean)
+                .forEach(v=>names.add(v));
+              return [...names];
+            };
+            const folderExistsCache={};
+            const classFolderExists=async (folders)=>{
+              for(const folder of folders){
+                if(folderExistsCache[folder]!=null){
+                  if(folderExistsCache[folder]) return true;
+                  continue;
+                }
+                try{
+                  const res=await fetch(`/Photos-api/folder-exists?name=${encodeURIComponent(folder)}`,{cache:"no-store"});
+                  const json=res.ok?await res.json():{exists:false};
+                  folderExistsCache[folder]=!!json.exists;
+                  if(json.exists) return true;
+                }catch{
+                  folderExistsCache[folder]=false;
+                }
+              }
+              return false;
+            };
+            const tryFetchPhoto=async (folders,roll)=>{
+              for(const folder of folders){
+                for(const ext of exts){
+                  const url=`/Photos/${encodeURIComponent(folder)}/${encodeURIComponent(roll)}${ext}`;
+                  try{
+                    const res=await fetch(url,{cache:"no-store"});
+                    if(!res.ok) continue;
+                    const blob=await res.blob();
+                    if(!blob||!blob.size) continue;
+                    const file=new File([blob],`${roll}${ext}`,{type:blob.type||"image/jpeg"});
+                    return await readStudentPhotoAsJpeg(file);
+                  }catch{ /* try next */ }
+                }
+              }
+              return null;
+            };
+            let applied=0, removed=0, missing=0, failed=0, skippedNoFolder=0;
+            const updates={}; // id -> photo data URL or null to clear
+            for(const s of list){
+              const sc=resolveClass(classes,s.classId);
+              if(!sc){ missing++; continue; }
+              const roll=normalizeRollNo(s.rollNo);
+              if(!roll){ missing++; continue; }
+              const folders=folderNamesForClass(sc);
+              const folderOk=await classFolderExists(folders);
+              if(!folderOk){
+                skippedNoFolder++;
+                continue; // don't clear if class folder itself is missing
+              }
+              try{
+                const data=await tryFetchPhoto(folders,roll);
+                const padded=(/^\d+$/.test(roll)&&roll.length===1)?`0${roll}`:null;
+                const photo=data||(padded?await tryFetchPhoto(folders,padded):null);
+                if(photo){
+                  updates[s.id]=photo;
+                  applied++;
+                }else if(s.photo){
+                  updates[s.id]=null; // file removed from folder → clear student photo
+                  removed++;
+                }else{
+                  missing++;
+                }
+              }catch{
+                failed++;
+              }
+              if((applied+removed+missing+failed)%10===0) await yieldToMain();
+            }
+            if(Object.keys(updates).length){
+              setStudents(prev=>prev.map(s=>{
+                if(!(s.id in updates)) return s;
+                const next=updates[s.id];
+                return next?{...s,photo:next}:{...s,photo:null};
+              }));
+            }
+            alert(
+              `Synced photos from Photos folder.\n\n`+
+              `Updated: ${applied}\n`+
+              `Removed (file deleted from folder): ${removed}\n`+
+              `No file / already empty: ${missing}\n`+
+              (skippedNoFolder?`Skipped (no class folder): ${skippedNoFolder}\n`:"")+
+              (failed?`Failed: ${failed}\n`:"")+
+              `\nDelete a file under Photos/<Class>/<roll>.jpg then Sync again to clear it from Student Record.`
+            );
+          }}
+          className="!h-9 !min-h-9 !px-3 !text-sm"
+          style={{ height: 36, minHeight: 36 }}
+          title="Sync Photos folder ↔ Student Record (add or remove photos by roll file)"
+        >
+          🔄 Sync from Photos
         </Btn>
         <input
           ref={photosDirRef}
           type="file"
-          accept="image/*"
+          accept="image/*,.jpg,.jpeg,.png,.webp,.bmp,.gif,.jfif,.heic,.heif,.avif,.tif,.tiff"
           style={{display:"none"}}
           multiple
           webkitdirectory=""
+          directory=""
           onChange={async e=>{
             const files=Array.from(e.target.files||[]);
             e.target.value="";
             if(!files.length) return;
+            const IMAGE_EXT=/\.(jpe?g|png|webp|bmp|gif|jfif|heic|heif|avif|tiff?)$/i;
+            const normalizeRollKey=(v)=>{
+              const digits=String(v??"").match(/\d+/);
+              if(!digits) return "";
+              return digits[0].replace(/^0+/,"")||"0";
+            };
+            const extractRollFromFilename=(filename)=>{
+              const base=String(filename||"").replace(/\.[^.]+$/,"").trim();
+              if(!base) return "";
+              if(/^\d+$/.test(base)) return normalizeRollKey(base);
+              const lead=base.match(/^(\d{1,4})(?:[^\d].*)?$/);
+              if(lead) return normalizeRollKey(lead[1]);
+              const labeled=base.match(/(?:roll|r(?:no)?|no)[^\d]*(\d{1,4})/i);
+              if(labeled) return normalizeRollKey(labeled[1]);
+              const any=base.match(/(\d{1,4})/);
+              return any?normalizeRollKey(any[1]):"";
+            };
+            const clean=(v)=>String(v||"").trim().toLowerCase().replace(/[^a-z0-9]+/g,"");
+            const folderAliases=(folder)=>{
+              const raw=String(folder||"").trim();
+              if(!raw) return [];
+              const aliases=new Set([raw]);
+              aliases.add(raw.replace(/[_]+/g,"-"));
+              aliases.add(raw.replace(/[-]+/g," "));
+              // 1st-A / 2nd B → 1-A / 2-B
+              const ord=raw.match(/^(\d{1,2})(?:st|nd|rd|th)?\s*[-_ ]\s*([a-zA-Z])$/i);
+              if(ord){
+                aliases.add(`${ord[1]}-${ord[2]}`);
+                aliases.add(`${ord[1]}${ord[2]}`);
+                aliases.add(`Class ${ord[1]}-${ord[2].toUpperCase()}`);
+                aliases.add(`Class ${ord[1]}${ord[2].toUpperCase()}`);
+              }
+              const onlyNum=raw.match(/^(\d{1,2})$/);
+              if(onlyNum){
+                aliases.add(`Class ${onlyNum[1]}`);
+                aliases.add(onlyNum[1]);
+              }
+              const classPref=raw.match(/^class\s*(.+)$/i);
+              if(classPref) aliases.add(classPref[1].trim());
+              return [...aliases];
+            };
             const classMatch=(folder)=>{
-              const f=String(folder||"").trim().toLowerCase();
+              if(!folder) return null;
+              // Try every alias through the same resolver used across PSMS
+              for(const alias of folderAliases(folder)){
+                const hit=resolveClass(settings.classes,alias);
+                if(hit) return hit;
+              }
+              const f=clean(folder);
               if(!f) return null;
               return (settings.classes||[]).find(c=>{
-                const labels=[c.id,String(c.name||"").trim(),formatClassDisplay(c)];
-                return labels.some(l=>l&&l.toLowerCase()===f);
+                const labels=[
+                  c.id,c.name,c.grade,c.section,
+                  formatClassDisplay(c),
+                  formatGradeLabel(c.grade),
+                  `${c.grade||""}${c.section||""}`,
+                  `${c.grade||""}-${c.section||""}`,
+                  `Class ${c.grade||""}-${c.section||""}`,
+                  `Class ${c.grade||""}${c.section||""}`,
+                ];
+                return labels.some(l=>l&&(clean(l)===f||clean(l).endsWith(f)||f.endsWith(clean(l))));
               })||null;
             };
-            const targets=[];
-            for(const file of files){
-              const rel=file.webkitRelativePath||file.name;
-              const parts=rel.split(/[\\/]/);
-              if(parts.length<2) continue;
-              const folder=parts[parts.length-2];
-              const namePart=parts[parts.length-1];
-              const rollMatch=namePart.match(/(\d+)/);
-              if(!rollMatch) continue;
-              const rollStr=rollMatch[1].replace(/^0+/,"")||"0";
-              const cls=classMatch(folder);
-              if(!cls) continue;
-              targets.push({file,classId:cls.id,roll:rollStr});
+            /** Walk path folders from nearest parent up; first class match wins. */
+            const classFromPath=(parts)=>{
+              // Skip common root folder names that are not classes
+              const skip=new Set(["photos","photo","images","image","img","pics","pictures","psms"]);
+              for(let i=parts.length-2;i>=0;i--){
+                const seg=String(parts[i]||"").trim();
+                if(!seg||skip.has(seg.toLowerCase())) continue;
+                const hit=classMatch(seg);
+                if(hit) return hit;
+              }
+              return null;
+            };
+            const filterResolved=filterCls!=="all"?resolveClass(settings.classes,filterCls):null;
+            const imageFiles=files.filter(f=>{
+              const name=f.name||"";
+              if(/^\.gitkeep$/i.test(name)||/^readme/i.test(name)) return false;
+              return IMAGE_EXT.test(name)||(f.type&&f.type.startsWith("image/"));
+            });
+            if(!imageFiles.length){
+              alert("No image files found in that folder. Use jpg, jpeg, png, webp, bmp, gif, or similar.");
+              return;
             }
-            if(!targets.length){ alert("No matching class/roll photos found. Folder names must match class names (e.g. 1ST-A) and files be named with roll numbers."); return; }
+            const targets=[];
+            let skippedNoRoll=0;
+            let skippedNoClass=0;
+            const folderHints=new Set();
+            for(const file of imageFiles){
+              const rel=file.webkitRelativePath||file.name;
+              const parts=rel.split(/[\\/]/).filter(Boolean);
+              const namePart=parts[parts.length-1]||file.name;
+              const roll=extractRollFromFilename(namePart);
+              if(!roll){ skippedNoRoll++; continue; }
+              // Class subfolders: Photos/ECE/1.jpg or Photos/Class 1/2.jpg
+              let cls=classFromPath(parts);
+              // Flat folder of rolls → use selected class filter
+              if(!cls&&filterResolved) cls=filterResolved;
+              if(!cls){
+                skippedNoClass++;
+                if(parts.length>=2) folderHints.add(parts[parts.length-2]);
+                continue;
+              }
+              const resolved=resolveClass(settings.classes,cls.id)||cls;
+              targets.push({file,classId:resolved.id,roll,cls:resolved});
+            }
+            if(!targets.length){
+              const sampleFolders=[...folderHints].slice(0,8).join(", ");
+              const sampleClasses=(settings.classes||[]).map(c=>formatClassDisplay(c)||c.name||c.grade).filter(Boolean).join(", ");
+              alert(
+                "No photos matched class folders.\n\n"+
+                "Select the Photos folder that contains class subfolders:\n"+
+                "  Photos / ECE / 1.jpg\n"+
+                "  Photos / Class 1 / 2.png\n\n"+
+                (sampleFolders?`Folders seen: ${sampleFolders}\n`:"")+
+                (sampleClasses?`Classes in this login: ${sampleClasses}\n`:"")+
+                `\nImages: ${imageFiles.length}`+
+                (skippedNoRoll?` | no roll in name: ${skippedNoRoll}`:"")+
+                (skippedNoClass?` | no class folder match: ${skippedNoClass}`:"")
+              );
+              return;
+            }
+            // Fast bulk import (no AI background removal — that was hanging on large folders)
             const photosMap={};
-            await Promise.all(targets.map(async t=>{ photosMap[`${t.classId}|${t.roll}`]=await processStudentPhotoWithBackground(t.file); }));
+            let failed=0;
+            const BATCH=8;
+            for(let i=0;i<targets.length;i+=BATCH){
+              const slice=targets.slice(i,i+BATCH);
+              const results=await Promise.all(slice.map(async t=>{
+                try{
+                  const data=await readStudentPhotoAsJpeg(t.file);
+                  return {t,data};
+                }catch{
+                  return {t,data:null};
+                }
+              }));
+              for(const {t,data} of results){
+                if(!data){ failed++; continue; }
+                const keys=new Set([
+                  `${t.classId}|${t.roll}`,
+                  `${String(t.cls?.name||"").trim()}|${t.roll}`,
+                  `${String(t.cls?.grade||"").trim()}|${t.roll}`,
+                  `${formatClassDisplay(t.cls)}|${t.roll}`,
+                ]);
+                keys.forEach(k=>{ if(k&&!k.startsWith("|")) photosMap[k]=data; });
+              }
+              await yieldToMain();
+            }
+            let applied=0;
             setStudents(prev=>prev.map(s=>{
-              const key=`${s.classId}|${String(s.rollNo).replace(/^0+/,"")||"0"}`;
-              return photosMap[key]?{...s,photo:photosMap[key]}:s;
+              const sc=resolveClass(settings.classes,s.classId);
+              const roll=normalizeRollKey(s.rollNo);
+              if(!roll) return s;
+              const tryKeys=[
+                `${sc?.id||s.classId}|${roll}`,
+                `${String(sc?.name||s.classId||"").trim()}|${roll}`,
+                `${String(sc?.grade||"").trim()}|${roll}`,
+                `${formatClassDisplay(sc)||""}|${roll}`,
+                `${String(s.classId||"").trim()}|${roll}`,
+              ];
+              const photo=tryKeys.map(k=>photosMap[k]).find(Boolean);
+              if(!photo) return s;
+              applied++;
+              return {...s,photo};
             }));
-            alert(`Imported photos for ${Object.keys(photosMap).length} student(s).`);
+            const processed=targets.length-failed;
+            const byClass={};
+            targets.forEach(t=>{
+              const label=formatClassDisplay(t.cls)||getClassLabel(settings,t.classId)||t.classId;
+              byClass[label]=(byClass[label]||0)+1;
+            });
+            const classSummary=Object.entries(byClass).map(([k,v])=>`${k}: ${v}`).join("\n");
+            alert(
+              `Imported photos for ${applied} student(s).\n`+
+              `Files processed: ${processed}`+
+              (failed?` | failed: ${failed}`:"")+
+              (classSummary?`\n\nBy class folder:\n${classSummary}`:"")+
+              (processed>applied?`\n\n(${processed-applied} file(s) had no matching student roll.)`:"")
+            );
           }}
         />
       </div>

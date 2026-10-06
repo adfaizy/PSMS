@@ -9,3 +9,8 @@ nul
 nul.*
 NUL
 NUL.*
+
+# Keep Photos/ class folders; ignore actual student image files
+Photos/**/*.{jpg,jpeg,png,webp,bmp,gif,jfif,heic,heif,avif,tif,tiff}
+!Photos/**/.gitkeep
+!Photos/README.txt
