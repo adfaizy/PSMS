@@ -18,7 +18,6 @@ function resolveCloudConfig() {
   const fromEnvUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim()
   const fromEnvKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim()
   const runtime = readRuntimeCloud()
-  // Prefer Vite env when present; otherwise public/psms-config.js (all browsers/devices)
   return {
     url: fromEnvUrl || runtime.url || '',
     anonKey: fromEnvKey || runtime.anonKey || '',
@@ -34,55 +33,83 @@ function makeClient(url, anonKey) {
   })
 }
 
-let { url: supabaseUrl, anonKey: supabaseAnonKey } = resolveCloudConfig()
+/** Single mutable store — avoids stale module binding across browsers/HMR. */
+function cloudState() {
+  if (typeof globalThis !== 'undefined') {
+    if (!globalThis.__PSMS_SB__) {
+      globalThis.__PSMS_SB__ = { configured: false, client: null, url: '' }
+    }
+    return globalThis.__PSMS_SB__
+  }
+  return { configured: false, client: null, url: '' }
+}
 
-/** Live binding — becomes true after config is found (env or public/psms-config.js). */
-export let isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey)
+export let isSupabaseConfigured = false
+export let supabase = null
 
-export let supabase = isSupabaseConfigured
-  ? makeClient(supabaseUrl, supabaseAnonKey)
-  : null
+function applyCloud(url, anonKey) {
+  const state = cloudState()
+  const ok = Boolean(url && anonKey)
+  state.configured = ok
+  state.url = ok ? url : ''
+  state.client = ok ? makeClient(url, anonKey) : null
+  isSupabaseConfigured = ok
+  supabase = state.client
+  return { ok, client: state.client, url: state.url }
+}
+
+{
+  const initial = resolveCloudConfig()
+  applyCloud(initial.url, initial.anonKey)
+}
+
+export function getSupabase() {
+  return cloudState().client
+}
+
+export function getIsSupabaseConfigured() {
+  return cloudState().configured
+}
 
 /**
- * Re-read public config (and optional /psms-config.json) so other browsers
- * that load the shared app can turn Cloud ON even without local .env.
+ * Load cloud settings from inline script / public JSON, then create client.
+ * Returns { ok, client } — Admin must use this return value (not stale imports).
  */
 export async function initSupabaseCloud() {
-  // Script tag may have set window.__PSMS_CLOUD__ already
   let next = resolveCloudConfig()
 
-  if ((!next.url || !next.anonKey) && typeof window !== 'undefined') {
+  if (typeof window !== 'undefined') {
     try {
       const base = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')
-      const res = await fetch(`${base}psms-config.json`, { cache: 'no-store' })
+      const res = await fetch(`${base}psms-config.json?t=${Date.now()}`, { cache: 'no-store' })
       if (res.ok) {
         const json = await res.json()
-        next = {
-          url: String(json.url || json.supabaseUrl || '').trim(),
-          anonKey: String(json.anonKey || json.supabaseAnonKey || '').trim(),
-        }
-        if (next.url && next.anonKey) {
+        const url = String(json.url || json.supabaseUrl || '').trim()
+        const anonKey = String(json.anonKey || json.supabaseAnonKey || '').trim()
+        if (url && anonKey) {
+          next = { url, anonKey }
           window.__PSMS_CLOUD__ = next
         }
       }
     } catch {
-      // ignore — stay on env / prior config
+      // keep prior next
     }
   }
 
-  supabaseUrl = next.url
-  supabaseAnonKey = next.anonKey
-  isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey)
-  supabase = isSupabaseConfigured ? makeClient(supabaseUrl, supabaseAnonKey) : null
-  return { ok: isSupabaseConfigured, url: supabaseUrl }
+  if (!next.url || !next.anonKey) {
+    next = resolveCloudConfig()
+  }
+
+  return applyCloud(next.url, next.anonKey)
 }
 
 /** Quick connectivity check used by Admin Cloud badge. */
 export async function pingSupabaseCloud(timeoutMs = 8000) {
-  if (!isSupabaseConfigured || !supabase) return { ok: false, reason: 'not_configured' }
+  const client = getSupabase()
+  if (!getIsSupabaseConfigured() || !client) return { ok: false, reason: 'not_configured' }
   try {
     const result = await Promise.race([
-      supabase.from('app_users').select('id', { count: 'exact', head: true }),
+      client.from('app_users').select('id', { count: 'exact', head: true }),
       new Promise((_, reject) => {
         setTimeout(() => reject(new Error('timeout')), timeoutMs)
       }),

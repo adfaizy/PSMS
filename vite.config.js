@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
@@ -53,6 +54,62 @@ function patchManifestScope(base) {
   };
 }
 
+/** Write + inline public cloud config so EVERY browser/device gets Cloud ON. */
+function psmsCloudConfigPlugin(mode, base) {
+  const runWrite = () => {
+    spawnSync(process.execPath, [path.resolve(__dirname, "scripts/write-psms-config.mjs")], {
+      cwd: process.cwd(),
+      stdio: "inherit",
+    });
+  };
+
+  const readPublicConfig = () => {
+    const env = loadEnv(mode, process.cwd(), "");
+    let url = String(env.VITE_SUPABASE_URL || "").trim();
+    let anonKey = String(env.VITE_SUPABASE_ANON_KEY || "").trim();
+    const jsonPath = path.resolve(process.cwd(), "public/psms-config.json");
+    if (fs.existsSync(jsonPath)) {
+      try {
+        const j = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
+        url = url || String(j.url || "").trim();
+        anonKey = anonKey || String(j.anonKey || "").trim();
+      } catch {
+        /* ignore */
+      }
+    }
+    return { url, anonKey };
+  };
+
+  const marker = '<script src="/psms-config.js"></script>';
+
+  return {
+    name: "psms-cloud-config",
+    buildStart() {
+      runWrite();
+    },
+    configureServer() {
+      runWrite();
+    },
+    transformIndexHtml(html) {
+      const cfg = readPublicConfig();
+      const scriptSrc = `${base}psms-config.js`;
+      if (!cfg.url || !cfg.anonKey) {
+        console.warn("[psms-cloud] No Supabase URL/key — Cloud will stay OFF");
+        return html.replace(
+          marker,
+          `<script>window.__PSMS_CLOUD__=null;</script>\n    <script src="${scriptSrc}"></script>`
+        );
+      }
+      const inline = `<script>window.__PSMS_CLOUD__=${JSON.stringify(cfg)};</script>`;
+      console.log("[psms-cloud] Inlined cloud config into index.html");
+      return html.replace(
+        marker,
+        `${inline}\n    <script src="${scriptSrc}"></script>`
+      );
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const base = viteBase(mode);
   const photosRoot = path.resolve(__dirname, "Photos");
@@ -70,6 +127,7 @@ export default defineConfig(({ mode }) => {
           presets: [["@babel/preset-react", { runtime: "automatic" }]],
         },
       }),
+      psmsCloudConfigPlugin(mode, base),
       patchHtmlPublicLinks(base),
       patchManifestScope(base),
       {

@@ -668,10 +668,10 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
       setUsersSyncing(false);
     }, 12000);
     try {
-      await initSupabaseCloud();
-      if (!isSupabaseConfigured || !supabase) {
+      const init = await initSupabaseCloud();
+      if (!init?.ok || !init?.client) {
         setCloudOk(false);
-        setCloudMsg("Cloud config missing. On the main PC run: npm run psms-config  then restart npm run dev.");
+        setCloudMsg("Cloud config missing. Open this app from the main PC URL (Network address), or on main PC run: npm run psms-config && npm run dev");
         setUsersList(loadAuthUsers());
         return loadAuthUsers();
       }

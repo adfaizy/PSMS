@@ -1,7 +1,19 @@
-import { supabase, isSupabaseConfigured } from './lib/supabase.js'
+import {
+  supabase,
+  isSupabaseConfigured,
+  getSupabase,
+  getIsSupabaseConfigured,
+} from './lib/supabase.js'
 import { migrateEntityPhotos } from './lib/photoStorage.js'
 
-export { isSupabaseConfigured }
+export { isSupabaseConfigured, getSupabase, getIsSupabaseConfigured }
+
+function sb() {
+  return getSupabase() || supabase
+}
+function cloudOn() {
+  return getIsSupabaseConfigured() || isSupabaseConfigured
+}
 
 function logSyncError(scope, error) {
   if (!error) return
@@ -163,7 +175,7 @@ function classRowsFromSettings(schoolId, settings) {
 // ─── schools load / save ─────────────────────────────────────────────────────
 
 export async function loadSchoolsFromCloud() {
-  if (!isSupabaseConfigured || !supabase) return null
+  if (!getIsSupabaseConfigured() || !getSupabase()) return null
 
   const { data: schoolRows, error } = await supabase
     .from('schools')
@@ -186,11 +198,11 @@ export async function loadSchoolsFromCloud() {
     transferRes,
     retiredRes,
   ] = await Promise.all([
-    supabase.from('students').select('*').in('school_id', schoolIds),
-    supabase.from('staff_profiles').select('*').in('school_id', schoolIds),
-    supabase.from('exam_sessions').select('*').in('school_id', schoolIds),
-    supabase.from('staff_transfer_history').select('*').in('school_id', schoolIds),
-    supabase.from('retired_staff').select('*').in('school_id', schoolIds),
+    getSupabase().from('students').select('*').in('school_id', schoolIds),
+    getSupabase().from('staff_profiles').select('*').in('school_id', schoolIds),
+    getSupabase().from('exam_sessions').select('*').in('school_id', schoolIds),
+    getSupabase().from('staff_transfer_history').select('*').in('school_id', schoolIds),
+    getSupabase().from('retired_staff').select('*').in('school_id', schoolIds),
   ])
 
   for (const [label, res] of [
@@ -254,7 +266,7 @@ export async function loadSchoolsFromCloud() {
 }
 
 export async function saveSchoolsToCloud(schools, activeSchoolId) {
-  if (!isSupabaseConfigured || !supabase) return { ok: false, skipped: true }
+  if (!getIsSupabaseConfigured() || !getSupabase()) return { ok: false, skipped: true }
   const list = Array.isArray(schools) ? schools : []
   if (!list.length) return { ok: true, schools: list }
 
@@ -272,7 +284,7 @@ export async function saveSchoolsToCloud(schools, activeSchoolId) {
         question_bank: school.questionBank || {},
       }
 
-      const { error: schoolErr } = await supabase.from('schools').upsert(schoolRow)
+      const { error: schoolErr } = await getSupabase().from('schools').upsert(schoolRow)
       if (schoolErr) {
         logSyncError('upsertSchool', schoolErr)
         migratedSchools.push(school)
@@ -282,7 +294,7 @@ export async function saveSchoolsToCloud(schools, activeSchoolId) {
       // classes
       const classRows = classRowsFromSettings(school.id, school.settings)
       if (classRows.length) {
-        const { error } = await supabase.from('classes').upsert(classRows)
+        const { error } = await getSupabase().from('classes').upsert(classRows)
         if (error) logSyncError('upsertClasses', error)
       }
 
@@ -320,7 +332,7 @@ export async function saveSchoolsToCloud(schools, activeSchoolId) {
         payload,
       }))
       if (transfers.length) {
-        const { error } = await supabase.from('staff_transfer_history').upsert(transfers)
+        const { error } = await getSupabase().from('staff_transfer_history').upsert(transfers)
         if (error) logSyncError('upsertTransfers', error)
       }
 
@@ -331,7 +343,7 @@ export async function saveSchoolsToCloud(schools, activeSchoolId) {
         payload,
       }))
       if (retired.length) {
-        const { error } = await supabase.from('retired_staff').upsert(retired)
+        const { error } = await getSupabase().from('retired_staff').upsert(retired)
         if (error) logSyncError('upsertRetired', error)
       }
     }
@@ -360,11 +372,11 @@ async function replaceChildren(table, schoolId, rows) {
   const nextIds = new Set(rows.map((r) => r.id))
   const toDelete = (existing || []).map((r) => r.id).filter((id) => !nextIds.has(id))
   if (toDelete.length) {
-    const { error } = await supabase.from(table).delete().in('id', toDelete)
+    const { error } = await getSupabase().from(table).delete().in('id', toDelete)
     if (error) logSyncError(`delete:${table}`, error)
   }
   if (rows.length) {
-    const { error } = await supabase.from(table).upsert(rows)
+    const { error } = await getSupabase().from(table).upsert(rows)
     if (error) logSyncError(`upsert:${table}`, error)
   }
 }
@@ -382,8 +394,8 @@ function groupBy(rows, key) {
 // ─── auth users ──────────────────────────────────────────────────────────────
 
 export async function loadAuthUsersFromCloud() {
-  if (!isSupabaseConfigured || !supabase) return null
-  const { data, error } = await supabase.from('app_users').select('*').order('created_at', { ascending: true })
+  if (!getIsSupabaseConfigured() || !getSupabase()) return null
+  const { data, error } = await getSupabase().from('app_users').select('*').order('created_at', { ascending: true })
   if (error) {
     logSyncError('loadAuthUsers', error)
     return null
@@ -393,11 +405,11 @@ export async function loadAuthUsersFromCloud() {
 
 /** Direct cloud lookup by email — used by Sign In so other devices do not depend on localStorage. */
 export async function findAuthUserByEmailFromCloud(email) {
-  if (!isSupabaseConfigured || !supabase) return null
+  if (!getIsSupabaseConfigured() || !getSupabase()) return null
   const emailNorm = String(email || '').trim().toLowerCase()
   if (!emailNorm) return null
   try {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('app_users')
       .select('*')
       .ilike('email', emailNorm)
@@ -418,9 +430,9 @@ export async function findAuthUserByEmailFromCloud(email) {
 
 /** Upsert a single auth user to cloud (safe for multi-device Create Login). */
 export async function upsertAuthUserToCloud(user) {
-  if (!isSupabaseConfigured || !supabase || !user?.id) return { ok: false, skipped: true }
+  if (!getIsSupabaseConfigured() || !getSupabase() || !user?.id) return { ok: false, skipped: true }
   try {
-    const { error } = await supabase.from('app_users').upsert(userToRow(user))
+    const { error } = await getSupabase().from('app_users').upsert(userToRow(user))
     if (error) {
       logSyncError('upsertAuthUser', error)
       return { ok: false, error }
@@ -438,15 +450,15 @@ export async function upsertAuthUserToCloud(user) {
  * Pass { replace: true } only for intentional full wipe (admin reset).
  */
 export async function saveAuthUsersToCloud(users, { replace = false } = {}) {
-  if (!isSupabaseConfigured || !supabase) return { ok: false, skipped: true }
+  if (!getIsSupabaseConfigured() || !getSupabase()) return { ok: false, skipped: true }
   const list = Array.isArray(users) ? users : []
   try {
     if (replace) {
-      const { data: existing } = await supabase.from('app_users').select('id')
+      const { data: existing } = await getSupabase().from('app_users').select('id')
       const nextIds = new Set(list.map((u) => u.id))
       const toDelete = (existing || []).map((u) => u.id).filter((id) => !nextIds.has(id))
       if (toDelete.length) {
-        const { error: delErr } = await supabase.from('app_users').delete().in('id', toDelete)
+        const { error: delErr } = await getSupabase().from('app_users').delete().in('id', toDelete)
         if (delErr) {
           logSyncError('saveAuthUsers:delete', delErr)
           return { ok: false, error: delErr }
@@ -454,7 +466,7 @@ export async function saveAuthUsersToCloud(users, { replace = false } = {}) {
       }
     }
     if (list.length) {
-      const { error } = await supabase.from('app_users').upsert(list.map(userToRow))
+      const { error } = await getSupabase().from('app_users').upsert(list.map(userToRow))
       if (error) {
         logSyncError('saveAuthUsers', error)
         return { ok: false, error }
@@ -469,11 +481,11 @@ export async function saveAuthUsersToCloud(users, { replace = false } = {}) {
 
 /** Delete specific auth users from cloud (explicit admin remove only). */
 export async function deleteAuthUsersFromCloud(ids) {
-  if (!isSupabaseConfigured || !supabase) return { ok: false, skipped: true }
+  if (!getIsSupabaseConfigured() || !getSupabase()) return { ok: false, skipped: true }
   const list = (Array.isArray(ids) ? ids : []).filter(Boolean)
   if (!list.length) return { ok: true }
   try {
-    const { error } = await supabase.from('app_users').delete().in('id', list)
+    const { error } = await getSupabase().from('app_users').delete().in('id', list)
     if (error) {
       logSyncError('deleteAuthUsers', error)
       return { ok: false, error }
@@ -487,7 +499,7 @@ export async function deleteAuthUsersFromCloud(ids) {
 
 /** Wipe all PSMS application tables in Supabase (destructive). */
 export async function clearAllCloudData() {
-  if (!isSupabaseConfigured || !supabase) return { ok: false, skipped: true }
+  if (!getIsSupabaseConfigured() || !getSupabase()) return { ok: false, skipped: true }
   const tables = [
     'library_borrowings',
     'library_books',
@@ -505,7 +517,7 @@ export async function clearAllCloudData() {
   ]
   try {
     for (const table of tables) {
-      const { error } = await supabase.from(table).delete().neq('id', '')
+      const { error } = await getSupabase().from(table).delete().neq('id', '')
       if (error) logSyncError(`clear:${table}`, error)
     }
     return { ok: true }
@@ -518,7 +530,7 @@ export async function clearAllCloudData() {
 // ─── attendance ──────────────────────────────────────────────────────────────
 
 export async function loadAttendanceFromCloud(schoolId) {
-  if (!isSupabaseConfigured || !supabase || !schoolId) return null
+  if (!getIsSupabaseConfigured() || !getSupabase() || !schoolId) return null
   const { data, error } = await supabase
     .from('attendance_records')
     .select('*')
@@ -537,7 +549,7 @@ export async function loadAttendanceFromCloud(schoolId) {
 }
 
 export async function saveAttendanceToCloud(schoolId, att) {
-  if (!isSupabaseConfigured || !supabase || !schoolId) return { ok: false, skipped: true }
+  if (!getIsSupabaseConfigured() || !getSupabase() || !schoolId) return { ok: false, skipped: true }
   const rows = []
   for (const [key, statuses] of Object.entries(att || {})) {
     const idx = key.lastIndexOf('_')
@@ -558,9 +570,9 @@ export async function saveAttendanceToCloud(schoolId, att) {
   }
 
   try {
-    await supabase.from('attendance_records').delete().eq('school_id', schoolId)
+    await getSupabase().from('attendance_records').delete().eq('school_id', schoolId)
     if (rows.length) {
-      const { error } = await supabase.from('attendance_records').upsert(rows, {
+      const { error } = await getSupabase().from('attendance_records').upsert(rows, {
         onConflict: 'school_id,class_id,attendance_date,student_id',
       })
       if (error) {
@@ -578,8 +590,8 @@ export async function saveAttendanceToCloud(schoolId, att) {
 // ─── fees ────────────────────────────────────────────────────────────────────
 
 export async function loadFeesFromCloud(schoolId) {
-  if (!isSupabaseConfigured || !supabase || !schoolId) return null
-  const { data, error } = await supabase.from('fee_records').select('*').eq('school_id', schoolId)
+  if (!getIsSupabaseConfigured() || !getSupabase() || !schoolId) return null
+  const { data, error } = await getSupabase().from('fee_records').select('*').eq('school_id', schoolId)
   if (error) {
     logSyncError('loadFees', error)
     return null
@@ -596,7 +608,7 @@ export async function loadFeesFromCloud(schoolId) {
 }
 
 export async function saveFeesToCloud(schoolId, feeRecords) {
-  if (!isSupabaseConfigured || !supabase || !schoolId) return { ok: false, skipped: true }
+  if (!getIsSupabaseConfigured() || !getSupabase() || !schoolId) return { ok: false, skipped: true }
   const rows = (feeRecords || []).map((rec) => ({
     id: rec.id || undefined,
     school_id: schoolId,
@@ -609,9 +621,9 @@ export async function saveFeesToCloud(schoolId, feeRecords) {
     meta: {},
   }))
   try {
-    await supabase.from('fee_records').delete().eq('school_id', schoolId)
+    await getSupabase().from('fee_records').delete().eq('school_id', schoolId)
     if (rows.length) {
-      const { error } = await supabase.from('fee_records').upsert(rows)
+      const { error } = await getSupabase().from('fee_records').upsert(rows)
       if (error) {
         logSyncError('saveFees', error)
         return { ok: false, error }
@@ -627,10 +639,10 @@ export async function saveFeesToCloud(schoolId, feeRecords) {
 // ─── library ─────────────────────────────────────────────────────────────────
 
 export async function loadLibraryFromCloud(schoolId) {
-  if (!isSupabaseConfigured || !supabase || !schoolId) return null
+  if (!getIsSupabaseConfigured() || !getSupabase() || !schoolId) return null
   const [booksRes, borrowRes] = await Promise.all([
-    supabase.from('library_books').select('*').eq('school_id', schoolId),
-    supabase.from('library_borrowings').select('*').eq('school_id', schoolId),
+    getSupabase().from('library_books').select('*').eq('school_id', schoolId),
+    getSupabase().from('library_borrowings').select('*').eq('school_id', schoolId),
   ])
   if (booksRes.error) {
     logSyncError('loadLibraryBooks', booksRes.error)
@@ -660,7 +672,7 @@ export async function loadLibraryFromCloud(schoolId) {
 }
 
 export async function saveLibraryToCloud(schoolId, libraryData) {
-  if (!isSupabaseConfigured || !supabase || !schoolId) return { ok: false, skipped: true }
+  if (!getIsSupabaseConfigured() || !getSupabase() || !schoolId) return { ok: false, skipped: true }
   const books = (libraryData?.books || []).map((b) => {
     const { id, title, author, copies, addedAt, ...meta } = b
     return {
@@ -688,14 +700,14 @@ export async function saveLibraryToCloud(schoolId, libraryData) {
   })
 
   try {
-    await supabase.from('library_borrowings').delete().eq('school_id', schoolId)
-    await supabase.from('library_books').delete().eq('school_id', schoolId)
+    await getSupabase().from('library_borrowings').delete().eq('school_id', schoolId)
+    await getSupabase().from('library_books').delete().eq('school_id', schoolId)
     if (books.length) {
-      const { error } = await supabase.from('library_books').upsert(books)
+      const { error } = await getSupabase().from('library_books').upsert(books)
       if (error) logSyncError('saveLibraryBooks', error)
     }
     if (borrowings.length) {
-      const { error } = await supabase.from('library_borrowings').upsert(borrowings)
+      const { error } = await getSupabase().from('library_borrowings').upsert(borrowings)
       if (error) logSyncError('saveLibraryBorrowings', error)
     }
     return { ok: true }
@@ -708,7 +720,7 @@ export async function saveLibraryToCloud(schoolId, libraryData) {
 // ─── discussion ──────────────────────────────────────────────────────────────
 
 export async function loadDiscussionFromCloud() {
-  if (!isSupabaseConfigured || !supabase) return null
+  if (!getIsSupabaseConfigured() || !getSupabase()) return null
   const { data, error } = await supabase
     .from('discussion_messages')
     .select('*')
@@ -733,7 +745,7 @@ export async function loadDiscussionFromCloud() {
 }
 
 export async function saveDiscussionToCloud(messages) {
-  if (!isSupabaseConfigured || !supabase) return { ok: false, skipped: true }
+  if (!getIsSupabaseConfigured() || !getSupabase()) return { ok: false, skipped: true }
   const rows = (messages || []).map((m) => {
     const createdAtMs = typeof m.createdAt === 'number' ? m.createdAt : Date.now()
     return {
@@ -750,12 +762,12 @@ export async function saveDiscussionToCloud(messages) {
     }
   })
   try {
-    const { data: existing } = await supabase.from('discussion_messages').select('id')
+    const { data: existing } = await getSupabase().from('discussion_messages').select('id')
     const nextIds = new Set(rows.map((r) => r.id).filter(Boolean))
     const toDelete = (existing || []).map((r) => r.id).filter((id) => !nextIds.has(id))
-    if (toDelete.length) await supabase.from('discussion_messages').delete().in('id', toDelete)
+    if (toDelete.length) await getSupabase().from('discussion_messages').delete().in('id', toDelete)
     if (rows.length) {
-      const { error } = await supabase.from('discussion_messages').upsert(rows)
+      const { error } = await getSupabase().from('discussion_messages').upsert(rows)
       if (error) {
         logSyncError('saveDiscussion', error)
         return { ok: false, error }
