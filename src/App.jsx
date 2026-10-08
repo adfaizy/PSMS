@@ -698,7 +698,11 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
       if (!init?.ok || !init?.client) {
         setCloudOk(false);
         if (showSyncUi) {
-          setCloudMsg("Cloud config missing. On this PC run: npm run psms-config && npm run dev — then hard-refresh (Ctrl+F5). Other devices must open this PC's Network URL.");
+          setCloudMsg(
+            typeof location !== "undefined" && /vercel\.app$/i.test(location.hostname)
+              ? "Cloud config missing on this deploy. Redeploy after committing public/psms-config.js (or set VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY in Vercel → Environment Variables)."
+              : "Cloud config missing. On the main PC run: npm run psms-config then restart npm run dev — hard-refresh (Ctrl+F5). Other devices must open that Network URL (or the Vercel site)."
+          );
         }
         setUsersList(loadAuthUsers());
         return loadAuthUsers();

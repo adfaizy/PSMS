@@ -6,9 +6,8 @@ dist
 .env.local
 .env.*.local
 *.bak
-# Generated from .env.local for all browsers/devices (contains anon key — ok for browser)
-public/psms-config.js
-public/psms-config.json
+# public/psms-config.js|.json ARE committed on purpose (Supabase anon key is browser-public).
+# That keeps Cloud ON on Vercel even when dashboard env vars are missing.
 .vscode/*.log
 # Windows reserved-name junk from accidental esbuild --outfile=nul
 nul
