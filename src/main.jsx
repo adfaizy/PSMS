@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import "./responsive.css";
 import Root from "./Root.jsx";
+import { initSupabaseCloud } from "./lib/supabase.js";
 
 /** Keys left by the removed Finance module (see git: FinanceContext + docs). */
 function removeLegacyFinanceStorageKeys() {
@@ -48,8 +49,19 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-createRoot(document.getElementById("root")).render(
-  <StrictMode>
-    <Root />
-  </StrictMode>,
-);
+async function boot() {
+  // Ensure public/psms-config.js (or JSON) is applied before React mounts
+  // so Admin shows Cloud ON on every browser/device using this app URL.
+  try {
+    await initSupabaseCloud();
+  } catch (err) {
+    console.warn("Cloud init failed", err);
+  }
+  createRoot(document.getElementById("root")).render(
+    <StrictMode>
+      <Root />
+    </StrictMode>,
+  );
+}
+
+boot();

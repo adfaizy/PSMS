@@ -6,6 +6,9 @@ dist
 .env.local
 .env.*.local
 *.bak
+# Generated from .env.local for all browsers/devices (contains anon key — ok for browser)
+public/psms-config.js
+public/psms-config.json
 .vscode/*.log
 # Windows reserved-name junk from accidental esbuild --outfile=nul
 nul

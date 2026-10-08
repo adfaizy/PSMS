@@ -18,7 +18,7 @@ import {
   saveLibraryToCloud,
   saveDiscussionToCloud,
 } from "./supabaseSync.js";
-import { supabase } from "./lib/supabase.js";
+import { supabase, initSupabaseCloud, pingSupabaseCloud } from "./lib/supabase.js";
 import { mergeAuthUserLists } from "./modules/auth/authCore.js";
 import { loadLibraryFromLocal } from "./modules/library/libraryCore.js";
 import { loadDiscussionMessages } from "./modules/aboutSupport/aboutSupportCore.js";
@@ -652,15 +652,33 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
   const [adminTab, setAdminTab] = useState("users"); // "users" | "schools" | "danger"
   const [usersList, setUsersList] = useState(() => loadAuthUsers());
   const [usersSyncing, setUsersSyncing] = useState(false);
-  const [cloudOk, setCloudOk] = useState(isSupabaseConfigured);
+  const [cloudOk, setCloudOk] = useState(() => isSupabaseConfigured);
+  const [cloudMsg, setCloudMsg] = useState("");
+  const cloudPullInFlight = useRef(false);
   const refreshUsers = () => setUsersList(loadAuthUsers());
   /** Pull schools + logins from cloud so other devices see admin-created accounts. */
   const pullUsersFromCloud = useCallback(async () => {
+    if (cloudPullInFlight.current) return loadAuthUsers();
+    cloudPullInFlight.current = true;
     setUsersSyncing(true);
+    setCloudMsg("");
+    const safety = setTimeout(() => {
+      // Never leave the Refresh button stuck on "Syncing…"
+      cloudPullInFlight.current = false;
+      setUsersSyncing(false);
+    }, 12000);
     try {
-      if (!isSupabaseConfigured) {
+      await initSupabaseCloud();
+      if (!isSupabaseConfigured || !supabase) {
         setCloudOk(false);
+        setCloudMsg("Cloud config missing. On the main PC run: npm run psms-config  then restart npm run dev.");
         setUsersList(loadAuthUsers());
+        return loadAuthUsers();
+      }
+      const ping = await pingSupabaseCloud(8000);
+      setCloudOk(ping.ok);
+      if (!ping.ok) {
+        setCloudMsg(`Cloud unreachable (${ping.reason || "network"}). Check internet.`);
         return loadAuthUsers();
       }
       const [cloudUsers, cloudSchools] = await Promise.all([
@@ -676,13 +694,17 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
       if (cloudSchools?.schools?.length) {
         setSchools(cloudSchools.schools);
       }
-      setCloudOk(cloudUsers !== null);
+      setCloudOk(true);
+      setCloudMsg(cloudList.length ? `${cloudList.length} login(s) from cloud` : "Cloud connected");
       return merged;
     } catch (err) {
       console.warn("Admin cloud pull failed", err);
       setCloudOk(false);
+      setCloudMsg("Cloud sync failed — try Refresh again.");
       return loadAuthUsers();
     } finally {
+      clearTimeout(safety);
+      cloudPullInFlight.current = false;
       setUsersSyncing(false);
     }
   }, [setSchools]);
@@ -696,7 +718,7 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
     const onVisible = () => { if (document.visibilityState === "visible") pullUsersFromCloud(); };
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisible);
-    const poll = setInterval(() => { pullUsersFromCloud(); }, 8000);
+    const poll = setInterval(() => { pullUsersFromCloud(); }, 10000);
     let channel = null;
     if (isSupabaseConfigured && supabase) {
       channel = supabase
@@ -711,7 +733,7 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisible);
       clearInterval(poll);
-      if (channel) supabase.removeChannel(channel);
+      if (channel && supabase) supabase.removeChannel(channel);
     };
   }, [pullUsersFromCloud]);
   // User management
@@ -913,7 +935,7 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
           <div style={{ fontSize: 12, opacity: 0.65, marginTop: 1 }}>PSMS — Full Control</div>
         </div>
         <div
-          title={cloudOk ? "Cloud connected — school logins sync to every device" : "Cloud not connected — logins stay on this device only"}
+          title={cloudMsg || (cloudOk ? "Cloud connected — school logins sync to every device" : "Cloud not connected — logins stay on this device only")}
           style={{
             fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 999,
             background: cloudOk ? "rgba(34,197,94,0.2)" : "rgba(248,113,113,0.2)",
@@ -927,10 +949,10 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
         <button
           type="button"
           onClick={() => pullUsersFromCloud()}
-          disabled={usersSyncing || !isSupabaseConfigured}
-          style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.25)", background: "rgba(59,130,246,0.25)", color: "#fff", fontWeight: 600, fontSize: 12, cursor: usersSyncing ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}
+          disabled={usersSyncing}
+          style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.25)", background: "rgba(59,130,246,0.35)", color: "#fff", fontWeight: 600, fontSize: 12, cursor: usersSyncing ? "not-allowed" : "pointer", whiteSpace: "nowrap", opacity: usersSyncing ? 0.7 : 1 }}
         >
-          Refresh from cloud
+          {usersSyncing ? "Syncing…" : "Refresh from cloud"}
         </button>
         <div style={{ fontSize: 12, opacity: 0.7, textAlign: "right", lineHeight: 1.5, marginRight: 8 }}>
           <div>{headerNow.toLocaleDateString("en-PK", { weekday: "short", day: "numeric", month: "short" })}</div>
@@ -938,6 +960,11 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
         </div>
         <button type="button" onClick={onSignOut} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}>Sign Out</button>
       </header>
+      {cloudMsg && (
+        <div style={{ background: cloudOk ? "#ecfdf5" : "#fff7ed", color: cloudOk ? "#166534" : "#9a3412", padding: "8px 20px", fontSize: 12, fontWeight: 600, borderBottom: `1px solid ${cloudOk ? "#bbf7d0" : "#fed7aa"}` }}>
+          {cloudMsg}
+        </div>
+      )}
       {/* Tab bar */}
       <div style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", display: "flex", padding: "0 20px" }}>
         {[["users","👥 User Management"],["schools","🏫 School Accounts"],["danger","⚠️ Danger Zone"]].map(([t,label]) => (
