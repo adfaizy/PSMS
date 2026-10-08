@@ -275,6 +275,7 @@ export async function saveSchoolsToCloud(schools, activeSchoolId) {
       const { error: schoolErr } = await supabase.from('schools').upsert(schoolRow)
       if (schoolErr) {
         logSyncError('upsertSchool', schoolErr)
+        migratedSchools.push(school)
         continue
       }
 

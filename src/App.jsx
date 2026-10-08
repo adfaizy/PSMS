@@ -1060,9 +1060,43 @@ function App(){
   useEffect(()=>{if(!showProfileMenu)return;const h=(e)=>{if(!e.target.closest("[data-profile-menu]"))setShowProfileMenu(false);};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[showProfileMenu]);
 
   const saveStatusTimeoutRef=useRef(null);
-  const [saveStatus,setSaveStatus]=useState("idle"); // idle | saving | saved
+  const cloudSaveTimerRef=useRef(null);
+  const [saveStatus,setSaveStatus]=useState("idle"); // idle | saving | saved | error
   const [cloudReady,setCloudReady]=useState(false);
-  const _dbStatus=isSupabaseConfigured?(cloudReady?"cloud":"syncing"):"local";
+  const [cloudSyncing,setCloudSyncing]=useState(false);
+  const _dbStatus=isSupabaseConfigured?(cloudSyncing?"syncing":cloudReady?"cloud":"syncing"):"local";
+
+  const pushToCloud=useCallback(async(nextSchools, nextActiveId)=>{
+    if(!isSupabaseConfigured) return;
+    setCloudSyncing(true);
+    setSaveStatus("saving");
+    try{
+      const result=await saveSchoolsToCloud(nextSchools, nextActiveId);
+      if(result?.schools&&Array.isArray(result.schools)){
+        const changed=result.schools.some((sc,i)=>{
+          const prev=nextSchools[i];
+          if(!prev) return true;
+          return JSON.stringify(prev.students)!==JSON.stringify(sc.students)
+            || JSON.stringify(prev.staffProfiles)!==JSON.stringify(sc.staffProfiles);
+        });
+        if(changed) setSchools(result.schools);
+      }
+      if(result?.ok===false){
+        setSaveStatus("error");
+        setCloudReady(false);
+      }else{
+        setSaveStatus("saved");
+        setCloudReady(true);
+      }
+    }catch{
+      setSaveStatus("error");
+      setCloudReady(false);
+    }finally{
+      setCloudSyncing(false);
+      if(saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
+      saveStatusTimeoutRef.current=setTimeout(()=>setSaveStatus("idle"),1600);
+    }
+  },[]);
 
   const visibleSchools=schools.filter(s=>s.status!=="deleted");
   const foundSchool=schools.find(s=>s.id===activeSchoolId);
@@ -1231,34 +1265,21 @@ function App(){
   useEffect(()=>{
     if(!loadedFromDb) return;
     queueMicrotask(()=>setSaveStatus("saving"));
-    const persistNow=()=>{
-      saveToLocal(schools,activeSchoolId);
-      if(isSupabaseConfigured){
-        saveSchoolsToCloud(schools,activeSchoolId)
-          .then(()=>{
-            setSaveStatus("saved");
-            setCloudReady(true);
-            if(saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
-            saveStatusTimeoutRef.current=setTimeout(()=>setSaveStatus("idle"),1200);
-          })
-          .catch(()=>{
-            setSaveStatus("saved");
-            if(saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
-            saveStatusTimeoutRef.current=setTimeout(()=>setSaveStatus("idle"),1200);
-          });
-        return;
-      }
+    saveToLocal(schools,activeSchoolId);
+    if(!isSupabaseConfigured){
       setSaveStatus("saved");
       if(saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
       saveStatusTimeoutRef.current=setTimeout(()=>setSaveStatus("idle"),1200);
-    };
-    if(typeof window!=="undefined" && typeof window.requestIdleCallback==="function"){
-      const idleId=window.requestIdleCallback(persistNow,{timeout:800});
-      return ()=>window.cancelIdleCallback(idleId);
+      return;
     }
-    const t=setTimeout(persistNow,280);
-    return ()=>clearTimeout(t);
-  },[loadedFromDb,schools,activeSchoolId]);
+    if(cloudSaveTimerRef.current) clearTimeout(cloudSaveTimerRef.current);
+    cloudSaveTimerRef.current=setTimeout(()=>{
+      pushToCloud(schools,activeSchoolId);
+    },1800);
+    return ()=>{
+      if(cloudSaveTimerRef.current) clearTimeout(cloudSaveTimerRef.current);
+    };
+  },[loadedFromDb,schools,activeSchoolId,pushToCloud]);
 
 
   const setSettingsForActive=(updater)=>{
@@ -1367,14 +1388,25 @@ function App(){
             </div>
           </div>
           <div className="app-topbar-right" style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:10,flexWrap:"wrap",minWidth:0}}>
-            {saveStatus!=="idle"&&<span style={{fontSize:11,fontWeight:600,color:saveStatus==="saved"?C.green:C.gray,whiteSpace:"nowrap"}}>{saveStatus==="saved"?"✓ Saved":saveStatus==="saving"?"Saving…":""}</span>}
-            {isSupabaseConfigured&&(
-              <span
-                style={{fontSize:10,fontWeight:600,color:_dbStatus==="cloud"?C.green:C.gray,whiteSpace:"nowrap",opacity:0.9}}
-                title="Supabase cloud sync"
-              >
-                {_dbStatus==="cloud"?"☁ Cloud":"☁ Syncing…"}
+            {saveStatus!=="idle"&&(
+              <span style={{fontSize:11,fontWeight:600,color:saveStatus==="saved"?C.green:saveStatus==="error"?"#dc2626":C.gray,whiteSpace:"nowrap"}}>
+                {saveStatus==="saved"?"✓ Saved":saveStatus==="saving"?"Saving…":saveStatus==="error"?"☁ Sync failed":""}
               </span>
+            )}
+            {isSupabaseConfigured&&(
+              <button
+                type="button"
+                onClick={()=>pushToCloud(schools,activeSchoolId)}
+                disabled={cloudSyncing}
+                title="Push data to Supabase now"
+                style={{
+                  fontSize:10,fontWeight:700,padding:"4px 8px",borderRadius:6,cursor:cloudSyncing?"wait":"pointer",
+                  border:"1px solid #cbd5e1",background:_dbStatus==="cloud"?"#ecfdf5":"#f8fafc",
+                  color:_dbStatus==="cloud"?C.green:C.gray,whiteSpace:"nowrap",
+                }}
+              >
+                {_dbStatus==="cloud"?"☁ Cloud":"☁ Syncing…"} · Sync now
+              </button>
             )}
             <AppZoomControls
               percent={appZoom.percent}
