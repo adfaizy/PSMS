@@ -37,6 +37,30 @@ export function saveFeeToLocal(schoolId, feeRecords, storageOverride) {
   } catch {
     // silent fail to keep app resilient in restricted storage contexts
   }
+  if (!storageOverride && schoolId) {
+    import('../../supabaseSync.js')
+      .then((m) => m.isSupabaseConfigured && m.saveFeesToCloud(schoolId, feeRecords))
+      .catch(() => {})
+  }
+}
+
+export async function hydrateFeesFromCloud(schoolId, storageOverride) {
+  try {
+    const m = await import('../../supabaseSync.js')
+    if (!m.isSupabaseConfigured || !schoolId) return loadFeeFromLocal(schoolId, storageOverride)
+    const cloud = await m.loadFeesFromCloud(schoolId)
+    if (!cloud || !cloud.length) return loadFeeFromLocal(schoolId, storageOverride)
+    const storage = getStorage(storageOverride)
+    if (storage) {
+      const raw = storage.getItem(FEE_DATA_KEY)
+      const allSchools = raw ? JSON.parse(raw) : {}
+      allSchools[schoolId] = cloud
+      storage.setItem(FEE_DATA_KEY, JSON.stringify(allSchools))
+    }
+    return cloud
+  } catch {
+    return loadFeeFromLocal(schoolId, storageOverride)
+  }
 }
 
 export function getFeeKey(classId, studentId, month, year) {

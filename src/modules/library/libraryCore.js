@@ -25,6 +25,27 @@ export function saveLibraryToLocal(schoolId, libraryData) {
   } catch {
     // ignore localStorage failures
   }
+  if (schoolId) {
+    import("../../supabaseSync.js")
+      .then((m) => m.isSupabaseConfigured && m.saveLibraryToCloud(schoolId, libraryData))
+      .catch(() => {});
+  }
+}
+
+export async function hydrateLibraryFromCloud(schoolId) {
+  try {
+    const m = await import("../../supabaseSync.js");
+    if (!m.isSupabaseConfigured || !schoolId) return loadLibraryFromLocal(schoolId);
+    const cloud = await m.loadLibraryFromCloud(schoolId);
+    if (!cloud) return loadLibraryFromLocal(schoolId);
+    if (!(cloud.books?.length || cloud.borrowings?.length)) return loadLibraryFromLocal(schoolId);
+    try {
+      window.localStorage.setItem(buildLibraryStorageKey(schoolId), JSON.stringify(cloud));
+    } catch {}
+    return cloud;
+  } catch {
+    return loadLibraryFromLocal(schoolId);
+  }
 }
 
 export function getAvailableCopies(book, borrowings) {

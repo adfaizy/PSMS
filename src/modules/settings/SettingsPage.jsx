@@ -202,6 +202,18 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
   const [opEditPw,setOpEditPw]=useState("");
   const [opEditPwErr,setOpEditPwErr]=useState("");
 
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      try{
+        const { hydrateAuthUsersFromCloud } = await import("@/modules/auth/authCore");
+        await hydrateAuthUsersFromCloud();
+        if(!cancelled){ refreshTc(); refreshOp(); }
+      }catch{ /* keep local lists */ }
+    })();
+    return ()=>{ cancelled=true; };
+  },[activeSchoolId]);
+
   // Sheet header definitions for the master workbook
   const STAFF_PROFILE_SHEET_HEADERS = [
     { id: "photo", label: "Photo" },

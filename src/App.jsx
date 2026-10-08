@@ -3,6 +3,14 @@ import {
   verifyPassword,
   hashPassword,
 } from "./cloudSync.js";
+import {
+  isSupabaseConfigured,
+  loadSchoolsFromCloud,
+  saveSchoolsToCloud,
+  loadAuthUsersFromCloud,
+  saveAuthUsersToCloud,
+  clearAllCloudData,
+} from "./supabaseSync.js";
 import { createPortal } from "react-dom";
 import * as XLSX from "./xlsxClient.js";
 import { X, Plus, Edit2, Trash2, Upload, Download, Menu, Settings, AlertTriangle, Eye, EyeOff } from "lucide-react";
@@ -405,6 +413,9 @@ function saveAuthUsers(users) {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(Array.isArray(users) ? users : []));
   } catch {}
+  if (isSupabaseConfigured) {
+    saveAuthUsersToCloud(users).catch(() => {});
+  }
 }
 function loadAuthSession() {
   try {
@@ -423,6 +434,22 @@ function saveAuthSession(session) {
   } catch {}
 }
 
+async function hydrateAuthUsersMirror() {
+  if (!isSupabaseConfigured) return loadAuthUsers();
+  try {
+    const cloudUsers = await loadAuthUsersFromCloud();
+    if (cloudUsers && cloudUsers.length) {
+      try { window.localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(cloudUsers)); } catch {}
+      return cloudUsers;
+    }
+    const localUsers = loadAuthUsers();
+    if (localUsers.length) await saveAuthUsersToCloud(localUsers);
+    return localUsers;
+  } catch {
+    return loadAuthUsers();
+  }
+}
+
 function AuthScreen({ onSignIn, setActiveSchoolId }) {
   const [panel, setPanel] = useState("user"); // "user" | "admin"
   const [email, setEmail] = useState("");
@@ -431,13 +458,23 @@ function AuthScreen({ onSignIn, setActiveSchoolId }) {
   const [adminPassword, setAdminPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [accountsReady, setAccountsReady] = useState(!isSupabaseConfigured);
   const inp = { width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, boxSizing: "border-box", fontFamily: "inherit", outline: "none" };
   const lbl = { display: "block", marginBottom: 4, fontSize: 13, fontWeight: 600, color: "#374151" };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      await hydrateAuthUsersMirror();
+      if (!cancelled) setAccountsReady(true);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSignIn = async (e) => {
     e.preventDefault(); setError(""); setLoading(true);
     const emailNorm = String(email).trim().toLowerCase();
-    let users = loadAuthUsers();
+    let users = await hydrateAuthUsersMirror();
     let user = users.find(u => String(u.email || "").toLowerCase() === emailNorm);
     if (!user) { setError("No account found with this email."); setLoading(false); return; }
     if (user.blocked) { setError("This account has been blocked by the administrator."); setLoading(false); return; }
@@ -475,15 +512,20 @@ function AuthScreen({ onSignIn, setActiveSchoolId }) {
           <div style={{ padding: 24 }}>
             {error && <div style={{ padding: "10px 12px", marginBottom: 16, background: "#fef2f2", color: "#b91c1c", borderRadius: 8, fontSize: 13, border: "1px solid #fecaca" }}>{error}</div>}
             <form onSubmit={handleSignIn}>
+              {!accountsReady && (
+                <div style={{ padding: "8px 12px", marginBottom: 12, background: "#eff6ff", color: "#1d4ed8", borderRadius: 8, fontSize: 12, border: "1px solid #bfdbfe" }}>
+                  Syncing accounts from cloud…
+                </div>
+              )}
               <div style={{ marginBottom: 14 }}>
                 <label style={lbl}>Email</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required style={inp} />
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required style={inp} disabled={!accountsReady} />
               </div>
               <div style={{ marginBottom: 20 }}>
                 <label style={lbl}>Password</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required style={inp} />
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required style={inp} disabled={!accountsReady} />
               </div>
-              <button type="submit" disabled={loading} style={{ width: "100%", padding: "12px 16px", border: "none", borderRadius: 8, background: "var(--color-navy,#1a3a6b)", color: "#fff", fontWeight: 700, fontSize: 15, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}>
+              <button type="submit" disabled={loading || !accountsReady} style={{ width: "100%", padding: "12px 16px", border: "none", borderRadius: 8, background: "var(--color-navy,#1a3a6b)", color: "#fff", fontWeight: 700, fontSize: 15, cursor: (loading || !accountsReady) ? "not-allowed" : "pointer", opacity: (loading || !accountsReady) ? 0.7 : 1 }}>
                 {loading ? "Signing in…" : "Sign In"}
               </button>
             </form>
@@ -536,6 +578,14 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
   const [adminTab, setAdminTab] = useState("users"); // "users" | "schools" | "danger"
   const [usersList, setUsersList] = useState(() => loadAuthUsers());
   const refreshUsers = () => setUsersList(loadAuthUsers());
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const users = await hydrateAuthUsersMirror();
+      if (!cancelled) setUsersList(users);
+    })();
+    return () => { cancelled = true; };
+  }, []);
   // User management
   const [editUserId, setEditUserId] = useState(null);
   const [editNewPw, setEditNewPw] = useState("");
@@ -1011,7 +1061,8 @@ function App(){
 
   const saveStatusTimeoutRef=useRef(null);
   const [saveStatus,setSaveStatus]=useState("idle"); // idle | saving | saved
-  const _dbStatus="local";
+  const [cloudReady,setCloudReady]=useState(false);
+  const _dbStatus=isSupabaseConfigured?(cloudReady?"cloud":"syncing"):"local";
 
   const visibleSchools=schools.filter(s=>s.status!=="deleted");
   const foundSchool=schools.find(s=>s.id===activeSchoolId);
@@ -1084,7 +1135,43 @@ function App(){
     }));
   },[activeSchoolId]);
 
-  useEffect(()=>{ queueMicrotask(()=>setLoadedFromDb(true)); },[]);
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      try{
+        if(isSupabaseConfigured){
+          const [cloudSchools, cloudUsers]=await Promise.all([
+            loadSchoolsFromCloud(),
+            loadAuthUsersFromCloud(),
+          ]);
+          if(cancelled) return;
+          if(cloudUsers&&cloudUsers.length){
+            // Prefer cloud accounts; keep local mirror
+            try{ window.localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(cloudUsers)); }catch{}
+          }else{
+            // Push local accounts up on first connect
+            const localUsers=loadAuthUsers();
+            if(localUsers.length) await saveAuthUsersToCloud(localUsers);
+          }
+          if(cloudSchools&&Array.isArray(cloudSchools.schools)&&cloudSchools.schools.length){
+            setSchools(cloudSchools.schools);
+            if(cloudSchools.activeSchoolId) setActiveSchoolId(cloudSchools.activeSchoolId);
+            saveToLocal(cloudSchools.schools, cloudSchools.activeSchoolId);
+          }else{
+            // Seed cloud from whatever is already on this device
+            const local=loadFromLocal();
+            if(local?.schools?.length) await saveSchoolsToCloud(local.schools, local.activeSchoolId);
+          }
+          if(!cancelled) setCloudReady(true);
+        }
+      }catch(err){
+        console.warn("Supabase hydrate failed; using local data.", err);
+      }finally{
+        if(!cancelled) setLoadedFromDb(true);
+      }
+    })();
+    return ()=>{ cancelled=true; };
+  },[]);
 
   useEffect(()=>{
     if(!loadedFromDb) return;
@@ -1146,15 +1233,30 @@ function App(){
     queueMicrotask(()=>setSaveStatus("saving"));
     const persistNow=()=>{
       saveToLocal(schools,activeSchoolId);
+      if(isSupabaseConfigured){
+        saveSchoolsToCloud(schools,activeSchoolId)
+          .then(()=>{
+            setSaveStatus("saved");
+            setCloudReady(true);
+            if(saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
+            saveStatusTimeoutRef.current=setTimeout(()=>setSaveStatus("idle"),1200);
+          })
+          .catch(()=>{
+            setSaveStatus("saved");
+            if(saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
+            saveStatusTimeoutRef.current=setTimeout(()=>setSaveStatus("idle"),1200);
+          });
+        return;
+      }
       setSaveStatus("saved");
       if(saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
       saveStatusTimeoutRef.current=setTimeout(()=>setSaveStatus("idle"),1200);
     };
     if(typeof window!=="undefined" && typeof window.requestIdleCallback==="function"){
-      const idleId=window.requestIdleCallback(persistNow,{timeout:500});
+      const idleId=window.requestIdleCallback(persistNow,{timeout:800});
       return ()=>window.cancelIdleCallback(idleId);
     }
-    const t=setTimeout(persistNow,180);
+    const t=setTimeout(persistNow,280);
     return ()=>clearTimeout(t);
   },[loadedFromDb,schools,activeSchoolId]);
 
@@ -1179,13 +1281,23 @@ function App(){
   };
 
   const resetAllData=async()=>{
-    if(!confirm("Reset ALL data? This will delete all schools, accounts, and data from this device. The app will restart fresh with School 1. This cannot be undone.")) return;
-    // Clear localStorage
+    if(!confirm("Reset ALL data on this device? Schools, accounts, and local data will be cleared. This cannot be undone.")) return;
+    const wipeCloud = isSupabaseConfigured && confirm("Also wipe ALL cloud data on Supabase? Choose Cancel to keep cloud data (other devices stay intact).");
     saveAuthSession(null);
     window.localStorage.removeItem(LOCAL_DATA_KEY);
     window.localStorage.removeItem(ATTENDANCE_DATA_KEY);
     try{ window.localStorage.removeItem("activeSchoolId"); }catch{}
+    try{
+      for (const k of Object.keys(localStorage)) {
+        if (k.startsWith("psms_library_") || k.startsWith("exam_TM_") || k.startsWith("exam_OM_") || k === "system_management_fee" || k === "sms_about_discussion_messages_v1") {
+          localStorage.removeItem(k);
+        }
+      }
+    }catch{}
     saveAuthUsers([]);
+    if (wipeCloud) {
+      try { await clearAllCloudData(); } catch (err) { console.warn("Cloud wipe failed", err); }
+    }
     window.location.reload();
   };
   if(session&&session.admin){
@@ -1256,6 +1368,14 @@ function App(){
           </div>
           <div className="app-topbar-right" style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:10,flexWrap:"wrap",minWidth:0}}>
             {saveStatus!=="idle"&&<span style={{fontSize:11,fontWeight:600,color:saveStatus==="saved"?C.green:C.gray,whiteSpace:"nowrap"}}>{saveStatus==="saved"?"✓ Saved":saveStatus==="saving"?"Saving…":""}</span>}
+            {isSupabaseConfigured&&(
+              <span
+                style={{fontSize:10,fontWeight:600,color:_dbStatus==="cloud"?C.green:C.gray,whiteSpace:"nowrap",opacity:0.9}}
+                title="Supabase cloud sync"
+              >
+                {_dbStatus==="cloud"?"☁ Cloud":"☁ Syncing…"}
+              </span>
+            )}
             <AppZoomControls
               percent={appZoom.percent}
               zoomIn={appZoom.zoomIn}

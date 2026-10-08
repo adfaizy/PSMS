@@ -51,6 +51,25 @@ export function saveDiscussionMessages(messages, storageOverride) {
   } catch {
     // ignore quota errors
   }
+  if (!storageOverride) {
+    import('../../supabaseSync.js')
+      .then((m) => m.isSupabaseConfigured && m.saveDiscussionToCloud(messages))
+      .catch(() => {})
+  }
+}
+
+export async function hydrateDiscussionFromCloud(storageOverride) {
+  try {
+    const m = await import('../../supabaseSync.js')
+    if (!m.isSupabaseConfigured) return loadDiscussionMessages(storageOverride)
+    const cloud = await m.loadDiscussionFromCloud()
+    if (!cloud || !cloud.length) return loadDiscussionMessages(storageOverride)
+    const storage = getStorage(storageOverride)
+    if (storage) storage.setItem(DISCUSSION_STORAGE_KEY, JSON.stringify(cloud))
+    return cloud
+  } catch {
+    return loadDiscussionMessages(storageOverride)
+  }
 }
 
 export function createDiscussionMessage({ role = 'client', authorName = 'Guest', body, parentId = null }) {

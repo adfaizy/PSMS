@@ -108,15 +108,27 @@ function DiscussionPanel() {
   const endRef = useRef(null);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      setMessages(loadMessages());
-      setHydrated(true);
-    });
+    let cancelled = false;
+    (async () => {
+      try {
+        const { hydrateDiscussionFromCloud } = await import("./modules/aboutSupport/aboutSupportCore.js");
+        const cloud = await hydrateDiscussionFromCloud();
+        if (!cancelled) setMessages(Array.isArray(cloud) && cloud.length ? cloud : loadMessages());
+      } catch {
+        if (!cancelled) setMessages(loadMessages());
+      } finally {
+        if (!cancelled) setHydrated(true);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const persist = useCallback((next) => {
     setMessages(next);
     saveMessages(next);
+    import("./modules/aboutSupport/aboutSupportCore.js")
+      .then((m) => m.saveDiscussionMessages(next))
+      .catch(() => {});
   }, []);
 
   const byId = useMemo(() => {

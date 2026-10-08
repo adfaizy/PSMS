@@ -1,3 +1,4 @@
+import { createElement, Fragment } from "react";
 import { systemSettingsService } from "@/services";
 import * as XLSX from "@/xlsxClient.js";
 import jsPDFModule from "jspdf";
@@ -23,12 +24,12 @@ export function getPeriodLabel(idx,settings){
  * jspdf-autotable `parseCellContent` strips literal `\n` from innerHTML; only `<br>` survives as a PDF line break.
  */
 export function timetablePdfPeriodCell(label, timeRange) {
-  return (
-    <>
-      {String(label)}
-      <br />
-      {String(timeRange)}
-    </>
+  return createElement(
+    Fragment,
+    null,
+    String(label),
+    createElement("br"),
+    String(timeRange)
   );
 }
 

@@ -2,6 +2,7 @@ import * as modules from '../modules'
 
 export const attendanceService = {
   load: modules.loadAttendanceFromLocal,
+  hydrate: modules.hydrateAttendanceFromCloud,
   save: modules.saveAttendanceToLocal,
   markOne: modules.markStudentAttendance,
   markAll: modules.markAllAttendance,
@@ -61,6 +62,7 @@ export const bookBankService = {
 
 export const libraryService = {
   load: modules.loadLibraryFromLocal,
+  hydrate: modules.hydrateLibraryFromCloud,
   save: modules.saveLibraryToLocal,
   booksForClass: modules.getLibraryBooksForClass,
   addBookToClass: modules.addBookToClass,
@@ -102,12 +104,14 @@ export const systemSettingsService = {
 export const aboutSupportService = {
   formatChatTime: modules.formatChatTime,
   loadMessages: modules.loadDiscussionMessages,
+  hydrateMessages: modules.hydrateDiscussionFromCloud,
   saveMessages: modules.saveDiscussionMessages,
   createMessage: modules.createDiscussionMessage,
 }
 
 export const feeService = {
   load: modules.loadFeeFromLocal,
+  hydrate: modules.hydrateFeesFromCloud,
   save: modules.saveFeeToLocal,
   classStatus: modules.getClassFeeStatus,
   studentStatus: modules.getStudentFeeStatusForClass,

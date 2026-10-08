@@ -47,6 +47,30 @@ export function saveAttendanceToLocal(schoolId, attendance, storageOverride) {
   } catch {
     // silent fail to keep app resilient in restricted storage contexts
   }
+  if (!storageOverride && schoolId) {
+    import('../../supabaseSync.js')
+      .then((m) => m.isSupabaseConfigured && m.saveAttendanceToCloud(schoolId, attendance))
+      .catch(() => {})
+  }
+}
+
+export async function hydrateAttendanceFromCloud(schoolId, storageOverride) {
+  try {
+    const m = await import('../../supabaseSync.js')
+    if (!m.isSupabaseConfigured || !schoolId) return loadAttendanceFromLocal(schoolId, storageOverride)
+    const cloud = await m.loadAttendanceFromCloud(schoolId)
+    if (!cloud || !Object.keys(cloud).length) return loadAttendanceFromLocal(schoolId, storageOverride)
+    const storage = getStorage(storageOverride)
+    if (storage) {
+      const raw = storage.getItem(ATTENDANCE_DATA_KEY)
+      const allSchools = raw ? JSON.parse(raw) : {}
+      allSchools[schoolId] = cloud
+      storage.setItem(ATTENDANCE_DATA_KEY, JSON.stringify(allSchools))
+    }
+    return cloud
+  } catch {
+    return loadAttendanceFromLocal(schoolId, storageOverride)
+  }
 }
 
 export function getAttendanceKey(classId, dateStr) {

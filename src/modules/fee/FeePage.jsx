@@ -60,9 +60,15 @@ export function FeePage({ settings, students, activeSchoolId, setBarSubtitle }) 
   });
 
   useEffect(() => {
-    if (activeSchoolId) {
-      setFeeRecords(feeService.load(activeSchoolId));
-    }
+    if (!activeSchoolId) return;
+    let cancelled = false;
+    (async () => {
+      const records = feeService.hydrate
+        ? await feeService.hydrate(activeSchoolId)
+        : feeService.load(activeSchoolId);
+      if (!cancelled) setFeeRecords(Array.isArray(records) ? records : []);
+    })();
+    return () => { cancelled = true; };
   }, [activeSchoolId]);
 
   useEffect(() => {

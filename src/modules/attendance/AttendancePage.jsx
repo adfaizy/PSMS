@@ -59,6 +59,29 @@ export function saveAttendanceToLocal(schoolId, att) {
     data[schoolId] = att && typeof att === "object" ? att : {};
     window.localStorage.setItem(ATTENDANCE_DATA_KEY, JSON.stringify(data));
   } catch {}
+  if (schoolId) {
+    import("../../supabaseSync.js")
+      .then((m) => m.isSupabaseConfigured && m.saveAttendanceToCloud(schoolId, att))
+      .catch(() => {});
+  }
+}
+export async function hydrateAttendanceFromCloud(schoolId) {
+  try {
+    const m = await import("../../supabaseSync.js");
+    if (!m.isSupabaseConfigured || !schoolId) return loadAttendanceFromLocal(schoolId);
+    const cloud = await m.loadAttendanceFromCloud(schoolId);
+    if (!cloud || !Object.keys(cloud).length) return loadAttendanceFromLocal(schoolId);
+    // Mirror to local without re-pushing
+    try {
+      const raw = window.localStorage.getItem(ATTENDANCE_DATA_KEY);
+      const data = raw ? JSON.parse(raw) : {};
+      data[schoolId] = cloud;
+      window.localStorage.setItem(ATTENDANCE_DATA_KEY, JSON.stringify(data));
+    } catch {}
+    return cloud;
+  } catch {
+    return loadAttendanceFromLocal(schoolId);
+  }
 }
 
 export function AttendancePage({settings,students,currentSession,activeSchoolId,setBarSubtitle}){
@@ -73,7 +96,12 @@ export function AttendancePage({settings,students,currentSession,activeSchoolId,
   const registerTableRef=useRef(null);
 
   useEffect(()=>{
-    queueMicrotask(()=>setAtt(loadAttendanceFromLocal(activeSchoolId||"")));
+    let cancelled=false;
+    (async()=>{
+      const data=await hydrateAttendanceFromCloud(activeSchoolId||"");
+      if(!cancelled) setAtt(data||{});
+    })();
+    return ()=>{ cancelled=true; };
   },[activeSchoolId]);
 
   useEffect(()=>{

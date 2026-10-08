@@ -28,6 +28,26 @@ export function saveAuthUsers(users, storageOverride) {
   } catch {
     // ignore storage errors for non-blocking auth persistence
   }
+  // Fire-and-forget cloud sync (dynamic import avoids circular deps)
+  if (!storageOverride) {
+    import('../../supabaseSync.js')
+      .then((m) => m.saveAuthUsersToCloud(users))
+      .catch(() => {})
+  }
+}
+
+/** Hydrate local auth users from Supabase when cloud has accounts. */
+export async function hydrateAuthUsersFromCloud(storageOverride) {
+  try {
+    const { loadAuthUsersFromCloud, isSupabaseConfigured } = await import('../../supabaseSync.js')
+    if (!isSupabaseConfigured) return loadAuthUsers(storageOverride)
+    const cloud = await loadAuthUsersFromCloud()
+    if (!cloud || !cloud.length) return loadAuthUsers(storageOverride)
+    saveAuthUsers(cloud, storageOverride)
+    return cloud
+  } catch {
+    return loadAuthUsers(storageOverride)
+  }
 }
 
 export function loadAuthSession(storageOverride) {

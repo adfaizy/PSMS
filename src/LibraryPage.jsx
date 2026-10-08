@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "./xlsxClient.js";
 import "./LibraryPage.css";
-import { findStudentByRollInClass, resolveClass, formatClassDisplay, loadLibraryFromLocal, saveLibraryToLocal } from "./modules";
+import { findStudentByRollInClass, resolveClass, formatClassDisplay, loadLibraryFromLocal, saveLibraryToLocal, hydrateLibraryFromCloud } from "./modules";
 import { yieldToMain } from "./yieldToMain.js";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -149,8 +149,12 @@ export function LibraryPage({ setBarSubtitle, activeSchoolId, classes: classesPr
   }, [setBarSubtitle]);
 
   useEffect(() => {
-    const loaded = loadLibraryFromLocal(activeSchoolId);
-    queueMicrotask(() => setLibrary(loaded));
+    let cancelled = false;
+    (async () => {
+      const loaded = await hydrateLibraryFromCloud(activeSchoolId);
+      if (!cancelled) setLibrary(loaded || loadLibraryFromLocal(activeSchoolId));
+    })();
+    return () => { cancelled = true; };
   }, [activeSchoolId]);
 
   const visibleBooks = useMemo(() => {
