@@ -309,7 +309,7 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
         setSettings((s) => {
           const next = {
             ...s,
-            classes: [...s.classes.filter((c) => !classes.find((n) => n.id === c.id)), ...classes],
+            classes: [...(Array.isArray(s.classes)?s.classes:[]).filter((c) => !classes.find((n) => n.id === c.id)), ...classes],
             classSubjects: { ...s.classSubjects, ...classSubjectsExam },
             classSubjectsExam: { ...(s.classSubjectsExam || {}), ...classSubjectsExam },
             classSubjectsTimetable: { ...(s.classSubjectsTimetable || {}), ...classSubjectsTimetable },
@@ -391,7 +391,7 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
             ...s,
             classes: [
               // keep existing classes whose IDs are not in imported set
-              ...s.classes.filter(c => !classes.find(n => n.id === c.id)),
+              ...(Array.isArray(s.classes)?s.classes:[]).filter(c => !classes.find(n => n.id === c.id)),
               // add imported classes (one per ID)
               ...classes,
             ],
@@ -835,7 +835,7 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
             const next={
               ...s,
               classes:[
-                ...s.classes.filter(c=>!importedClassesList.find(n=>n.id===c.id)),
+                ...(Array.isArray(s.classes)?s.classes:[]).filter(c=>!importedClassesList.find(n=>n.id===c.id)),
                 ...importedClassesList,
               ],
               classSubjects:{...s.classSubjects,...classSubjectsExam},
@@ -1406,23 +1406,30 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
     const tempCls={grade:newCls.grade,section:newCls.section};
     const name=formatClassDisplay(tempCls);
     const id=`${newCls.grade}-${newCls.section||name}`;
-    if(settings.classes.find(c=>c.id===id)) return alert("Class already exists");
-    setSettings(s=>({
-      ...s,
-      classes:[...s.classes,{id,name,grade:newCls.grade,section:newCls.section}],
-      classSubjects:{...s.classSubjects,[id]:[]},
-      classSubjectsExam:{...(s.classSubjectsExam||{}),[id]:[]},
-      classSubjectsTimetable:{...(s.classSubjectsTimetable||{}),[id]:[]}
-    }));
+    const existing=Array.isArray(settings.classes)?settings.classes:[];
+    if(existing.find(c=>c.id===id)) return alert("Class already exists");
+    setSettings(s=>{
+      const prevClasses=Array.isArray(s?.classes)?s.classes:[];
+      return {
+        ...s,
+        classes:[...prevClasses,{id,name,grade:newCls.grade,section:newCls.section}],
+        classSubjects:{...(s?.classSubjects||{}),[id]:[]},
+        classSubjectsExam:{...(s?.classSubjectsExam||{}),[id]:[]},
+        classSubjectsTimetable:{...(s?.classSubjectsTimetable||{}),[id]:[]}
+      };
+    });
     setNewCls({grade:"",section:""});
   };
-  const removeClass=(id)=>setSettings(s=>({
-    ...s,
-    classes:s.classes.filter(c=>c.id!==id),
-    classSubjects:Object.fromEntries(Object.entries(s.classSubjects||{}).filter(([k])=>k!==id)),
-    classSubjectsExam:Object.fromEntries(Object.entries(s.classSubjectsExam||{}).filter(([k])=>k!==id)),
-    classSubjectsTimetable:Object.fromEntries(Object.entries(s.classSubjectsTimetable||{}).filter(([k])=>k!==id)),
-  }));
+  const removeClass=(id)=>setSettings(s=>{
+    const prevClasses=Array.isArray(s?.classes)?s.classes:[];
+    return {
+      ...s,
+      classes:prevClasses.filter(c=>c.id!==id),
+      classSubjects:Object.fromEntries(Object.entries(s?.classSubjects||{}).filter(([k])=>k!==id)),
+      classSubjectsExam:Object.fromEntries(Object.entries(s?.classSubjectsExam||{}).filter(([k])=>k!==id)),
+      classSubjectsTimetable:Object.fromEntries(Object.entries(s?.classSubjectsTimetable||{}).filter(([k])=>k!==id)),
+    };
+  });
   const addSubj=(id,subj,type="exam")=>{
     const cleaned=String(subj||"").trim();
     if(!cleaned) return;

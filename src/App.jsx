@@ -10,7 +10,13 @@ import {
   loadAuthUsersFromCloud,
   saveAuthUsersToCloud,
   clearAllCloudData,
+  saveAttendanceToCloud,
+  saveFeesToCloud,
+  saveLibraryToCloud,
+  saveDiscussionToCloud,
 } from "./supabaseSync.js";
+import { loadLibraryFromLocal } from "./modules/library/libraryCore.js";
+import { loadDiscussionMessages } from "./modules/aboutSupport/aboutSupportCore.js";
 import { createPortal } from "react-dom";
 import * as XLSX from "./xlsxClient.js";
 import { X, Plus, Edit2, Trash2, Upload, Download, Menu, Settings, AlertTriangle, Eye, EyeOff } from "lucide-react";
@@ -1061,42 +1067,137 @@ function App(){
 
   const saveStatusTimeoutRef=useRef(null);
   const cloudSaveTimerRef=useRef(null);
-  const [saveStatus,setSaveStatus]=useState("idle"); // idle | saving | saved | error
+  const cloudRetryTimerRef=useRef(null);
+  const schoolsRef=useRef(schools);
+  const activeSchoolIdRef=useRef(activeSchoolId);
+  const [saveStatus,setSaveStatus]=useState("idle"); // idle | saving | saved | error | offline
   const [cloudReady,setCloudReady]=useState(false);
   const [cloudSyncing,setCloudSyncing]=useState(false);
-  const _dbStatus=isSupabaseConfigured?(cloudSyncing?"syncing":cloudReady?"cloud":"syncing"):"local";
+  const [isOnline,setIsOnline]=useState(()=>typeof navigator==="undefined"?true:navigator.onLine!==false);
+  const [lastSyncedAt,setLastSyncedAt]=useState(null);
+  const _dbStatus=!isSupabaseConfigured?"local":!isOnline?"offline":cloudSyncing?"syncing":cloudReady?"cloud":"syncing";
 
-  const pushToCloud=useCallback(async(nextSchools, nextActiveId)=>{
+  useEffect(()=>{ schoolsRef.current=schools; },[schools]);
+  useEffect(()=>{ activeSchoolIdRef.current=activeSchoolId; },[activeSchoolId]);
+
+  const flushModuleLocalsToCloud=useCallback(async(schoolList)=>{
     if(!isSupabaseConfigured) return;
+    if(typeof navigator!=="undefined" && navigator.onLine===false) return;
+    const ids=(schoolList||schoolsRef.current||[]).map(s=>s?.id).filter(Boolean);
+    for(const schoolId of ids){
+      try{
+        const att=loadAttendanceFromLocal(schoolId);
+        if(att&&Object.keys(att).length) await saveAttendanceToCloud(schoolId, att);
+      }catch(e){ console.warn("Attendance cloud flush failed", e); }
+      try{
+        const fees=feeCore.loadFeeFromLocal(schoolId);
+        if(fees?.length) await saveFeesToCloud(schoolId, fees);
+      }catch(e){ console.warn("Fees cloud flush failed", e); }
+      try{
+        const lib=loadLibraryFromLocal(schoolId);
+        if(lib?.books?.length||lib?.borrowings?.length) await saveLibraryToCloud(schoolId, lib);
+      }catch(e){ console.warn("Library cloud flush failed", e); }
+    }
+    try{
+      const msgs=loadDiscussionMessages();
+      if(msgs?.length) await saveDiscussionToCloud(msgs);
+    }catch(e){ console.warn("Discussion cloud flush failed", e); }
+    try{
+      const users=loadAuthUsers();
+      if(users?.length) await saveAuthUsersToCloud(users);
+    }catch(e){ console.warn("Auth users cloud flush failed", e); }
+  },[]);
+
+  const pushToCloud=useCallback(async(nextSchools, nextActiveId, { retryCount=0 }={})=>{
+    if(!isSupabaseConfigured) return;
+    if(typeof navigator!=="undefined" && navigator.onLine===false){
+      setIsOnline(false);
+      setSaveStatus("offline");
+      setCloudReady(false);
+      return;
+    }
+    const payloadSchools=nextSchools||schoolsRef.current;
+    const payloadActiveId=nextActiveId!==undefined?nextActiveId:activeSchoolIdRef.current;
     setCloudSyncing(true);
     setSaveStatus("saving");
     try{
-      const result=await saveSchoolsToCloud(nextSchools, nextActiveId);
+      const result=await saveSchoolsToCloud(payloadSchools, payloadActiveId);
       if(result?.schools&&Array.isArray(result.schools)){
         const changed=result.schools.some((sc,i)=>{
-          const prev=nextSchools[i];
+          const prev=payloadSchools[i];
           if(!prev) return true;
           return JSON.stringify(prev.students)!==JSON.stringify(sc.students)
             || JSON.stringify(prev.staffProfiles)!==JSON.stringify(sc.staffProfiles);
         });
         if(changed) setSchools(result.schools);
       }
-      if(result?.ok===false){
-        setSaveStatus("error");
-        setCloudReady(false);
-      }else{
-        setSaveStatus("saved");
-        setCloudReady(true);
-      }
-    }catch{
+      if(result?.ok===false) throw result.error||new Error("Cloud save failed");
+      await flushModuleLocalsToCloud(payloadSchools);
+      setSaveStatus("saved");
+      setCloudReady(true);
+      setIsOnline(true);
+      setLastSyncedAt(Date.now());
+      if(cloudRetryTimerRef.current){ clearTimeout(cloudRetryTimerRef.current); cloudRetryTimerRef.current=null; }
+    }catch(err){
+      console.warn("Cloud sync failed", err);
       setSaveStatus("error");
       setCloudReady(false);
+      if(retryCount<2){
+        const delay=2500*(retryCount+1);
+        if(cloudRetryTimerRef.current) clearTimeout(cloudRetryTimerRef.current);
+        cloudRetryTimerRef.current=setTimeout(()=>{
+          pushToCloud(payloadSchools, payloadActiveId, { retryCount: retryCount+1 });
+        }, delay);
+      }
     }finally{
       setCloudSyncing(false);
       if(saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
       saveStatusTimeoutRef.current=setTimeout(()=>setSaveStatus("idle"),1600);
     }
-  },[]);
+  },[flushModuleLocalsToCloud]);
+
+  // Online / offline: resume sync when connection returns
+  useEffect(()=>{
+    if(!isSupabaseConfigured) return;
+    const onOnline=()=>{
+      setIsOnline(true);
+      if(!loadedFromDb) return;
+      saveToLocal(schoolsRef.current, activeSchoolIdRef.current);
+      pushToCloud(schoolsRef.current, activeSchoolIdRef.current);
+    };
+    const onOffline=()=>{
+      setIsOnline(false);
+      setCloudReady(false);
+      setSaveStatus("offline");
+    };
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return ()=>{
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  },[loadedFromDb,pushToCloud]);
+
+  // Flush debounced cloud save when tab hides or page unloads
+  useEffect(()=>{
+    if(!isSupabaseConfigured||!loadedFromDb) return;
+    const flush=()=>{
+      if(cloudSaveTimerRef.current){
+        clearTimeout(cloudSaveTimerRef.current);
+        cloudSaveTimerRef.current=null;
+      }
+      saveToLocal(schoolsRef.current, activeSchoolIdRef.current);
+      // Fire-and-forget; browsers may kill long async work on unload
+      pushToCloud(schoolsRef.current, activeSchoolIdRef.current);
+    };
+    const onVisibility=()=>{ if(document.visibilityState==="hidden") flush(); };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return ()=>{
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  },[loadedFromDb,pushToCloud]);
 
   const visibleSchools=schools.filter(s=>s.status!=="deleted");
   const foundSchool=schools.find(s=>s.id===activeSchoolId);
@@ -1272,6 +1373,11 @@ function App(){
       saveStatusTimeoutRef.current=setTimeout(()=>setSaveStatus("idle"),1200);
       return;
     }
+    if(!isOnline){
+      setSaveStatus("offline");
+      setCloudReady(false);
+      return;
+    }
     if(cloudSaveTimerRef.current) clearTimeout(cloudSaveTimerRef.current);
     cloudSaveTimerRef.current=setTimeout(()=>{
       pushToCloud(schools,activeSchoolId);
@@ -1279,13 +1385,30 @@ function App(){
     return ()=>{
       if(cloudSaveTimerRef.current) clearTimeout(cloudSaveTimerRef.current);
     };
-  },[loadedFromDb,schools,activeSchoolId,pushToCloud]);
+  },[loadedFromDb,schools,activeSchoolId,pushToCloud,isOnline]);
 
 
   const setSettingsForActive=(updater)=>{
-    setSchools(prev=>prev.map(s=>s.id===activeSchoolId
-      ? {...s,settings:typeof updater==="function"?updater(s.settings):updater}
-      : s));
+    setSchools(prev=>prev.map(s=>{
+      if(s.id!==activeSchoolId) return s;
+      const base={
+        ...defaultSettings,
+        ...(s.settings||{}),
+        classes:Array.isArray(s.settings?.classes)?s.settings.classes:[],
+        classSubjects:(s.settings?.classSubjects&&typeof s.settings.classSubjects==="object")?s.settings.classSubjects:{},
+        classSubjectsExam:(s.settings?.classSubjectsExam&&typeof s.settings.classSubjectsExam==="object")?s.settings.classSubjectsExam:{},
+        classSubjectsTimetable:(s.settings?.classSubjectsTimetable&&typeof s.settings.classSubjectsTimetable==="object")?s.settings.classSubjectsTimetable:{},
+      };
+      const next=typeof updater==="function"?updater(base):updater;
+      return {
+        ...s,
+        settings:{
+          ...defaultSettings,
+          ...(next||{}),
+          classes:Array.isArray(next?.classes)?next.classes:[],
+        },
+      };
+    }));
   };
   const setStudentsForActive=(updater)=>{
     setSchools(prev=>prev.map(s=>s.id===activeSchoolId
@@ -1389,23 +1512,28 @@ function App(){
           </div>
           <div className="app-topbar-right" style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:10,flexWrap:"wrap",minWidth:0}}>
             {saveStatus!=="idle"&&(
-              <span style={{fontSize:11,fontWeight:600,color:saveStatus==="saved"?C.green:saveStatus==="error"?"#dc2626":C.gray,whiteSpace:"nowrap"}}>
-                {saveStatus==="saved"?"✓ Saved":saveStatus==="saving"?"Saving…":saveStatus==="error"?"☁ Sync failed":""}
+              <span style={{fontSize:11,fontWeight:600,color:saveStatus==="saved"?C.green:saveStatus==="error"||saveStatus==="offline"?"#dc2626":C.gray,whiteSpace:"nowrap"}}>
+                {saveStatus==="saved"?"✓ Saved":saveStatus==="saving"?"Saving…":saveStatus==="error"?"☁ Sync failed":saveStatus==="offline"?"☁ Offline":""}
               </span>
             )}
             {isSupabaseConfigured&&(
               <button
                 type="button"
                 onClick={()=>pushToCloud(schools,activeSchoolId)}
-                disabled={cloudSyncing}
-                title="Push data to Supabase now"
+                disabled={cloudSyncing||!isOnline}
+                title={lastSyncedAt?`Last synced ${new Date(lastSyncedAt).toLocaleTimeString()}`:"Push data to Supabase now"}
                 style={{
-                  fontSize:10,fontWeight:700,padding:"4px 8px",borderRadius:6,cursor:cloudSyncing?"wait":"pointer",
-                  border:"1px solid #cbd5e1",background:_dbStatus==="cloud"?"#ecfdf5":"#f8fafc",
-                  color:_dbStatus==="cloud"?C.green:C.gray,whiteSpace:"nowrap",
+                  fontSize:10,fontWeight:700,padding:"4px 8px",borderRadius:6,
+                  cursor:(cloudSyncing||!isOnline)?"not-allowed":"pointer",
+                  border:"1px solid #cbd5e1",
+                  background:_dbStatus==="cloud"?"#ecfdf5":_dbStatus==="offline"?"#fef2f2":"#f8fafc",
+                  color:_dbStatus==="cloud"?C.green:_dbStatus==="offline"?"#dc2626":C.gray,
+                  whiteSpace:"nowrap",
                 }}
               >
-                {_dbStatus==="cloud"?"☁ Cloud":"☁ Syncing…"} · Sync now
+                {_dbStatus==="cloud"?"☁ Cloud":_dbStatus==="offline"?"☁ Offline":"☁ Syncing…"}
+                {isOnline?" · Sync now":""}
+                {lastSyncedAt&&isOnline?` · ${new Date(lastSyncedAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`:""}
               </button>
             )}
             <AppZoomControls
