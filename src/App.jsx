@@ -494,21 +494,28 @@ function AuthScreen({ onSignIn, setActiveSchoolId }) {
   const [adminPassword, setAdminPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [accountsReady, setAccountsReady] = useState(!isSupabaseConfigured);
+  const [accountsReady, setAccountsReady] = useState(() => !getIsSupabaseConfigured());
+  const [cloudConfigured, setCloudConfigured] = useState(() => getIsSupabaseConfigured());
   const inp = { width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, boxSizing: "border-box", fontFamily: "inherit", outline: "none" };
   const lbl = { display: "block", marginBottom: 4, fontSize: 13, fontWeight: 600, color: "#374151" };
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const readyUp = async () => {
       await ensureCloudReady();
       await hydrateAuthUsersMirror();
-      if (!cancelled) setAccountsReady(true);
-    })();
+      if (cancelled) return;
+      setCloudConfigured(getIsSupabaseConfigured());
+      setAccountsReady(true);
+    };
+    readyUp().catch(() => {
+      if (!cancelled) {
+        setCloudConfigured(getIsSupabaseConfigured());
+        setAccountsReady(true);
+      }
+    });
     const refresh = () => {
-      ensureCloudReady()
-        .then(() => hydrateAuthUsersMirror())
-        .catch(() => {});
+      readyUp().catch(() => {});
     };
     window.addEventListener("focus", refresh);
     return () => {
@@ -602,8 +609,8 @@ function AuthScreen({ onSignIn, setActiveSchoolId }) {
                 {loading ? "Signing in…" : "Sign In"}
               </button>
             </form>
-            <div style={{ marginTop: 16, padding: "10px 12px", background: (getIsSupabaseConfigured() || isSupabaseConfigured) ? "#eff6ff" : "#fff7ed", borderRadius: 8, fontSize: 12, color: (getIsSupabaseConfigured() || isSupabaseConfigured) ? "#1d4ed8" : "#9a3412", textAlign: "center", border: `1px solid ${(getIsSupabaseConfigured() || isSupabaseConfigured) ? "#bfdbfe" : "#fed7aa"}` }}>
-              {(getIsSupabaseConfigured() || isSupabaseConfigured)
+            <div style={{ marginTop: 16, padding: "10px 12px", background: cloudConfigured ? "#eff6ff" : "#fff7ed", borderRadius: 8, fontSize: 12, color: cloudConfigured ? "#1d4ed8" : "#9a3412", textAlign: "center", border: `1px solid ${cloudConfigured ? "#bfdbfe" : "#fed7aa"}` }}>
+              {cloudConfigured
                 ? "☁ Worldwide cloud — school logins created by admin work on any device with internet."
                 : "⚠ Cloud OFF — open this app from the main server URL (or deploy with Supabase keys) so logins work worldwide."}
             </div>
@@ -682,11 +689,16 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
     };
     const safety = setTimeout(releasePull, 12000);
     try {
-      const init = await initSupabaseCloud();
+      let init = await ensureCloudReady();
+      if (!init?.ok || !init?.client) {
+        // One more hard retry — covers HMR / late inline config
+        await new Promise((r) => setTimeout(r, 500));
+        init = await ensureCloudReady();
+      }
       if (!init?.ok || !init?.client) {
         setCloudOk(false);
         if (showSyncUi) {
-          setCloudMsg("Cloud config missing. Open this app from the main PC URL (Network address), or on main PC run: npm run psms-config && npm run dev");
+          setCloudMsg("Cloud config missing. On this PC run: npm run psms-config && npm run dev — then hard-refresh (Ctrl+F5). Other devices must open this PC's Network URL.");
         }
         setUsersList(loadAuthUsers());
         return loadAuthUsers();
@@ -918,13 +930,15 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
       await upsertAuthUserToCloud(newUser);
       verify = await findAuthUserByEmailFromCloud(emailNorm);
     }
+    // Cloud is source of truth — do not mirror locally unless cloud verify succeeded
+    if (!verify) {
+      setCsError(`School is on the cloud, but login for "${emailNorm}" did not save. Use Create Login for "${schoolName}" after checking internet.`);
+      await pullUsersFromCloud();
+      return;
+    }
     await saveAuthUsers([...list, newUser]);
     setCsName(""); setCsEmail(""); setCsAdminName(""); setCsPassword("");
-    if (verify) {
-      setCsSuccess(`School "${schoolName}" created. Login is LIVE worldwide — Email: ${emailNorm}`);
-    } else {
-      setCsError(`School saved but login did not reach the cloud. Use Create Login for "${schoolName}" after checking internet.`);
-    }
+    setCsSuccess(`School "${schoolName}" created. Login is LIVE worldwide — Email: ${emailNorm}`);
     await pullUsersFromCloud();
   };
 
@@ -1478,8 +1492,8 @@ function App(){
       return;
     }
     if(cloudPushInFlightRef.current && retryCount===0){
-      // Coalesce: another push is running; schedule one follow-up after it finishes
-      skipNextCloudPushRef.current=false;
+      // Coalesce: another push is running; schedule one follow-up after it finishes.
+      // Do NOT clear skipNextCloudPushRef — photo-migration may still need that flag.
       if(cloudSaveTimerRef.current) clearTimeout(cloudSaveTimerRef.current);
       cloudSaveTimerRef.current=setTimeout(()=>{
         pushToCloud(schoolsRef.current, activeSchoolIdRef.current, { quiet:true });
@@ -1769,6 +1783,7 @@ function App(){
     // Still guarantee a deferred cloud sync so local≠cloud gap cannot stick.
     if(skipNextCloudPushRef.current){
       skipNextCloudPushRef.current=false;
+      queueMicrotask(()=> setSaveStatus("saving"));
       if(!cloudSaveTimerRef.current){
         cloudSaveTimerRef.current=setTimeout(()=>{
           pushToCloud(schoolsRef.current, activeSchoolIdRef.current, { quiet:true });

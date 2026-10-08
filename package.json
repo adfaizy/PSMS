@@ -12,7 +12,8 @@
     "build": "vite build --configLoader native",
     "preview": "vite preview --configLoader native",
     "preview:host": "vite preview --configLoader native --host 0.0.0.0 --port 4173",
-    "lint": "eslint . --max-warnings 0"
+    "lint": "eslint . --max-warnings 0",
+    "vercel:env-check": "node scripts/write-psms-config.mjs"
   },
   "dependencies": {
     "@imgly/background-removal": "^1.7.0",

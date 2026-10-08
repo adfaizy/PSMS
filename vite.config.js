@@ -57,16 +57,37 @@ function patchManifestScope(base) {
 /** Write + inline public cloud config so EVERY browser/device gets Cloud ON. */
 function psmsCloudConfigPlugin(mode, base) {
   const runWrite = () => {
-    spawnSync(process.execPath, [path.resolve(__dirname, "scripts/write-psms-config.mjs")], {
-      cwd: process.cwd(),
-      stdio: "inherit",
-    });
+    const scriptPath = path.resolve(__dirname, "scripts/write-psms-config.mjs");
+    if (!fs.existsSync(scriptPath)) {
+      console.warn("[psms-cloud] write-psms-config.mjs missing — skipping config write");
+      return;
+    }
+    try {
+      const result = spawnSync(process.execPath, [scriptPath], {
+        cwd: process.cwd(),
+        stdio: "inherit",
+      });
+      if (result.error) {
+        console.warn("[psms-cloud] config write failed:", result.error.message || result.error);
+        return;
+      }
+      if (result.status !== 0 && result.status != null) {
+        console.warn(`[psms-cloud] config write exited with code ${result.status}`);
+      }
+    } catch (err) {
+      console.warn("[psms-cloud] config write threw:", err?.message || err);
+    }
   };
 
   const readPublicConfig = () => {
+    // Vite loadEnv + process.env (Vercel injects VITE_* into the build env)
     const env = loadEnv(mode, process.cwd(), "");
-    let url = String(env.VITE_SUPABASE_URL || "").trim();
-    let anonKey = String(env.VITE_SUPABASE_ANON_KEY || "").trim();
+    let url = String(
+      process.env.VITE_SUPABASE_URL || env.VITE_SUPABASE_URL || ""
+    ).trim();
+    let anonKey = String(
+      process.env.VITE_SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || ""
+    ).trim();
     const jsonPath = path.resolve(process.cwd(), "public/psms-config.json");
     if (fs.existsSync(jsonPath)) {
       try {

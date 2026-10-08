@@ -15,12 +15,14 @@ function readRuntimeCloud() {
 }
 
 function resolveCloudConfig() {
+  // Prefer runtime/public config first so every browser hitting this app gets Cloud ON,
+  // even when Vite env was not baked into that client's bundle.
+  const runtime = readRuntimeCloud()
   const fromEnvUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim()
   const fromEnvKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim()
-  const runtime = readRuntimeCloud()
   return {
-    url: fromEnvUrl || runtime.url || '',
-    anonKey: fromEnvKey || runtime.anonKey || '',
+    url: runtime.url || fromEnvUrl || '',
+    anonKey: runtime.anonKey || fromEnvKey || '',
   }
 }
 
@@ -49,11 +51,12 @@ function cloudState() {
 
 /** Shared readiness check — must match syncLegacyExports / getters. */
 function hasCloudCredentials(state) {
-  return Boolean(state?.configured && state.url && state.anonKey)
+  return Boolean(state?.url && state.anonKey)
 }
 
 function ensureClient(state) {
   if (hasCloudCredentials(state) && !state.client) {
+    state.configured = true
     state.client = makeClient(state.url, state.anonKey)
   }
   return state.client
@@ -61,8 +64,8 @@ function ensureClient(state) {
 
 function syncLegacyExports(state) {
   ensureClient(state)
-  // Same condition as getIsSupabaseConfigured()
   const ready = hasCloudCredentials(state) && Boolean(state.client)
+  state.configured = ready
   isSupabaseConfigured = ready
   supabase = state.client
 }
@@ -77,11 +80,11 @@ function applyCloud(url, anonKey) {
   // Reuse existing client when credentials unchanged (avoids HMR thrash)
   if (
     ok &&
-    state.configured &&
     state.client &&
     state.url === url &&
     state.anonKey === anonKey
   ) {
+    state.configured = true
     syncLegacyExports(state)
     return { ok: true, client: state.client, url: state.url }
   }
@@ -96,22 +99,31 @@ function applyCloud(url, anonKey) {
 
 {
   const initial = resolveCloudConfig()
-  applyCloud(initial.url, initial.anonKey)
+  if (initial.url && initial.anonKey) applyCloud(initial.url, initial.anonKey)
 }
 
 /** Always read from globalThis; rebuild client if credentials exist but client was dropped (HMR). */
 export function getSupabase() {
   const state = cloudState()
+  // Re-read window in case inline script arrived after first module eval
+  if (!hasCloudCredentials(state)) {
+    const runtime = readRuntimeCloud()
+    if (runtime.url && runtime.anonKey) applyCloud(runtime.url, runtime.anonKey)
+  }
   ensureClient(state)
   syncLegacyExports(state)
-  return state.client
+  return cloudState().client
 }
 
 export function getIsSupabaseConfigured() {
   const state = cloudState()
-  ensureClient(state)
-  syncLegacyExports(state)
-  return hasCloudCredentials(state) && Boolean(state.client)
+  if (!hasCloudCredentials(state)) {
+    const runtime = readRuntimeCloud()
+    if (runtime.url && runtime.anonKey) applyCloud(runtime.url, runtime.anonKey)
+  }
+  ensureClient(cloudState())
+  syncLegacyExports(cloudState())
+  return hasCloudCredentials(cloudState()) && Boolean(cloudState().client)
 }
 
 /**
@@ -119,10 +131,14 @@ export function getIsSupabaseConfigured() {
  * Never wipes a working in-memory config if fetch/env briefly return empty.
  */
 export async function initSupabaseCloud() {
-  const previous = cloudState()
+  const previous = { ...cloudState() }
   let next = resolveCloudConfig()
 
   if (typeof window !== 'undefined') {
+    // Re-check inline / script tag config (covers late HMR)
+    const runtime = readRuntimeCloud()
+    if (runtime.url && runtime.anonKey) next = runtime
+
     try {
       const base = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')
       const res = await fetch(`${base}psms-config.json?t=${Date.now()}`, { cache: 'no-store' })
@@ -136,11 +152,10 @@ export async function initSupabaseCloud() {
         }
       }
     } catch {
-      // keep prior `next` from resolveCloudConfig()
+      // keep prior `next`
     }
   }
 
-  // Prefer known-good globalThis credentials over empty resolve after a failed fetch
   if (!next.url || !next.anonKey) {
     if (previous.url && previous.anonKey) {
       next = { url: previous.url, anonKey: previous.anonKey }
@@ -150,10 +165,8 @@ export async function initSupabaseCloud() {
   }
 
   if (!next.url || !next.anonKey) {
-    // Do not call applyCloud('', '') — that would wipe a live session
-    if (hasCloudCredentials(previous)) {
-      syncLegacyExports(previous)
-      return { ok: true, client: previous.client, url: previous.url }
+    if (previous.url && previous.anonKey) {
+      return applyCloud(previous.url, previous.anonKey)
     }
     return { ok: false, client: null, url: '' }
   }
@@ -163,13 +176,18 @@ export async function initSupabaseCloud() {
 
 /**
  * Ensure cloud client is ready before Create Login / Sign In (worldwide).
- * Prefer this over reading the exported boolean, which can be stale after HMR.
  */
 export async function ensureCloudReady() {
-  const init = await initSupabaseCloud()
+  let init = await initSupabaseCloud()
   if (init?.ok && init?.client) return init
-  await new Promise((r) => setTimeout(r, 400))
-  return initSupabaseCloud()
+  await new Promise((r) => setTimeout(r, 300))
+  init = await initSupabaseCloud()
+  if (init?.ok && init?.client) return init
+  // Last resort: env-only
+  const envUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim()
+  const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim()
+  if (envUrl && envKey) return applyCloud(envUrl, envKey)
+  return init
 }
 
 /** Quick connectivity check used by Admin Cloud badge. */
