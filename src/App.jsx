@@ -414,14 +414,32 @@ function loadAuthUsers() {
     return Array.isArray(arr) ? arr : [];
   } catch { return []; }
 }
-function saveAuthUsers(users) {
+/** Persist auth users locally and (when configured) to Supabase so logins work worldwide. */
+async function saveAuthUsers(users) {
+  const list = Array.isArray(users) ? users : [];
   try {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(Array.isArray(users) ? users : []));
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(list));
+    }
   } catch {}
-  if (isSupabaseConfigured) {
-    saveAuthUsersToCloud(users).catch(() => {});
+  if (!isSupabaseConfigured) return { ok: true, cloud: false };
+  try {
+    const result = await saveAuthUsersToCloud(list);
+    if (result?.ok === false) return { ok: false, cloud: true, error: result.error };
+    return { ok: true, cloud: true };
+  } catch (err) {
+    return { ok: false, cloud: true, error: err };
   }
+}
+
+function worldwideLoginNote(email, password, { cloudOk } = {}) {
+  if (!isSupabaseConfigured) {
+    return `Login saved on this device only.\n\nEmail: ${email}\nPassword: ${password}\n\nConnect Supabase to make this login work worldwide.`;
+  }
+  if (cloudOk) {
+    return `Login is live worldwide (any device / country).\n\nEmail: ${email}\nPassword: ${password}\n\nUse these on the Sign In screen.`;
+  }
+  return `Login saved on this device, but cloud sync failed.\n\nEmail: ${email}\nPassword: ${password}\n\nCheck your internet and press Cloud Sync, then try again.`;
 }
 function loadAuthSession() {
   try {
@@ -536,7 +554,9 @@ function AuthScreen({ onSignIn, setActiveSchoolId }) {
               </button>
             </form>
             <div style={{ marginTop: 16, padding: "10px 12px", background: "#f8fafc", borderRadius: 8, fontSize: 12, color: "#64748b", textAlign: "center" }}>
-              Accounts are created by the administrator. Contact your admin if you don't have access.
+              {isSupabaseConfigured
+                ? "Accounts are created by the administrator and work on any device worldwide."
+                : "Accounts are created by the administrator. Contact your admin if you don't have access."}
             </div>
             <div style={{ marginTop: 12, textAlign: "center" }}>
               <button type="button" onClick={() => { setPanel("admin"); setError(""); }}
@@ -686,14 +706,22 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
     if (!(soEmail||"").trim()) { setSoError("Enter email."); return; }
     if (!(soPassword||"").trim() || String(soPassword).length < 4) { setSoError("Password must be at least 4 characters."); return; }
     if (!soSchoolId) { setSoError("Select a school."); return; }
-    const list = loadAuthUsers();
+    const list = await hydrateAuthUsersMirror();
     const emailNorm = String(soEmail).trim().toLowerCase();
     if (list.some(u => String(u.email||"").toLowerCase() === emailNorm)) { setSoError("A user with this email already exists."); return; }
     const userId = genId();
-    const pwHash = await hashPassword(String(soPassword).trim());
-    saveAuthUsers([...list, { id:userId, email:emailNorm, password:pwHash, schoolId:soSchoolId, name:String(soName).trim(), userType:"school" }]);
+    const plainPw = String(soPassword).trim();
+    const pwHash = await hashPassword(plainPw);
+    const next = [...list, { id:userId, email:emailNorm, password:pwHash, schoolId:soSchoolId, name:String(soName).trim(), userType:"school" }];
+    const sync = await saveAuthUsers(next);
     setSoName(""); setSoEmail(""); setSoPassword(""); setSoSchoolId("");
-    setSoSuccess("School account created. User can now sign in and edit marks, students, and staff.");
+    if (sync.ok && sync.cloud) {
+      setSoSuccess("School account created and synced to cloud. User can sign in from anywhere.");
+    } else if (sync.ok) {
+      setSoSuccess("School account created on this device. Connect Supabase for worldwide login.");
+    } else {
+      setSoSuccess("Account saved locally, but cloud sync failed — fix internet / Cloud Sync so it works worldwide.");
+    }
     refreshUsers();
   };
 
@@ -704,29 +732,49 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
     if (!(csAdminName || "").trim()) { setCsError("Enter admin/contact name."); return; }
     if (!(csEmail || "").trim()) { setCsError("Enter email."); return; }
     if (!(csPassword || "").trim() || String(csPassword).length < 4) { setCsError("Password must be at least 4 characters."); return; }
-    const list = loadAuthUsers();
+    const list = await hydrateAuthUsersMirror();
     const emailNorm = String(csEmail).trim().toLowerCase();
     if (list.some(u => String(u.email || "").toLowerCase() === emailNorm)) { setCsError("A user with this email already exists."); return; }
     const schoolId = genId();
-    const newSchool = { id: schoolId, name: String(csName).trim(), settings: { schoolName: String(csName).trim(), schoolEmail: emailNorm }, students: [], staffProfiles: [], staffTransferHistory: [], retiredStaff: [], timetable: {}, currentSession: defaultSession(), sessions: [defaultSession()], exam_by_session: {}, exam_tm: {}, exam_om: {}, exam_datesheet: { dates: [], cols: [], subs: {}, note: "" }, questionBank: {}, status: "active" };
-    setSchools(prev => [...prev, newSchool]);
+    const schoolName = String(csName).trim();
+    const plainPw = String(csPassword).trim();
+    const newSchool = { id: schoolId, name: schoolName, settings: { schoolName, schoolEmail: emailNorm }, students: [], staffProfiles: [], staffTransferHistory: [], retiredStaff: [], timetable: {}, currentSession: defaultSession(), sessions: [defaultSession()], exam_by_session: {}, exam_tm: {}, exam_om: {}, exam_datesheet: { dates: [], cols: [], subs: {}, note: "" }, questionBank: {}, status: "active" };
+    const nextSchools = [...(schools || []), newSchool];
+    setSchools(nextSchools);
+    // Push school to cloud first so app_users.school_id foreign key succeeds
+    if (isSupabaseConfigured) {
+      try {
+        const schoolSync = await saveSchoolsToCloud(nextSchools, schoolId);
+        if (schoolSync?.ok === false) throw schoolSync.error || new Error("School cloud save failed");
+      } catch (err) {
+        console.warn("School cloud save failed", err);
+        setCsError("Could not sync school to cloud. Check internet, then try again.");
+        return;
+      }
+    }
     const userId = genId();
-    const pwHash = await hashPassword(String(csPassword).trim());
-    saveAuthUsers([...list, { id: userId, email: emailNorm, password: pwHash, schoolId, name: String(csAdminName).trim(), userType: "principal" }]);
+    const pwHash = await hashPassword(plainPw);
+    const sync = await saveAuthUsers([...list, { id: userId, email: emailNorm, password: pwHash, schoolId, name: String(csAdminName).trim(), userType: "principal" }]);
     setCsName(""); setCsEmail(""); setCsAdminName(""); setCsPassword("");
-    setCsSuccess(`School "${csName.trim()}" created. They can now sign in on this device.`);
+    if (sync.ok && sync.cloud) {
+      setCsSuccess(`School "${schoolName}" created. Login works worldwide — Email: ${emailNorm}`);
+    } else if (sync.ok) {
+      setCsSuccess(`School "${schoolName}" created on this device. Connect Supabase for worldwide login.`);
+    } else {
+      setCsSuccess(`School created locally, but login cloud sync failed. Use Cloud Sync so "${emailNorm}" works worldwide.`);
+    }
     refreshUsers();
   };
 
-  const handleDeleteUser = (userId) => {
+  const handleDeleteUser = async (userId) => {
     const next = loadAuthUsers().filter(u => u.id !== userId);
-    saveAuthUsers(next);
+    await saveAuthUsers(next);
     refreshUsers();
   };
 
-  const handleToggleBlock = (userId) => {
+  const handleToggleBlock = async (userId) => {
     const next = loadAuthUsers().map(u => u.id === userId ? { ...u, blocked: !u.blocked } : u);
-    saveAuthUsers(next);
+    await saveAuthUsers(next);
     refreshUsers();
   };
 
@@ -734,7 +782,7 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
     if (!editNewPw.trim() || editNewPw.trim().length < 4) { setEditPwError("Min 4 characters."); return; }
     const pwHash = await hashPassword(editNewPw.trim());
     const next = loadAuthUsers().map(u => u.id === userId ? { ...u, password: pwHash } : u);
-    saveAuthUsers(next);
+    await saveAuthUsers(next);
     setEditUserId(null); setEditNewPw(""); setEditPwError("");
     refreshUsers();
   };
@@ -866,7 +914,11 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
           {/* Create new school */}
           <section style={{ background: "#fff", borderRadius: 12, padding: 20, marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
             <h2 style={{ margin: "0 0 4px", fontSize: 15, color: "#1e293b" }}>Create New School Account</h2>
-            <p style={{ margin: "0 0 14px", fontSize: 13, color: C.gray }}>Creates both the school data workspace and a user account. The user will share this school's data when they log in.</p>
+            <p style={{ margin: "0 0 14px", fontSize: 13, color: C.gray }}>
+              {isSupabaseConfigured
+                ? "Creates the school workspace and a principal login synced to the cloud — works on any device worldwide."
+                : "Creates both the school data workspace and a user account on this device."}
+            </p>
             <form onSubmit={handleCreateSchool} style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 420 }}>
               <div><label style={lbl2}>School Name</label><input type="text" value={csName} onChange={e => setCsName(e.target.value)} placeholder="e.g. PSMS Lahore" style={inp2} /></div>
               <div><label style={lbl2}>Principal / Headmaster Name</label><input type="text" value={csAdminName} onChange={e => setCsAdminName(e.target.value)} placeholder="e.g. Mr. Ahmed Khan" style={inp2} /></div>
@@ -881,7 +933,11 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
           {/* All schools list */}
           <section style={{ background: "#fff", borderRadius: 12, padding: 20, marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
             <h2 style={{ margin: "0 0 4px", fontSize: 15, color: "#1e293b" }}>All Schools</h2>
-            <p style={{ margin: "0 0 14px", fontSize: 13, color: C.gray }}>Active, stopped, and deleted schools.</p>
+            <p style={{ margin: "0 0 14px", fontSize: 13, color: C.gray }}>
+              {isSupabaseConfigured
+                ? "Active, stopped, and deleted schools. Create Login syncs to the cloud so sign-in works worldwide."
+                : "Active, stopped, and deleted schools."}
+            </p>
             {(!schools || schools.length === 0) ? (
               <p style={{ margin: 0, fontSize: 13, color: C.gray }}>No schools registered yet.</p>
             ) : (
@@ -916,14 +972,26 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
                                 if (!emailNorm) { alert("Email is required."); return; }
                                 const pw = window.prompt("Temporary password (min 4 characters):", "1234");
                                 if (pw == null) return;
-                                if (String(pw).trim().length < 4) { alert("Password must be at least 4 characters."); return; }
-                                const list = loadAuthUsers();
+                                const plainPw = String(pw).trim();
+                                if (plainPw.length < 4) { alert("Password must be at least 4 characters."); return; }
+                                const list = await hydrateAuthUsersMirror();
                                 if (list.some(u => String(u.email || "").toLowerCase() === emailNorm)) {
                                   alert("A user with this email already exists.");
                                   return;
                                 }
-                                const pwHash = await hashPassword(String(pw).trim());
-                                saveAuthUsers([...list, {
+                                // Ensure school exists in cloud before attaching login (FK)
+                                if (isSupabaseConfigured) {
+                                  try {
+                                    const schoolSync = await saveSchoolsToCloud(schools, s.id);
+                                    if (schoolSync?.ok === false) throw schoolSync.error || new Error("School cloud save failed");
+                                  } catch (err) {
+                                    console.warn("School cloud save failed", err);
+                                    alert("Could not sync school to cloud. Check internet, then try Create Login again.");
+                                    return;
+                                  }
+                                }
+                                const pwHash = await hashPassword(plainPw);
+                                const sync = await saveAuthUsers([...list, {
                                   id: genId(),
                                   email: emailNorm,
                                   password: pwHash,
@@ -932,7 +1000,7 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
                                   userType: "principal",
                                 }]);
                                 refreshUsers();
-                                alert(`Login created.\n\nEmail: ${emailNorm}\nPassword: ${String(pw).trim()}\n\nUse these on the Sign In screen.`);
+                                alert(worldwideLoginNote(emailNorm, plainPw, { cloudOk: sync.ok && sync.cloud }));
                               }}
                               style={{ padding: "5px 10px", fontSize: 12, border: "1px solid #1d4ed8", borderRadius: 6, background: "#eff6ff", color: "#1d4ed8", cursor: "pointer", fontWeight: 600 }}
                             >
@@ -1089,7 +1157,7 @@ function App(){
     const pwOk=await verifyPassword(changePwCurrent,user.password);
     if(!pwOk){setChangePwError("Current password is incorrect.");setChangePwLoading(false);return;}
     const newHash=await hashPassword(changePwNew);
-    saveAuthUsers(users.map(u=>u.id===session.userId?{...u,password:newHash}:u));
+    await saveAuthUsers(users.map(u=>u.id===session.userId?{...u,password:newHash}:u));
     setChangePwSuccess("Password changed successfully!");
     setChangePwLoading(false);
     setTimeout(()=>{
@@ -1478,7 +1546,7 @@ function App(){
         }
       }
     }catch{}
-    saveAuthUsers([]);
+    await saveAuthUsers([]);
     if (wipeCloud) {
       try { await clearAllCloudData(); } catch (err) { console.warn("Cloud wipe failed", err); }
     }
@@ -1664,9 +1732,26 @@ function App(){
         <div style={{padding:"8px 12px 6px",borderTop:"1px solid rgba(148,163,184,0.25)",fontSize:10,opacity:0.8,lineHeight:1.4}}>
           {isTeacher?(session?.name||"Teacher"):(effectiveSettings.principalName||"Principal / Headmaster")}
         </div>
-        <div style={{padding:"6px 12px 10px",borderTop:"1px solid rgba(148,163,184,0.15)",fontSize:9,lineHeight:1.4,display:"flex",alignItems:"center",gap:6}} title="Local only — data stored on this device">
-          <span style={{width:7,height:7,borderRadius:"50%",background:"#f59e0b",boxShadow:"0 0 8px rgba(245,158,11,0.9)",flexShrink:0}}/>
-          Local only · This device
+        <div
+          style={{padding:"6px 12px 10px",borderTop:"1px solid rgba(148,163,184,0.15)",fontSize:9,lineHeight:1.4,display:"flex",alignItems:"center",gap:6}}
+          title={
+            !isSupabaseConfigured ? "Local only — data stored on this device"
+            : !isOnline ? "Offline — will sync when internet returns"
+            : cloudSyncing ? "Syncing to cloud…"
+            : cloudReady ? "Cloud connected — logins and data work worldwide"
+            : "Connecting to cloud…"
+          }
+        >
+          <span style={{
+            width:7,height:7,borderRadius:"50%",flexShrink:0,
+            background:!isSupabaseConfigured?"#f59e0b":!isOnline?"#dc2626":cloudReady?"#22c55e":"#38bdf8",
+            boxShadow:!isSupabaseConfigured?"0 0 8px rgba(245,158,11,0.9)":!isOnline?"0 0 8px rgba(220,38,38,0.7)":cloudReady?"0 0 8px rgba(34,197,94,0.8)":"0 0 8px rgba(56,189,248,0.8)",
+          }}/>
+          {!isSupabaseConfigured ? "Local only · This device"
+            : !isOnline ? "☁ Offline · Will sync"
+            : cloudSyncing ? "☁ Syncing…"
+            : cloudReady ? "☁ Cloud · Worldwide"
+            : "☁ Connecting…"}
         </div>
       </div>
       <div className="app-main" style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,minHeight:0,overflow:"hidden",background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",boxShadow:"0 2px 12px rgba(15,23,42,0.06)"}}>

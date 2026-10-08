@@ -20,19 +20,29 @@ export function loadAuthUsers(storageOverride) {
   }
 }
 
-export function saveAuthUsers(users, storageOverride) {
+/**
+ * Persist auth users locally and (by default) to Supabase so admin-created
+ * logins work on any device worldwide.
+ * @param {{ syncCloud?: boolean }} [options] Pass syncCloud:false when hydrating from cloud.
+ */
+export async function saveAuthUsers(users, storageOverride, options = {}) {
+  const list = Array.isArray(users) ? users : []
+  const syncCloud = options.syncCloud !== false
   try {
     const storage = getStorage(storageOverride)
-    if (!storage) return
-    storage.setItem(AUTH_USERS_KEY, JSON.stringify(Array.isArray(users) ? users : []))
+    if (storage) storage.setItem(AUTH_USERS_KEY, JSON.stringify(list))
   } catch {
     // ignore storage errors for non-blocking auth persistence
   }
-  // Fire-and-forget cloud sync (dynamic import avoids circular deps)
-  if (!storageOverride) {
-    import('../../supabaseSync.js')
-      .then((m) => m.saveAuthUsersToCloud(users))
-      .catch(() => {})
+  if (!syncCloud || storageOverride) return { ok: true, cloud: false }
+  try {
+    const m = await import('../../supabaseSync.js')
+    if (!m.isSupabaseConfigured) return { ok: true, cloud: false }
+    const result = await m.saveAuthUsersToCloud(list)
+    if (result?.ok === false) return { ok: false, cloud: true, error: result.error }
+    return { ok: true, cloud: true }
+  } catch (err) {
+    return { ok: false, cloud: true, error: err }
   }
 }
 
@@ -43,7 +53,7 @@ export async function hydrateAuthUsersFromCloud(storageOverride) {
     if (!isSupabaseConfigured) return loadAuthUsers(storageOverride)
     const cloud = await loadAuthUsersFromCloud()
     if (!cloud || !cloud.length) return loadAuthUsers(storageOverride)
-    saveAuthUsers(cloud, storageOverride)
+    await saveAuthUsers(cloud, storageOverride, { syncCloud: false })
     return cloud
   } catch {
     return loadAuthUsers(storageOverride)

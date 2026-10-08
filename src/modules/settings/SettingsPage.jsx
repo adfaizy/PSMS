@@ -1580,13 +1580,18 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
               if(!opName.trim()){setOpError("Enter full name.");return;}
               if(!opEmail.trim()){setOpError("Enter email.");return;}
               if(!opPassword.trim()||opPassword.length<4){setOpError("Password must be at least 4 characters.");return;}
-              const list=loadAuthUsers();
+              const { hydrateAuthUsersFromCloud } = await import("@/modules/auth/authCore");
+              const list=await hydrateAuthUsersFromCloud();
               const em=opEmail.trim().toLowerCase();
               if(list.some(u=>String(u.email||"").toLowerCase()===em)){setOpError("A user with this email already exists.");return;}
               const pwHash=await hashPassword(opPassword.trim());
-              saveAuthUsers([...list,{id:genId(),email:em,password:pwHash,schoolId:activeSchoolId,name:opName.trim(),userType:"school"}]);
+              const sync=await saveAuthUsers([...list,{id:genId(),email:em,password:pwHash,schoolId:activeSchoolId,name:opName.trim(),userType:"school"}]);
               setOpName("");setOpEmail("");setOpPassword("");
-              setOpSuccess("Operator account created. They can now sign in.");
+              setOpSuccess(sync?.ok && sync?.cloud
+                ? "Operator account created and synced — works worldwide on any device."
+                : sync?.ok
+                  ? "Operator account created on this device."
+                  : "Account saved locally, but cloud sync failed — check internet so it works worldwide.");
               refreshOp();
             }}>Create Operator Account</Button>
           </CardContent>
@@ -1609,7 +1614,7 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
                     <div className="truncate text-xs text-muted-foreground">{op.email}</div>
                   </div>
                   <div className="flex flex-shrink-0 flex-wrap gap-1.5">
-                    <Button type="button" size="sm" variant={op.blocked?"outline":"destructive"} onClick={()=>{const n=loadAuthUsers().map(u=>u.id===op.id?{...u,blocked:!op.blocked}:u);saveAuthUsers(n);refreshOp();}}>
+                    <Button type="button" size="sm" variant={op.blocked?"outline":"destructive"} onClick={async()=>{const n=loadAuthUsers().map(u=>u.id===op.id?{...u,blocked:!op.blocked}:u);await saveAuthUsers(n);refreshOp();}}>
                       {op.blocked?"Unblock":"Block"}
                     </Button>
                     {opEditId===op.id?(
@@ -1619,7 +1624,7 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
                         <Button type="button" size="sm" onClick={async()=>{
                           if(!opEditPw.trim()||opEditPw.length<4){setOpEditPwErr("Min 4 chars");return;}
                           const h=await hashPassword(opEditPw.trim());
-                          saveAuthUsers(loadAuthUsers().map(u=>u.id===op.id?{...u,password:h}:u));
+                          await saveAuthUsers(loadAuthUsers().map(u=>u.id===op.id?{...u,password:h}:u));
                           setOpEditId(null);setOpEditPw("");setOpEditPwErr("");refreshOp();
                         }}>Save</Button>
                         <Button type="button" size="sm" variant="outline" onClick={()=>{setOpEditId(null);setOpEditPw("");setOpEditPwErr("");}}>Cancel</Button>
@@ -1627,7 +1632,7 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
                     ):(
                       <Button type="button" size="sm" variant="outline" onClick={()=>{setOpEditId(op.id);setOpEditPw("");setOpEditPwErr("");}}>Reset PW</Button>
                     )}
-                    <Button type="button" size="sm" variant="destructive" onClick={()=>{if(!confirm(`Remove operator "${op.name}"?`))return;saveAuthUsers(loadAuthUsers().filter(u=>u.id!==op.id));refreshOp();}}>Remove</Button>
+                    <Button type="button" size="sm" variant="destructive" onClick={async()=>{if(!confirm(`Remove operator "${op.name}"?`))return;await saveAuthUsers(loadAuthUsers().filter(u=>u.id!==op.id));refreshOp();}}>Remove</Button>
                   </div>
                 </div>
               ))}
@@ -1672,13 +1677,18 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
               if(!tcName.trim()){setTcError("Select a staff member.");return;}
               if(!tcEmail.trim()){setTcError("Enter email.");return;}
               if(!tcPassword.trim()||tcPassword.length<4){setTcError("Password must be at least 4 characters.");return;}
-              const list=loadAuthUsers();
+              const { hydrateAuthUsersFromCloud } = await import("@/modules/auth/authCore");
+              const list=await hydrateAuthUsersFromCloud();
               const em=tcEmail.trim().toLowerCase();
               if(list.some(u=>String(u.email||"").toLowerCase()===em)){setTcError("A user with this email already exists.");return;}
               const pwHash=await hashPassword(tcPassword.trim());
-              saveAuthUsers([...list,{id:genId(),email:em,password:pwHash,schoolId:activeSchoolId,name:tcName.trim(),userType:"teacher"}]);
+              const sync=await saveAuthUsers([...list,{id:genId(),email:em,password:pwHash,schoolId:activeSchoolId,name:tcName.trim(),userType:"teacher"}]);
               setTcStaffId("");setTcName("");setTcEmail("");setTcPassword("");
-              setTcSuccess("Teacher account created. They can now sign in.");
+              setTcSuccess(sync?.ok && sync?.cloud
+                ? "Teacher account created and synced — works worldwide on any device."
+                : sync?.ok
+                  ? "Teacher account created on this device."
+                  : "Account saved locally, but cloud sync failed — check internet so it works worldwide.");
               refreshTc();
             }}>Create Teacher Account</Button>
           </CardContent>
@@ -1700,7 +1710,7 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
                   <div className="truncate text-xs text-muted-foreground">{tc.email}</div>
                 </div>
                 <div className="flex flex-shrink-0 flex-wrap gap-1.5">
-                  <Button type="button" size="sm" variant={tc.blocked?"outline":"destructive"} onClick={()=>{const n=loadAuthUsers().map(u=>u.id===tc.id?{...u,blocked:!u.blocked}:u);saveAuthUsers(n);refreshTc();}}>
+                  <Button type="button" size="sm" variant={tc.blocked?"outline":"destructive"} onClick={async()=>{const n=loadAuthUsers().map(u=>u.id===tc.id?{...u,blocked:!u.blocked}:u);await saveAuthUsers(n);refreshTc();}}>
                     {tc.blocked?"Unblock":"Block"}
                   </Button>
                   {tcEditId===tc.id?(
@@ -1710,7 +1720,7 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
                       <Button type="button" size="sm" onClick={async()=>{
                         if(!tcEditPw.trim()||tcEditPw.length<4){setTcEditPwErr("Min 4 chars");return;}
                         const h=await hashPassword(tcEditPw.trim());
-                        saveAuthUsers(loadAuthUsers().map(u=>u.id===tc.id?{...u,password:h}:u));
+                        await saveAuthUsers(loadAuthUsers().map(u=>u.id===tc.id?{...u,password:h}:u));
                         setTcEditId(null);setTcEditPw("");setTcEditPwErr("");refreshTc();
                       }}>Save</Button>
                       <Button type="button" size="sm" variant="outline" onClick={()=>{setTcEditId(null);setTcEditPw("");setTcEditPwErr("");}}>Cancel</Button>
@@ -1718,7 +1728,7 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
                   ):(
                     <Button type="button" size="sm" variant="outline" onClick={()=>{setTcEditId(tc.id);setTcEditPw("");setTcEditPwErr("");}}>Reset PW</Button>
                   )}
-                  <Button type="button" size="sm" variant="destructive" onClick={()=>{if(!confirm(`Remove teacher "${tc.name}"?`))return;saveAuthUsers(loadAuthUsers().filter(u=>u.id!==tc.id));refreshTc();}}>Remove</Button>
+                  <Button type="button" size="sm" variant="destructive" onClick={async()=>{if(!confirm(`Remove teacher "${tc.name}"?`))return;await saveAuthUsers(loadAuthUsers().filter(u=>u.id!==tc.id));refreshTc();}}>Remove</Button>
                 </div>
               </div>
             ))}
