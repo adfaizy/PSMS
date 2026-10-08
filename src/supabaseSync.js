@@ -391,15 +391,26 @@ export async function loadAuthUsersFromCloud() {
   return (data || []).map(userFromRow)
 }
 
-export async function saveAuthUsersToCloud(users) {
+/**
+ * Upsert auth users to cloud.
+ * By default NEVER deletes other cloud accounts (safe for multi-device).
+ * Pass { replace: true } only for intentional full wipe (admin reset).
+ */
+export async function saveAuthUsersToCloud(users, { replace = false } = {}) {
   if (!isSupabaseConfigured || !supabase) return { ok: false, skipped: true }
   const list = Array.isArray(users) ? users : []
   try {
-    const { data: existing } = await supabase.from('app_users').select('id')
-    const nextIds = new Set(list.map((u) => u.id))
-    const toDelete = (existing || []).map((u) => u.id).filter((id) => !nextIds.has(id))
-    if (toDelete.length) {
-      await supabase.from('app_users').delete().in('id', toDelete)
+    if (replace) {
+      const { data: existing } = await supabase.from('app_users').select('id')
+      const nextIds = new Set(list.map((u) => u.id))
+      const toDelete = (existing || []).map((u) => u.id).filter((id) => !nextIds.has(id))
+      if (toDelete.length) {
+        const { error: delErr } = await supabase.from('app_users').delete().in('id', toDelete)
+        if (delErr) {
+          logSyncError('saveAuthUsers:delete', delErr)
+          return { ok: false, error: delErr }
+        }
+      }
     }
     if (list.length) {
       const { error } = await supabase.from('app_users').upsert(list.map(userToRow))
@@ -411,6 +422,24 @@ export async function saveAuthUsersToCloud(users) {
     return { ok: true }
   } catch (err) {
     logSyncError('saveAuthUsers', err)
+    return { ok: false, error: err }
+  }
+}
+
+/** Delete specific auth users from cloud (explicit admin remove only). */
+export async function deleteAuthUsersFromCloud(ids) {
+  if (!isSupabaseConfigured || !supabase) return { ok: false, skipped: true }
+  const list = (Array.isArray(ids) ? ids : []).filter(Boolean)
+  if (!list.length) return { ok: true }
+  try {
+    const { error } = await supabase.from('app_users').delete().in('id', list)
+    if (error) {
+      logSyncError('deleteAuthUsers', error)
+      return { ok: false, error }
+    }
+    return { ok: true }
+  } catch (err) {
+    logSyncError('deleteAuthUsers', err)
     return { ok: false, error: err }
   }
 }

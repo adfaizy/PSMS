@@ -9,12 +9,14 @@ import {
   saveSchoolsToCloud,
   loadAuthUsersFromCloud,
   saveAuthUsersToCloud,
+  deleteAuthUsersFromCloud,
   clearAllCloudData,
   saveAttendanceToCloud,
   saveFeesToCloud,
   saveLibraryToCloud,
   saveDiscussionToCloud,
 } from "./supabaseSync.js";
+import { mergeAuthUserLists } from "./modules/auth/authCore.js";
 import { loadLibraryFromLocal } from "./modules/library/libraryCore.js";
 import { loadDiscussionMessages } from "./modules/aboutSupport/aboutSupportCore.js";
 import { createPortal } from "react-dom";
@@ -414,8 +416,11 @@ function loadAuthUsers() {
     return Array.isArray(arr) ? arr : [];
   } catch { return []; }
 }
-/** Persist auth users locally and (when configured) to Supabase so logins work worldwide. */
-async function saveAuthUsers(users) {
+/**
+ * Persist auth users locally and upsert to Supabase (never wipes other cloud accounts).
+ * Pass deletedIds when removing users; replace:true only for full admin reset.
+ */
+async function saveAuthUsers(users, { deletedIds = [], replace = false } = {}) {
   const list = Array.isArray(users) ? users : [];
   try {
     if (typeof window !== "undefined") {
@@ -424,7 +429,11 @@ async function saveAuthUsers(users) {
   } catch {}
   if (!isSupabaseConfigured) return { ok: true, cloud: false };
   try {
-    const result = await saveAuthUsersToCloud(list);
+    if (deletedIds.length) {
+      const del = await deleteAuthUsersFromCloud(deletedIds);
+      if (del?.ok === false) return { ok: false, cloud: true, error: del.error };
+    }
+    const result = await saveAuthUsersToCloud(list, { replace });
     if (result?.ok === false) return { ok: false, cloud: true, error: result.error };
     return { ok: true, cloud: true };
   } catch (err) {
@@ -461,14 +470,17 @@ function saveAuthSession(session) {
 async function hydrateAuthUsersMirror() {
   if (!isSupabaseConfigured) return loadAuthUsers();
   try {
-    const cloudUsers = await loadAuthUsersFromCloud();
-    if (cloudUsers && cloudUsers.length) {
-      try { window.localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(cloudUsers)); } catch {}
-      return cloudUsers;
-    }
+    const cloudUsers = (await loadAuthUsersFromCloud()) || [];
     const localUsers = loadAuthUsers();
-    if (localUsers.length) await saveAuthUsersToCloud(localUsers);
-    return localUsers;
+    const { merged, localOnly } = mergeAuthUserLists(cloudUsers, localUsers);
+    try { window.localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(merged)); } catch {}
+    // Push only local-only accounts; never delete other devices' cloud logins
+    if (localOnly.length) {
+      await saveAuthUsersToCloud(localOnly, { replace: false });
+    } else if (!cloudUsers.length && merged.length) {
+      await saveAuthUsersToCloud(merged, { replace: false });
+    }
+    return merged;
   } catch {
     return loadAuthUsers();
   }
@@ -603,15 +615,36 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
   const headerNow = useNowEverySecond();
   const [adminTab, setAdminTab] = useState("users"); // "users" | "schools" | "danger"
   const [usersList, setUsersList] = useState(() => loadAuthUsers());
+  const [usersSyncing, setUsersSyncing] = useState(false);
   const refreshUsers = () => setUsersList(loadAuthUsers());
+  const pullUsersFromCloud = useCallback(async () => {
+    setUsersSyncing(true);
+    try {
+      const users = await hydrateAuthUsersMirror();
+      setUsersList(users);
+      return users;
+    } finally {
+      setUsersSyncing(false);
+    }
+  }, []);
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const users = await hydrateAuthUsersMirror();
       if (!cancelled) setUsersList(users);
     })();
-    return () => { cancelled = true; };
-  }, []);
+    const onFocus = () => { pullUsersFromCloud(); };
+    const onVisible = () => { if (document.visibilityState === "visible") pullUsersFromCloud(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    const poll = setInterval(() => { pullUsersFromCloud(); }, 20000);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(poll);
+    };
+  }, [pullUsersFromCloud]);
   // User management
   const [editUserId, setEditUserId] = useState(null);
   const [editNewPw, setEditNewPw] = useState("");
@@ -754,21 +787,32 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
     }
     const userId = genId();
     const pwHash = await hashPassword(plainPw);
-    const sync = await saveAuthUsers([...list, { id: userId, email: emailNorm, password: pwHash, schoolId, name: String(csAdminName).trim(), userType: "principal" }]);
-    setCsName(""); setCsEmail(""); setCsAdminName(""); setCsPassword("");
-    if (sync.ok && sync.cloud) {
-      setCsSuccess(`School "${schoolName}" created. Login works worldwide — Email: ${emailNorm}`);
-    } else if (sync.ok) {
-      setCsSuccess(`School "${schoolName}" created on this device. Connect Supabase for worldwide login.`);
-    } else {
-      setCsSuccess(`School created locally, but login cloud sync failed. Use Cloud Sync so "${emailNorm}" works worldwide.`);
+    const newUser = { id: userId, email: emailNorm, password: pwHash, schoolId, name: String(csAdminName).trim(), userType: "principal" };
+    const sync = await saveAuthUsers([...list, newUser]);
+    let cloudOk = sync.ok && sync.cloud;
+    if (cloudOk) {
+      const cloudCheck = await loadAuthUsersFromCloud();
+      cloudOk = Array.isArray(cloudCheck) && cloudCheck.some((u) => String(u.email || "").toLowerCase() === emailNorm);
+      if (!cloudOk) {
+        await saveAuthUsersToCloud([newUser], { replace: false });
+        const again = await loadAuthUsersFromCloud();
+        cloudOk = Array.isArray(again) && again.some((u) => String(u.email || "").toLowerCase() === emailNorm);
+      }
     }
-    refreshUsers();
+    setCsName(""); setCsEmail(""); setCsAdminName(""); setCsPassword("");
+    if (cloudOk) {
+      setCsSuccess(`School "${schoolName}" created. Login is on the cloud — works on every device. Email: ${emailNorm}`);
+    } else if (sync.ok) {
+      setCsSuccess(`School "${schoolName}" created on this device only. Cloud sync failed — check internet and try Create Login again.`);
+    } else {
+      setCsSuccess(`School created locally, but login cloud sync failed. Fix internet so "${emailNorm}" appears on other devices.`);
+    }
+    await pullUsersFromCloud();
   };
 
   const handleDeleteUser = async (userId) => {
     const next = loadAuthUsers().filter(u => u.id !== userId);
-    await saveAuthUsers(next);
+    await saveAuthUsers(next, { deletedIds: [userId] });
     refreshUsers();
   };
 
@@ -819,6 +863,16 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
 
         {/* ── TAB: USER MANAGEMENT ── */}
         {adminTab === "users" && (<>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+            <button
+              type="button"
+              onClick={() => pullUsersFromCloud()}
+              disabled={usersSyncing}
+              style={{ padding: "6px 12px", fontSize: 12, fontWeight: 600, border: "1px solid #93c5fd", borderRadius: 6, background: "#eff6ff", color: "#1d4ed8", cursor: usersSyncing ? "not-allowed" : "pointer" }}
+            >
+              {usersSyncing ? "Syncing logins…" : "☁ Refresh logins from cloud"}
+            </button>
+          </div>
           {/* Self-signup users */}
           <section style={{ background: "#fff", borderRadius: 12, padding: 20, marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
             <h2 style={{ margin: "0 0 4px", fontSize: 15, color: "#1e293b" }}>Self-Signup Users</h2>
@@ -933,11 +987,23 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
           {/* All schools list */}
           <section style={{ background: "#fff", borderRadius: 12, padding: 20, marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
             <h2 style={{ margin: "0 0 4px", fontSize: 15, color: "#1e293b" }}>All Schools</h2>
-            <p style={{ margin: "0 0 14px", fontSize: 13, color: C.gray }}>
-              {isSupabaseConfigured
-                ? "Active, stopped, and deleted schools. Create Login syncs to the cloud so sign-in works worldwide."
-                : "Active, stopped, and deleted schools."}
-            </p>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+              <p style={{ margin: 0, fontSize: 13, color: C.gray, flex: "1 1 220px" }}>
+                {isSupabaseConfigured
+                  ? "Create Login syncs to the cloud. Other devices show it after Refresh / within ~20s."
+                  : "Active, stopped, and deleted schools."}
+              </p>
+              {isSupabaseConfigured && (
+                <button
+                  type="button"
+                  onClick={() => pullUsersFromCloud()}
+                  disabled={usersSyncing}
+                  style={{ padding: "6px 12px", fontSize: 12, fontWeight: 600, border: "1px solid #93c5fd", borderRadius: 6, background: "#eff6ff", color: "#1d4ed8", cursor: usersSyncing ? "not-allowed" : "pointer" }}
+                >
+                  {usersSyncing ? "Syncing…" : "☁ Refresh logins"}
+                </button>
+              )}
+            </div>
             {(!schools || schools.length === 0) ? (
               <p style={{ margin: 0, fontSize: 13, color: C.gray }}>No schools registered yet.</p>
             ) : (
@@ -991,16 +1057,33 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
                                   }
                                 }
                                 const pwHash = await hashPassword(plainPw);
-                                const sync = await saveAuthUsers([...list, {
+                                const newUser = {
                                   id: genId(),
                                   email: emailNorm,
                                   password: pwHash,
                                   schoolId: s.id,
                                   name: s.settings?.principalName || sName,
                                   userType: "principal",
-                                }]);
-                                refreshUsers();
-                                alert(worldwideLoginNote(emailNorm, plainPw, { cloudOk: sync.ok && sync.cloud }));
+                                };
+                                const sync = await saveAuthUsers([...list, newUser]);
+                                // Verify the login is actually readable from cloud (other devices)
+                                let cloudOk = sync.ok && sync.cloud;
+                                if (cloudOk) {
+                                  const cloudCheck = await loadAuthUsersFromCloud();
+                                  cloudOk = Array.isArray(cloudCheck) && cloudCheck.some(
+                                    (u) => String(u.email || "").toLowerCase() === emailNorm
+                                  );
+                                  if (!cloudOk) {
+                                    // Retry upsert of just this user
+                                    const retry = await saveAuthUsersToCloud([newUser], { replace: false });
+                                    const again = await loadAuthUsersFromCloud();
+                                    cloudOk = retry?.ok !== false && Array.isArray(again) && again.some(
+                                      (u) => String(u.email || "").toLowerCase() === emailNorm
+                                    );
+                                  }
+                                }
+                                await pullUsersFromCloud();
+                                alert(worldwideLoginNote(emailNorm, plainPw, { cloudOk }));
                               }}
                               style={{ padding: "5px 10px", fontSize: 12, border: "1px solid #1d4ed8", borderRadius: 6, background: "#eff6ff", color: "#1d4ed8", cursor: "pointer", fontWeight: 600 }}
                             >
@@ -1388,13 +1471,14 @@ function App(){
             loadAuthUsersFromCloud(),
           ]);
           if(cancelled) return;
-          if(cloudUsers&&cloudUsers.length){
-            // Prefer cloud accounts; keep local mirror
-            try{ window.localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(cloudUsers)); }catch{}
-          }else{
-            // Push local accounts up on first connect
+          {
+            // Merge cloud + local; upsert local-only (never wipe other devices' logins)
+            const cloudList=Array.isArray(cloudUsers)?cloudUsers:[];
             const localUsers=loadAuthUsers();
-            if(localUsers.length) await saveAuthUsersToCloud(localUsers);
+            const { merged, localOnly }=mergeAuthUserLists(cloudList, localUsers);
+            try{ window.localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(merged)); }catch{}
+            if(localOnly.length) await saveAuthUsersToCloud(localOnly, { replace:false });
+            else if(!cloudList.length && merged.length) await saveAuthUsersToCloud(merged, { replace:false });
           }
           if(cloudSchools&&Array.isArray(cloudSchools.schools)&&cloudSchools.schools.length){
             setSchools(cloudSchools.schools);
@@ -1546,7 +1630,8 @@ function App(){
         }
       }
     }catch{}
-    await saveAuthUsers([]);
+    // Clear local accounts only; do not wipe cloud logins unless user confirmed
+    try { window.localStorage.setItem(AUTH_USERS_KEY, JSON.stringify([])); } catch {}
     if (wipeCloud) {
       try { await clearAllCloudData(); } catch (err) { console.warn("Cloud wipe failed", err); }
     }

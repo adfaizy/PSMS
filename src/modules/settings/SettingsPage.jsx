@@ -1632,7 +1632,7 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
                     ):(
                       <Button type="button" size="sm" variant="outline" onClick={()=>{setOpEditId(op.id);setOpEditPw("");setOpEditPwErr("");}}>Reset PW</Button>
                     )}
-                    <Button type="button" size="sm" variant="destructive" onClick={async()=>{if(!confirm(`Remove operator "${op.name}"?`))return;await saveAuthUsers(loadAuthUsers().filter(u=>u.id!==op.id));refreshOp();}}>Remove</Button>
+                    <Button type="button" size="sm" variant="destructive" onClick={async()=>{if(!confirm(`Remove operator "${op.name}"?`))return;await saveAuthUsers(loadAuthUsers().filter(u=>u.id!==op.id), null, { deletedIds: [op.id] });refreshOp();}}>Remove</Button>
                   </div>
                 </div>
               ))}
@@ -1728,7 +1728,7 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
                   ):(
                     <Button type="button" size="sm" variant="outline" onClick={()=>{setTcEditId(tc.id);setTcEditPw("");setTcEditPwErr("");}}>Reset PW</Button>
                   )}
-                  <Button type="button" size="sm" variant="destructive" onClick={async()=>{if(!confirm(`Remove teacher "${tc.name}"?`))return;await saveAuthUsers(loadAuthUsers().filter(u=>u.id!==tc.id));refreshTc();}}>Remove</Button>
+                  <Button type="button" size="sm" variant="destructive" onClick={async()=>{if(!confirm(`Remove teacher "${tc.name}"?`))return;await saveAuthUsers(loadAuthUsers().filter(u=>u.id!==tc.id), null, { deletedIds: [tc.id] });refreshTc();}}>Remove</Button>
                 </div>
               </div>
             ))}

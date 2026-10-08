@@ -21,13 +21,45 @@ export function loadAuthUsers(storageOverride) {
 }
 
 /**
- * Persist auth users locally and (by default) to Supabase so admin-created
- * logins work on any device worldwide.
- * @param {{ syncCloud?: boolean }} [options] Pass syncCloud:false when hydrating from cloud.
+ * Merge cloud + local auth users by email.
+ * Cloud wins for shared emails; local-only accounts are kept so they can be pushed up.
+ */
+export function mergeAuthUserLists(cloudUsers, localUsers) {
+  const byEmail = new Map()
+  for (const u of Array.isArray(cloudUsers) ? cloudUsers : []) {
+    const em = String(u?.email || '').trim().toLowerCase()
+    if (!em) continue
+    byEmail.set(em, { ...u, email: em })
+  }
+  const localOnly = []
+  for (const u of Array.isArray(localUsers) ? localUsers : []) {
+    const em = String(u?.email || '').trim().toLowerCase()
+    if (!em) continue
+    if (byEmail.has(em)) {
+      const cloud = byEmail.get(em)
+      // Keep cloud record; fill empty password from local if needed
+      if (!cloud.password && u.password) {
+        byEmail.set(em, { ...cloud, password: u.password })
+      }
+    } else {
+      const row = { ...u, email: em }
+      byEmail.set(em, row)
+      localOnly.push(row)
+    }
+  }
+  return { merged: Array.from(byEmail.values()), localOnly }
+}
+
+/**
+ * Persist auth users locally and (by default) upsert to Supabase.
+ * Never deletes other cloud accounts unless deletedIds / replace is set.
+ * @param {{ syncCloud?: boolean, replace?: boolean, deletedIds?: string[] }} [options]
  */
 export async function saveAuthUsers(users, storageOverride, options = {}) {
   const list = Array.isArray(users) ? users : []
   const syncCloud = options.syncCloud !== false
+  const replace = options.replace === true
+  const deletedIds = Array.isArray(options.deletedIds) ? options.deletedIds.filter(Boolean) : []
   try {
     const storage = getStorage(storageOverride)
     if (storage) storage.setItem(AUTH_USERS_KEY, JSON.stringify(list))
@@ -38,7 +70,11 @@ export async function saveAuthUsers(users, storageOverride, options = {}) {
   try {
     const m = await import('../../supabaseSync.js')
     if (!m.isSupabaseConfigured) return { ok: true, cloud: false }
-    const result = await m.saveAuthUsersToCloud(list)
+    if (deletedIds.length) {
+      const del = await m.deleteAuthUsersFromCloud(deletedIds)
+      if (del?.ok === false) return { ok: false, cloud: true, error: del.error }
+    }
+    const result = await m.saveAuthUsersToCloud(list, { replace })
     if (result?.ok === false) return { ok: false, cloud: true, error: result.error }
     return { ok: true, cloud: true }
   } catch (err) {
@@ -46,15 +82,20 @@ export async function saveAuthUsers(users, storageOverride, options = {}) {
   }
 }
 
-/** Hydrate local auth users from Supabase when cloud has accounts. */
+/** Hydrate local auth users from Supabase; merge local-only accounts and push them up safely. */
 export async function hydrateAuthUsersFromCloud(storageOverride) {
   try {
-    const { loadAuthUsersFromCloud, isSupabaseConfigured } = await import('../../supabaseSync.js')
-    if (!isSupabaseConfigured) return loadAuthUsers(storageOverride)
-    const cloud = await loadAuthUsersFromCloud()
-    if (!cloud || !cloud.length) return loadAuthUsers(storageOverride)
-    await saveAuthUsers(cloud, storageOverride, { syncCloud: false })
-    return cloud
+    const m = await import('../../supabaseSync.js')
+    if (!m.isSupabaseConfigured) return loadAuthUsers(storageOverride)
+    const cloud = (await m.loadAuthUsersFromCloud()) || []
+    const local = loadAuthUsers(storageOverride)
+    const { merged, localOnly } = mergeAuthUserLists(cloud, local)
+    await saveAuthUsers(merged, storageOverride, { syncCloud: false })
+    // Push only accounts that other devices don't have yet (upsert, no wipe)
+    if (localOnly.length) {
+      await m.saveAuthUsersToCloud(localOnly, { replace: false })
+    }
+    return merged
   } catch {
     return loadAuthUsers(storageOverride)
   }
