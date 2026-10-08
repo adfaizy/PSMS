@@ -660,7 +660,7 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
   const [adminTab, setAdminTab] = useState("users"); // "users" | "schools" | "danger"
   const [usersList, setUsersList] = useState(() => loadAuthUsers());
   const [usersSyncing, setUsersSyncing] = useState(false);
-  const [cloudOk, setCloudOk] = useState(() => isSupabaseConfigured);
+  const [cloudOk, setCloudOk] = useState(() => getIsSupabaseConfigured());
   const [cloudMsg, setCloudMsg] = useState("");
   const cloudPullInFlight = useRef(false);
   const syncUiDepthRef = useRef(0);

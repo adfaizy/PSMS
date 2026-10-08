@@ -90,9 +90,10 @@ if (!url || !anonKey) {
   if (process.env.VERCEL || process.env.CI) {
     console.error(msg)
     process.exit(1)
+  } else {
+    console.warn(msg)
+    process.exit(0)
   }
-  console.warn(msg)
-  process.exit(0)
 }
 
 const payload = { url, anonKey }
