@@ -656,12 +656,15 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
   const [cloudMsg, setCloudMsg] = useState("");
   const cloudPullInFlight = useRef(false);
   const refreshUsers = () => setUsersList(loadAuthUsers());
-  /** Pull schools + logins from cloud so other devices see admin-created accounts. */
-  const pullUsersFromCloud = useCallback(async () => {
+  /** Pull schools + logins from cloud so other devices see admin-created accounts.
+   *  `{ silent: true }` = background poll — do not flip Cloud ON ↔ Syncing badge. */
+  const pullUsersFromCloud = useCallback(async ({ silent = false } = {}) => {
     if (cloudPullInFlight.current) return loadAuthUsers();
     cloudPullInFlight.current = true;
-    setUsersSyncing(true);
-    setCloudMsg("");
+    if (!silent) {
+      setUsersSyncing(true);
+      setCloudMsg("");
+    }
     const safety = setTimeout(() => {
       // Never leave the Refresh button stuck on "Syncing…"
       cloudPullInFlight.current = false;
@@ -671,14 +674,16 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
       const init = await initSupabaseCloud();
       if (!init?.ok || !init?.client) {
         setCloudOk(false);
-        setCloudMsg("Cloud config missing. Open this app from the main PC URL (Network address), or on main PC run: npm run psms-config && npm run dev");
+        if (!silent) {
+          setCloudMsg("Cloud config missing. Open this app from the main PC URL (Network address), or on main PC run: npm run psms-config && npm run dev");
+        }
         setUsersList(loadAuthUsers());
         return loadAuthUsers();
       }
       const ping = await pingSupabaseCloud(8000);
       setCloudOk(ping.ok);
       if (!ping.ok) {
-        setCloudMsg(`Cloud unreachable (${ping.reason || "network"}). Check internet.`);
+        if (!silent) setCloudMsg(`Cloud unreachable (${ping.reason || "network"}). Check internet.`);
         return loadAuthUsers();
       }
       const [cloudUsers, cloudSchools] = await Promise.all([
@@ -691,16 +696,26 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
       try { window.localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(merged)); } catch {}
       if (localOnly.length) await saveAuthUsersToCloud(localOnly, { replace: false });
       setUsersList(merged);
+      // Only replace schools when payload actually changed — avoids Cloud badge blink loops
       if (cloudSchools?.schools?.length) {
-        setSchools(cloudSchools.schools);
+        setSchools((prev) => {
+          try {
+            if (JSON.stringify(prev) === JSON.stringify(cloudSchools.schools)) return prev;
+          } catch { /* fall through */ }
+          return cloudSchools.schools;
+        });
       }
       setCloudOk(true);
-      setCloudMsg(cloudList.length ? `${cloudList.length} login(s) from cloud` : "Cloud connected");
+      if (!silent) {
+        setCloudMsg(cloudList.length ? `${cloudList.length} login(s) from cloud` : "Cloud connected");
+      }
       return merged;
     } catch (err) {
       console.warn("Admin cloud pull failed", err);
-      setCloudOk(false);
-      setCloudMsg("Cloud sync failed — try Refresh again.");
+      if (!silent) {
+        setCloudOk(false);
+        setCloudMsg("Cloud sync failed — try Refresh again.");
+      }
       return loadAuthUsers();
     } finally {
       clearTimeout(safety);
@@ -711,20 +726,21 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const users = await pullUsersFromCloud();
+      const users = await pullUsersFromCloud({ silent: false });
       if (!cancelled) setUsersList(users);
     })();
-    const onFocus = () => { pullUsersFromCloud(); };
-    const onVisible = () => { if (document.visibilityState === "visible") pullUsersFromCloud(); };
+    const silentPull = () => { pullUsersFromCloud({ silent: true }); };
+    const onFocus = () => { silentPull(); };
+    const onVisible = () => { if (document.visibilityState === "visible") silentPull(); };
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisible);
-    const poll = setInterval(() => { pullUsersFromCloud(); }, 10000);
+    const poll = setInterval(silentPull, 30000);
     let channel = null;
     if (isSupabaseConfigured && supabase) {
       channel = supabase
         .channel("admin-app-users")
         .on("postgres_changes", { event: "*", schema: "public", table: "app_users" }, () => {
-          pullUsersFromCloud();
+          silentPull();
         })
         .subscribe();
     }
@@ -1383,6 +1399,9 @@ function App(){
   const saveStatusTimeoutRef=useRef(null);
   const cloudSaveTimerRef=useRef(null);
   const cloudRetryTimerRef=useRef(null);
+  const cloudPushInFlightRef=useRef(false);
+  const skipNextCloudPushRef=useRef(false);
+  const cloudReadyRef=useRef(false);
   const schoolsRef=useRef(schools);
   const activeSchoolIdRef=useRef(activeSchoolId);
   const [saveStatus,setSaveStatus]=useState("idle"); // idle | saving | saved | error | offline
@@ -1390,10 +1409,12 @@ function App(){
   const [cloudSyncing,setCloudSyncing]=useState(false);
   const [isOnline,setIsOnline]=useState(()=>typeof navigator==="undefined"?true:navigator.onLine!==false);
   const [lastSyncedAt,setLastSyncedAt]=useState(null);
-  const _dbStatus=!isSupabaseConfigured?"local":!isOnline?"offline":cloudSyncing?"syncing":cloudReady?"cloud":"syncing";
+  // Keep badge on Cloud once connected — only show Syncing while a push is in flight and not yet ready
+  const _dbStatus=!isSupabaseConfigured?"local":!isOnline?"offline":cloudReady?"cloud":cloudSyncing?"syncing":"connecting";
 
   useEffect(()=>{ schoolsRef.current=schools; },[schools]);
   useEffect(()=>{ activeSchoolIdRef.current=activeSchoolId; },[activeSchoolId]);
+  useEffect(()=>{ cloudReadyRef.current=cloudReady; },[cloudReady]);
 
   const flushModuleLocalsToCloud=useCallback(async(schoolList)=>{
     if(!isSupabaseConfigured) return;
@@ -1423,18 +1444,28 @@ function App(){
     }catch(e){ console.warn("Auth users cloud flush failed", e); }
   },[]);
 
-  const pushToCloud=useCallback(async(nextSchools, nextActiveId, { retryCount=0 }={})=>{
+  const pushToCloud=useCallback(async(nextSchools, nextActiveId, { retryCount=0, quiet=false }={})=>{
     if(!isSupabaseConfigured) return;
     if(typeof navigator!=="undefined" && navigator.onLine===false){
       setIsOnline(false);
       setSaveStatus("offline");
-      setCloudReady(false);
+      return;
+    }
+    if(cloudPushInFlightRef.current && retryCount===0){
+      // Coalesce: another push is running; schedule one follow-up after it finishes
+      skipNextCloudPushRef.current=false;
+      if(cloudSaveTimerRef.current) clearTimeout(cloudSaveTimerRef.current);
+      cloudSaveTimerRef.current=setTimeout(()=>{
+        pushToCloud(schoolsRef.current, activeSchoolIdRef.current, { quiet:true });
+      },2200);
       return;
     }
     const payloadSchools=nextSchools||schoolsRef.current;
     const payloadActiveId=nextActiveId!==undefined?nextActiveId:activeSchoolIdRef.current;
-    setCloudSyncing(true);
-    setSaveStatus("saving");
+    cloudPushInFlightRef.current=true;
+    // Only flash Syncing on first connect or manual sync — keep Cloud steady once ready
+    if(!quiet || !cloudReadyRef.current) setCloudSyncing(true);
+    if(!quiet) setSaveStatus("saving");
     try{
       const result=await saveSchoolsToCloud(payloadSchools, payloadActiveId);
       if(result?.schools&&Array.isArray(result.schools)){
@@ -1444,7 +1475,15 @@ function App(){
           return JSON.stringify(prev.students)!==JSON.stringify(sc.students)
             || JSON.stringify(prev.staffProfiles)!==JSON.stringify(sc.staffProfiles);
         });
-        if(changed) setSchools(result.schools);
+        if(changed){
+          // Apply migrated photos without an immediate blinky re-push; follow up quietly for remaining batches
+          skipNextCloudPushRef.current=true;
+          setSchools(result.schools);
+          if(cloudSaveTimerRef.current) clearTimeout(cloudSaveTimerRef.current);
+          cloudSaveTimerRef.current=setTimeout(()=>{
+            pushToCloud(schoolsRef.current, activeSchoolIdRef.current, { quiet:true });
+          },2800);
+        }
       }
       if(result?.ok===false) throw result.error||new Error("Cloud save failed");
       await flushModuleLocalsToCloud(payloadSchools);
@@ -1456,15 +1495,15 @@ function App(){
     }catch(err){
       console.warn("Cloud sync failed", err);
       setSaveStatus("error");
-      setCloudReady(false);
       if(retryCount<2){
         const delay=2500*(retryCount+1);
         if(cloudRetryTimerRef.current) clearTimeout(cloudRetryTimerRef.current);
         cloudRetryTimerRef.current=setTimeout(()=>{
-          pushToCloud(payloadSchools, payloadActiveId, { retryCount: retryCount+1 });
+          pushToCloud(payloadSchools, payloadActiveId, { retryCount: retryCount+1, quiet:true });
         }, delay);
       }
     }finally{
+      cloudPushInFlightRef.current=false;
       setCloudSyncing(false);
       if(saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
       saveStatusTimeoutRef.current=setTimeout(()=>setSaveStatus("idle"),1600);
@@ -1482,7 +1521,6 @@ function App(){
     };
     const onOffline=()=>{
       setIsOnline(false);
-      setCloudReady(false);
       setSaveStatus("offline");
     };
     window.addEventListener("online", onOnline);
@@ -1681,7 +1719,6 @@ function App(){
 
   useEffect(()=>{
     if(!loadedFromDb) return;
-    queueMicrotask(()=>setSaveStatus("saving"));
     saveToLocal(schools,activeSchoolId);
     if(!isSupabaseConfigured){
       setSaveStatus("saved");
@@ -1691,12 +1728,15 @@ function App(){
     }
     if(!isOnline){
       setSaveStatus("offline");
-      setCloudReady(false);
+      return;
+    }
+    if(skipNextCloudPushRef.current){
+      skipNextCloudPushRef.current=false;
       return;
     }
     if(cloudSaveTimerRef.current) clearTimeout(cloudSaveTimerRef.current);
     cloudSaveTimerRef.current=setTimeout(()=>{
-      pushToCloud(schools,activeSchoolId);
+      pushToCloud(schools,activeSchoolId, { quiet:true });
     },1800);
     return ()=>{
       if(cloudSaveTimerRef.current) clearTimeout(cloudSaveTimerRef.current);
@@ -1836,7 +1876,7 @@ function App(){
             {isSupabaseConfigured&&(
               <button
                 type="button"
-                onClick={()=>pushToCloud(schools,activeSchoolId)}
+                onClick={()=>pushToCloud(schools,activeSchoolId,{quiet:false})}
                 disabled={cloudSyncing||!isOnline}
                 title={lastSyncedAt?`Last synced ${new Date(lastSyncedAt).toLocaleTimeString()}`:"Push data to Supabase now"}
                 style={{
@@ -1848,9 +1888,9 @@ function App(){
                   whiteSpace:"nowrap",
                 }}
               >
-                {_dbStatus==="cloud"?"☁ Cloud":_dbStatus==="offline"?"☁ Offline":"☁ Syncing…"}
-                {isOnline?" · Sync now":""}
-                {lastSyncedAt&&isOnline?` · ${new Date(lastSyncedAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`:""}
+                {_dbStatus==="cloud"?"☁ Cloud":_dbStatus==="offline"?"☁ Offline":_dbStatus==="syncing"?"☁ Syncing…":"☁ Connecting…"}
+                {isOnline&&_dbStatus==="cloud"?" · Sync now":""}
+                {lastSyncedAt&&isOnline&&_dbStatus==="cloud"?` · ${new Date(lastSyncedAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`:""}
               </button>
             )}
             <AppZoomControls
@@ -1946,8 +1986,8 @@ function App(){
           title={
             !isSupabaseConfigured ? "Local only — data stored on this device"
             : !isOnline ? "Offline — will sync when internet returns"
-            : cloudSyncing ? "Syncing to cloud…"
             : cloudReady ? "Cloud connected — logins and data work worldwide"
+            : cloudSyncing ? "Syncing to cloud…"
             : "Connecting to cloud…"
           }
         >
@@ -1958,8 +1998,8 @@ function App(){
           }}/>
           {!isSupabaseConfigured ? "Local only · This device"
             : !isOnline ? "☁ Offline · Will sync"
-            : cloudSyncing ? "☁ Syncing…"
             : cloudReady ? "☁ Cloud · Worldwide"
+            : cloudSyncing ? "☁ Syncing…"
             : "☁ Connecting…"}
         </div>
       </div>

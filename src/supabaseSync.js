@@ -177,7 +177,7 @@ function classRowsFromSettings(schoolId, settings) {
 export async function loadSchoolsFromCloud() {
   if (!getIsSupabaseConfigured() || !getSupabase()) return null
 
-  const { data: schoolRows, error } = await supabase
+  const { data: schoolRows, error } = await getSupabase()
     .from('schools')
     .select('*')
     .neq('status', 'deleted')
@@ -318,7 +318,7 @@ export async function saveSchoolsToCloud(schools, activeSchoolId) {
         exam_datesheet: data?.exam_datesheet || { dates: [], cols: [], subs: {}, note: '' },
       }))
       if (examRows.length) {
-        const { error } = await supabase
+        const { error } = await getSupabase()
           .from('exam_sessions')
           .upsert(examRows, { onConflict: 'school_id,session_label' })
         if (error) logSyncError('upsertExamSessions', error)
@@ -360,7 +360,7 @@ export async function saveSchoolsToCloud(schools, activeSchoolId) {
 }
 
 async function replaceChildren(table, schoolId, rows) {
-  const { data: existing, error: listErr } = await supabase
+  const { data: existing, error: listErr } = await getSupabase()
     .from(table)
     .select('id')
     .eq('school_id', schoolId)
@@ -531,7 +531,7 @@ export async function clearAllCloudData() {
 
 export async function loadAttendanceFromCloud(schoolId) {
   if (!getIsSupabaseConfigured() || !getSupabase() || !schoolId) return null
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('attendance_records')
     .select('*')
     .eq('school_id', schoolId)
@@ -721,7 +721,7 @@ export async function saveLibraryToCloud(schoolId, libraryData) {
 
 export async function loadDiscussionFromCloud() {
   if (!getIsSupabaseConfigured() || !getSupabase()) return null
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('discussion_messages')
     .select('*')
     .order('created_at', { ascending: true })
