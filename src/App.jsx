@@ -9,6 +9,8 @@ import {
   saveSchoolsToCloud,
   loadAuthUsersFromCloud,
   saveAuthUsersToCloud,
+  findAuthUserByEmailFromCloud,
+  upsertAuthUserToCloud,
   deleteAuthUsersFromCloud,
   clearAllCloudData,
   saveAttendanceToCloud,
@@ -16,6 +18,7 @@ import {
   saveLibraryToCloud,
   saveDiscussionToCloud,
 } from "./supabaseSync.js";
+import { supabase } from "./lib/supabase.js";
 import { mergeAuthUserLists } from "./modules/auth/authCore.js";
 import { loadLibraryFromLocal } from "./modules/library/libraryCore.js";
 import { loadDiscussionMessages } from "./modules/aboutSupport/aboutSupportCore.js";
@@ -504,21 +507,54 @@ function AuthScreen({ onSignIn, setActiveSchoolId }) {
       await hydrateAuthUsersMirror();
       if (!cancelled) setAccountsReady(true);
     })();
-    return () => { cancelled = true; };
+    const refresh = () => { hydrateAuthUsersMirror().catch(() => {}); };
+    window.addEventListener("focus", refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refresh);
+    };
   }, []);
 
   const handleSignIn = async (e) => {
     e.preventDefault(); setError(""); setLoading(true);
     const emailNorm = String(email).trim().toLowerCase();
-    let users = await hydrateAuthUsersMirror();
-    let user = users.find(u => String(u.email || "").toLowerCase() === emailNorm);
-    if (!user) { setError("No account found with this email."); setLoading(false); return; }
-    if (user.blocked) { setError("This account has been blocked by the administrator."); setLoading(false); return; }
-    const pwOk = await verifyPassword(password, user.password);
-    if (!pwOk) { setError("Incorrect password."); setLoading(false); return; }
-    saveAuthSession({ userId: user.id, schoolId: user.schoolId || null, userType: user.userType });
-    setActiveSchoolId(user.schoolId || null);
-    onSignIn({ userId: user.id, schoolId: user.schoolId || null, userType: user.userType });
+    try {
+      // Cloud is the source of truth so logins created on another device work here
+      let user = null;
+      if (isSupabaseConfigured) {
+        user = await findAuthUserByEmailFromCloud(emailNorm);
+        if (user) {
+          // Keep local mirror so the rest of the app sees the account
+          const merged = mergeAuthUserLists([user], loadAuthUsers()).merged;
+          try { window.localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(merged)); } catch {}
+        } else {
+          // Fall back to full hydrate (covers offline / brief API glitches)
+          const users = await hydrateAuthUsersMirror();
+          user = users.find(u => String(u.email || "").toLowerCase() === emailNorm) || null;
+        }
+      } else {
+        const users = loadAuthUsers();
+        user = users.find(u => String(u.email || "").toLowerCase() === emailNorm) || null;
+      }
+      if (!user) {
+        setError(
+          isSupabaseConfigured
+            ? "No account found with this email. Ask admin to Create Login, then try again."
+            : "No account found. This device is not connected to cloud — set VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY."
+        );
+        setLoading(false);
+        return;
+      }
+      if (user.blocked) { setError("This account has been blocked by the administrator."); setLoading(false); return; }
+      const pwOk = await verifyPassword(password, user.password);
+      if (!pwOk) { setError("Incorrect password."); setLoading(false); return; }
+      saveAuthSession({ userId: user.id, schoolId: user.schoolId || null, userType: user.userType });
+      setActiveSchoolId(user.schoolId || null);
+      onSignIn({ userId: user.id, schoolId: user.schoolId || null, userType: user.userType });
+    } catch (err) {
+      console.warn("Sign-in failed", err);
+      setError("Could not reach cloud accounts. Check internet and try again.");
+    }
     setLoading(false);
   };
 
@@ -565,10 +601,10 @@ function AuthScreen({ onSignIn, setActiveSchoolId }) {
                 {loading ? "Signing in…" : "Sign In"}
               </button>
             </form>
-            <div style={{ marginTop: 16, padding: "10px 12px", background: "#f8fafc", borderRadius: 8, fontSize: 12, color: "#64748b", textAlign: "center" }}>
+            <div style={{ marginTop: 16, padding: "10px 12px", background: isSupabaseConfigured ? "#eff6ff" : "#fff7ed", borderRadius: 8, fontSize: 12, color: isSupabaseConfigured ? "#1d4ed8" : "#9a3412", textAlign: "center", border: `1px solid ${isSupabaseConfigured ? "#bfdbfe" : "#fed7aa"}` }}>
               {isSupabaseConfigured
-                ? "Accounts are created by the administrator and work on any device worldwide."
-                : "Accounts are created by the administrator. Contact your admin if you don't have access."}
+                ? "☁ Cloud connected — admin-created school logins work on every device."
+                : "⚠ Cloud not configured on this device. Logins created elsewhere will not appear until VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set."}
             </div>
             <div style={{ marginTop: 12, textAlign: "center" }}>
               <button type="button" onClick={() => { setPanel("admin"); setError(""); }}
@@ -616,33 +652,66 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
   const [adminTab, setAdminTab] = useState("users"); // "users" | "schools" | "danger"
   const [usersList, setUsersList] = useState(() => loadAuthUsers());
   const [usersSyncing, setUsersSyncing] = useState(false);
+  const [cloudOk, setCloudOk] = useState(isSupabaseConfigured);
   const refreshUsers = () => setUsersList(loadAuthUsers());
+  /** Pull schools + logins from cloud so other devices see admin-created accounts. */
   const pullUsersFromCloud = useCallback(async () => {
     setUsersSyncing(true);
     try {
-      const users = await hydrateAuthUsersMirror();
-      setUsersList(users);
-      return users;
+      if (!isSupabaseConfigured) {
+        setCloudOk(false);
+        setUsersList(loadAuthUsers());
+        return loadAuthUsers();
+      }
+      const [cloudUsers, cloudSchools] = await Promise.all([
+        loadAuthUsersFromCloud(),
+        loadSchoolsFromCloud(),
+      ]);
+      const cloudList = Array.isArray(cloudUsers) ? cloudUsers : [];
+      const localUsers = loadAuthUsers();
+      const { merged, localOnly } = mergeAuthUserLists(cloudList, localUsers);
+      try { window.localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(merged)); } catch {}
+      if (localOnly.length) await saveAuthUsersToCloud(localOnly, { replace: false });
+      setUsersList(merged);
+      if (cloudSchools?.schools?.length) {
+        setSchools(cloudSchools.schools);
+      }
+      setCloudOk(cloudUsers !== null);
+      return merged;
+    } catch (err) {
+      console.warn("Admin cloud pull failed", err);
+      setCloudOk(false);
+      return loadAuthUsers();
     } finally {
       setUsersSyncing(false);
     }
-  }, []);
+  }, [setSchools]);
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const users = await hydrateAuthUsersMirror();
+      const users = await pullUsersFromCloud();
       if (!cancelled) setUsersList(users);
     })();
     const onFocus = () => { pullUsersFromCloud(); };
     const onVisible = () => { if (document.visibilityState === "visible") pullUsersFromCloud(); };
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisible);
-    const poll = setInterval(() => { pullUsersFromCloud(); }, 20000);
+    const poll = setInterval(() => { pullUsersFromCloud(); }, 8000);
+    let channel = null;
+    if (isSupabaseConfigured && supabase) {
+      channel = supabase
+        .channel("admin-app-users")
+        .on("postgres_changes", { event: "*", schema: "public", table: "app_users" }, () => {
+          pullUsersFromCloud();
+        })
+        .subscribe();
+    }
     return () => {
       cancelled = true;
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisible);
       clearInterval(poll);
+      if (channel) supabase.removeChannel(channel);
     };
   }, [pullUsersFromCloud]);
   // User management
@@ -843,6 +912,26 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
           <div style={{ fontWeight: 700, fontSize: 16 }}>Admin Panel</div>
           <div style={{ fontSize: 12, opacity: 0.65, marginTop: 1 }}>PSMS — Full Control</div>
         </div>
+        <div
+          title={cloudOk ? "Cloud connected — school logins sync to every device" : "Cloud not connected — logins stay on this device only"}
+          style={{
+            fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 999,
+            background: cloudOk ? "rgba(34,197,94,0.2)" : "rgba(248,113,113,0.2)",
+            color: cloudOk ? "#86efac" : "#fecaca",
+            border: `1px solid ${cloudOk ? "rgba(134,239,172,0.4)" : "rgba(254,202,202,0.4)"}`,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {usersSyncing ? "☁ Syncing…" : cloudOk ? "☁ Cloud ON" : "☁ Cloud OFF"}
+        </div>
+        <button
+          type="button"
+          onClick={() => pullUsersFromCloud()}
+          disabled={usersSyncing || !isSupabaseConfigured}
+          style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.25)", background: "rgba(59,130,246,0.25)", color: "#fff", fontWeight: 600, fontSize: 12, cursor: usersSyncing ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}
+        >
+          Refresh from cloud
+        </button>
         <div style={{ fontSize: 12, opacity: 0.7, textAlign: "right", lineHeight: 1.5, marginRight: 8 }}>
           <div>{headerNow.toLocaleDateString("en-PK", { weekday: "short", day: "numeric", month: "short" })}</div>
           <div style={{ fontVariantNumeric: "tabular-nums", fontWeight: 700 }}>{headerNow.toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</div>
@@ -1011,7 +1100,11 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
                 {schools.map(s => {
                   const sName = s.settings?.schoolName || s.name || s.id;
                   const status = s.status || "active";
-                  const linkedUsers = usersList.filter(u => u.schoolId === s.id);
+                  const schoolEmail = String(s.settings?.schoolEmail || "").trim().toLowerCase();
+                  const linkedUsers = usersList.filter(u => {
+                    const em = String(u.email || "").toLowerCase();
+                    return u.schoolId === s.id || (schoolEmail && em === schoolEmail);
+                  });
                   const hasLogin = linkedUsers.length > 0;
                   return (
                     <div key={s.id} style={{ padding: "12px 14px", background: status === "deleted" ? "#fef2f2" : "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0" }}>
@@ -1021,6 +1114,11 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
                           <span style={{ marginLeft: 8, fontSize: 11, padding: "2px 7px", borderRadius: 4, background: status === "deleted" ? "#fecaca" : status === "stopped" ? "#fef3c7" : "#d1fae5", color: status === "deleted" ? "#b91c1c" : status === "stopped" ? "#92400e" : "#065f46" }}>
                             {status === "deleted" ? "Deleted" : status === "stopped" ? "Stopped" : "Active"}
                           </span>
+                          {hasLogin && (
+                            <span style={{ marginLeft: 8, fontSize: 11, padding: "2px 7px", borderRadius: 4, background: "#dbeafe", color: "#1d4ed8" }}>
+                              Login: {linkedUsers.map(u => u.email).join(", ")}
+                            </span>
+                          )}
                           {!hasLogin && status !== "deleted" && (
                             <span style={{ marginLeft: 8, fontSize: 11, padding: "2px 7px", borderRadius: 4, background: "#fee2e2", color: "#991b1b" }}>No login account</span>
                           )}
@@ -1031,6 +1129,10 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
                             <button
                               type="button"
                               onClick={async () => {
+                                if (!isSupabaseConfigured) {
+                                  alert("Cloud is not configured on this device.\n\nAdd VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.local (and restart npm run dev).\nWithout cloud, logins cannot appear on other systems.");
+                                  return;
+                                }
                                 const emailDefault = String(s.settings?.schoolEmail || "").trim().toLowerCase();
                                 const email = window.prompt("Login email for this school:", emailDefault || "");
                                 if (email == null) return;
@@ -1040,21 +1142,24 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
                                 if (pw == null) return;
                                 const plainPw = String(pw).trim();
                                 if (plainPw.length < 4) { alert("Password must be at least 4 characters."); return; }
+                                const existingCloud = await findAuthUserByEmailFromCloud(emailNorm);
+                                if (existingCloud) {
+                                  alert("A user with this email already exists in the cloud.");
+                                  await pullUsersFromCloud();
+                                  return;
+                                }
                                 const list = await hydrateAuthUsersMirror();
                                 if (list.some(u => String(u.email || "").toLowerCase() === emailNorm)) {
                                   alert("A user with this email already exists.");
                                   return;
                                 }
-                                // Ensure school exists in cloud before attaching login (FK)
-                                if (isSupabaseConfigured) {
-                                  try {
-                                    const schoolSync = await saveSchoolsToCloud(schools, s.id);
-                                    if (schoolSync?.ok === false) throw schoolSync.error || new Error("School cloud save failed");
-                                  } catch (err) {
-                                    console.warn("School cloud save failed", err);
-                                    alert("Could not sync school to cloud. Check internet, then try Create Login again.");
-                                    return;
-                                  }
+                                try {
+                                  const schoolSync = await saveSchoolsToCloud(schools, s.id);
+                                  if (schoolSync?.ok === false) throw schoolSync.error || new Error("School cloud save failed");
+                                } catch (err) {
+                                  console.warn("School cloud save failed", err);
+                                  alert("Could not sync school to cloud. Check internet, then try Create Login again.");
+                                  return;
                                 }
                                 const pwHash = await hashPassword(plainPw);
                                 const newUser = {
@@ -1065,25 +1170,17 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
                                   name: s.settings?.principalName || sName,
                                   userType: "principal",
                                 };
-                                const sync = await saveAuthUsers([...list, newUser]);
-                                // Verify the login is actually readable from cloud (other devices)
-                                let cloudOk = sync.ok && sync.cloud;
-                                if (cloudOk) {
-                                  const cloudCheck = await loadAuthUsersFromCloud();
-                                  cloudOk = Array.isArray(cloudCheck) && cloudCheck.some(
-                                    (u) => String(u.email || "").toLowerCase() === emailNorm
-                                  );
-                                  if (!cloudOk) {
-                                    // Retry upsert of just this user
-                                    const retry = await saveAuthUsersToCloud([newUser], { replace: false });
-                                    const again = await loadAuthUsersFromCloud();
-                                    cloudOk = retry?.ok !== false && Array.isArray(again) && again.some(
-                                      (u) => String(u.email || "").toLowerCase() === emailNorm
-                                    );
-                                  }
+                                // Upsert THIS user to cloud first (source of truth for other devices)
+                                const upsert = await upsertAuthUserToCloud(newUser);
+                                const verify = await findAuthUserByEmailFromCloud(emailNorm);
+                                const ok = upsert?.ok !== false && !!verify;
+                                if (!ok) {
+                                  alert("Cloud save failed. Login was NOT created for other devices.\n\nCheck internet / Supabase and try again.");
+                                  return;
                                 }
+                                await saveAuthUsers([...list, newUser]);
                                 await pullUsersFromCloud();
-                                alert(worldwideLoginNote(emailNorm, plainPw, { cloudOk }));
+                                alert(worldwideLoginNote(emailNorm, plainPw, { cloudOk: true }));
                               }}
                               style={{ padding: "5px 10px", fontSize: 12, border: "1px solid #1d4ed8", borderRadius: 6, background: "#eff6ff", color: "#1d4ed8", cursor: "pointer", fontWeight: 600 }}
                             >

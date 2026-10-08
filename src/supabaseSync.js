@@ -391,6 +391,47 @@ export async function loadAuthUsersFromCloud() {
   return (data || []).map(userFromRow)
 }
 
+/** Direct cloud lookup by email — used by Sign In so other devices do not depend on localStorage. */
+export async function findAuthUserByEmailFromCloud(email) {
+  if (!isSupabaseConfigured || !supabase) return null
+  const emailNorm = String(email || '').trim().toLowerCase()
+  if (!emailNorm) return null
+  try {
+    const { data, error } = await supabase
+      .from('app_users')
+      .select('*')
+      .ilike('email', emailNorm)
+      .limit(1)
+      .maybeSingle()
+    if (error) {
+      // Fallback: fetch all and match (some projects lack ilike / RLS quirks)
+      logSyncError('findAuthUserByEmail', error)
+      const all = await loadAuthUsersFromCloud()
+      return (all || []).find((u) => String(u.email || '').toLowerCase() === emailNorm) || null
+    }
+    return data ? userFromRow(data) : null
+  } catch (err) {
+    logSyncError('findAuthUserByEmail', err)
+    return null
+  }
+}
+
+/** Upsert a single auth user to cloud (safe for multi-device Create Login). */
+export async function upsertAuthUserToCloud(user) {
+  if (!isSupabaseConfigured || !supabase || !user?.id) return { ok: false, skipped: true }
+  try {
+    const { error } = await supabase.from('app_users').upsert(userToRow(user))
+    if (error) {
+      logSyncError('upsertAuthUser', error)
+      return { ok: false, error }
+    }
+    return { ok: true }
+  } catch (err) {
+    logSyncError('upsertAuthUser', err)
+    return { ok: false, error: err }
+  }
+}
+
 /**
  * Upsert auth users to cloud.
  * By default NEVER deletes other cloud accounts (safe for multi-device).
