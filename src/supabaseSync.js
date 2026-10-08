@@ -1,5 +1,4 @@
 import {
-  supabase,
   isSupabaseConfigured,
   getSupabase,
   getIsSupabaseConfigured,
@@ -8,12 +7,7 @@ import { migrateEntityPhotos } from './lib/photoStorage.js'
 
 export { isSupabaseConfigured, getSupabase, getIsSupabaseConfigured }
 
-function sb() {
-  return getSupabase() || supabase
-}
-function cloudOn() {
-  return getIsSupabaseConfigured() || isSupabaseConfigured
-}
+// Prefer getters only — never fall back to possibly stale module bindings after HMR.
 
 function logSyncError(scope, error) {
   if (!error) return
@@ -409,14 +403,24 @@ export async function findAuthUserByEmailFromCloud(email) {
   const emailNorm = String(email || '').trim().toLowerCase()
   if (!emailNorm) return null
   try {
-    const { data, error } = await getSupabase()
+    // Exact match first (emails are stored lowercased)
+    let { data, error } = await getSupabase()
       .from('app_users')
       .select('*')
-      .ilike('email', emailNorm)
+      .eq('email', emailNorm)
       .limit(1)
       .maybeSingle()
+    if (error || !data) {
+      const loose = await getSupabase()
+        .from('app_users')
+        .select('*')
+        .ilike('email', emailNorm)
+        .limit(1)
+        .maybeSingle()
+      data = loose.data
+      error = loose.error
+    }
     if (error) {
-      // Fallback: fetch all and match (some projects lack ilike / RLS quirks)
       logSyncError('findAuthUserByEmail', error)
       const all = await loadAuthUsersFromCloud()
       return (all || []).find((u) => String(u.email || '').toLowerCase() === emailNorm) || null
@@ -424,7 +428,12 @@ export async function findAuthUserByEmailFromCloud(email) {
     return data ? userFromRow(data) : null
   } catch (err) {
     logSyncError('findAuthUserByEmail', err)
-    return null
+    try {
+      const all = await loadAuthUsersFromCloud()
+      return (all || []).find((u) => String(u.email || '').toLowerCase() === emailNorm) || null
+    } catch {
+      return null
+    }
   }
 }
 

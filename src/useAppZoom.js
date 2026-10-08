@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 
 const ZOOM_KEY = "psms_ui_zoom_factor";
 const DESIGN_WIDTH = 1366;
-const DESIGN_HEIGHT = 800;
-const ZOOM_MIN = 0.65;
-const ZOOM_MAX = 1.4;
+/** Taller design height → less aggressive shrink on short screens; more fill on tall ones. */
+const DESIGN_HEIGHT = 900;
+const ZOOM_MIN = 0.75;
+const ZOOM_MAX = 1.45;
 const ZOOM_STEP = 0.05;
 
 function clamp(n, min, max) {
@@ -26,7 +27,8 @@ export function calcAutoScale(width = window.innerWidth, height = window.innerHe
   if (width < 640) return 1;
   const byW = width / DESIGN_WIDTH;
   const byH = height / DESIGN_HEIGHT;
-  return clamp(Math.min(byW, byH), 0.72, 1.2);
+  // Prefer filling height; do not shrink below ~80% on typical desktops
+  return clamp(Math.min(byW, byH), 0.8, 1.25);
 }
 
 /**

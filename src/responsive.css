@@ -616,9 +616,17 @@ body.result-card-capturing .app-layout {
   }
 }
 
-/* Prefer dynamic viewport height where supported */
+/*
+ * Fill the real viewport even when CSS `zoom` / --psms-zoom shrinks the UI.
+ * Without dividing by zoom, height:100dvh + zoom:0.75 leaves empty space below.
+ */
+.app-layout {
+  min-height: calc(100vh / var(--psms-zoom, 1));
+  height: calc(100vh / var(--psms-zoom, 1));
+}
 @supports (height: 100dvh) {
   .app-layout {
-    height: 100dvh !important;
+    min-height: calc(100dvh / var(--psms-zoom, 1)) !important;
+    height: calc(100dvh / var(--psms-zoom, 1)) !important;
   }
 }
