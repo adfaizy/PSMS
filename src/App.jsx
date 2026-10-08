@@ -889,6 +889,8 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
                 {schools.map(s => {
                   const sName = s.settings?.schoolName || s.name || s.id;
                   const status = s.status || "active";
+                  const linkedUsers = usersList.filter(u => u.schoolId === s.id);
+                  const hasLogin = linkedUsers.length > 0;
                   return (
                     <div key={s.id} style={{ padding: "12px 14px", background: status === "deleted" ? "#fef2f2" : "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -897,9 +899,46 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
                           <span style={{ marginLeft: 8, fontSize: 11, padding: "2px 7px", borderRadius: 4, background: status === "deleted" ? "#fecaca" : status === "stopped" ? "#fef3c7" : "#d1fae5", color: status === "deleted" ? "#b91c1c" : status === "stopped" ? "#92400e" : "#065f46" }}>
                             {status === "deleted" ? "Deleted" : status === "stopped" ? "Stopped" : "Active"}
                           </span>
+                          {!hasLogin && status !== "deleted" && (
+                            <span style={{ marginLeft: 8, fontSize: 11, padding: "2px 7px", borderRadius: 4, background: "#fee2e2", color: "#991b1b" }}>No login account</span>
+                          )}
                         </div>
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                           <button type="button" onClick={() => setViewDetailsId(viewDetailsId === s.id ? null : s.id)} style={{ padding: "5px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", cursor: "pointer" }}>Details</button>
+                          {!hasLogin && status !== "deleted" && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const emailDefault = String(s.settings?.schoolEmail || "").trim().toLowerCase();
+                                const email = window.prompt("Login email for this school:", emailDefault || "");
+                                if (email == null) return;
+                                const emailNorm = String(email).trim().toLowerCase();
+                                if (!emailNorm) { alert("Email is required."); return; }
+                                const pw = window.prompt("Temporary password (min 4 characters):", "1234");
+                                if (pw == null) return;
+                                if (String(pw).trim().length < 4) { alert("Password must be at least 4 characters."); return; }
+                                const list = loadAuthUsers();
+                                if (list.some(u => String(u.email || "").toLowerCase() === emailNorm)) {
+                                  alert("A user with this email already exists.");
+                                  return;
+                                }
+                                const pwHash = await hashPassword(String(pw).trim());
+                                saveAuthUsers([...list, {
+                                  id: genId(),
+                                  email: emailNorm,
+                                  password: pwHash,
+                                  schoolId: s.id,
+                                  name: s.settings?.principalName || sName,
+                                  userType: "principal",
+                                }]);
+                                refreshUsers();
+                                alert(`Login created.\n\nEmail: ${emailNorm}\nPassword: ${String(pw).trim()}\n\nUse these on the Sign In screen.`);
+                              }}
+                              style={{ padding: "5px 10px", fontSize: 12, border: "1px solid #1d4ed8", borderRadius: 6, background: "#eff6ff", color: "#1d4ed8", cursor: "pointer", fontWeight: 600 }}
+                            >
+                              Create Login
+                            </button>
+                          )}
                           {status !== "deleted" && <button type="button" onClick={() => { if(window.confirm(`Delete school "${sName}"?`)) setSchoolStatus(s.id, "deleted"); }} style={{ padding: "5px 10px", fontSize: 12, border: "1px solid #dc2626", borderRadius: 6, background: "#fff", color: "#dc2626", cursor: "pointer" }}>Delete</button>}
                           {status === "active" && <button type="button" onClick={() => setSchoolStatus(s.id, "stopped")} style={{ padding: "5px 10px", fontSize: 12, border: "1px solid #d97706", borderRadius: 6, background: "#fff", color: "#d97706", cursor: "pointer" }}>Stop</button>}
                           {status === "stopped" && <button type="button" onClick={() => setSchoolStatus(s.id, "active")} style={{ padding: "5px 10px", fontSize: 12, border: "1px solid #16a34a", borderRadius: 6, background: "#fff", color: "#16a34a", cursor: "pointer" }}>Start</button>}
@@ -913,6 +952,7 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
                           <div><strong>School Code:</strong> {s.settings?.schoolCode || "—"}</div>
                           <div><strong>Email:</strong> {s.settings?.schoolEmail || "—"}</div>
                           <div><strong>Principal:</strong> {s.settings?.principalName || "—"}</div>
+                          <div><strong>Login accounts:</strong> {hasLogin ? linkedUsers.map(u => u.email).join(", ") : "None — create a login to sign in"}</div>
                           <div><strong>Classes:</strong> {(s.settings?.classes || []).length} · <strong>Students:</strong> {(s.students || []).length} · <strong>Staff:</strong> {(s.staffProfiles || []).length}</div>
                         </div>
                       )}
