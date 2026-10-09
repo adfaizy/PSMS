@@ -278,12 +278,12 @@ export function AttendancePage({settings,students,currentSession,activeSchoolId,
               <Inp label="Date" type="date" value={date} onChange={setDate} width={180} />
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              <Btn small color={C.green} onClick={() => markAll("P")}>✔ All Present</Btn>
-              <Btn small color={C.red} onClick={() => markAll("A")}>✘ All Absent</Btn>
+              <Btn small color={C.green} onClick={() => markAll("P")}>Mark All Present</Btn>
+              <Btn small color={C.red} onClick={() => markAll("A")}>Mark All Absent</Btn>
               {cs.length > 0 && (
                 <Btn small outline onClick={doExportAttendance}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <Download size={14} /> PDF
+                    <Download size={14} /> Export PDF
                   </span>
                 </Btn>
               )}
@@ -352,9 +352,9 @@ export function AttendancePage({settings,students,currentSession,activeSchoolId,
                           </td>
                           <td style={tdStyle("center")}>
                             {classApps[s.id] ? (
-                              <Btn small outline onClick={() => setViewApp(classApps[s.id])}>View</Btn>
+                              <Btn small outline onClick={() => setViewApp(classApps[s.id])}>View Application</Btn>
                             ) : (
-                              <Btn small outline onClick={() => openUpload(s.id)}>Upload</Btn>
+                              <Btn small outline onClick={() => openUpload(s.id)}>Upload Application</Btn>
                             )}
                           </td>
                         </tr>
@@ -391,7 +391,7 @@ export function AttendancePage({settings,students,currentSession,activeSchoolId,
             {cs.length > 0 && (
               <Btn small outline onClick={() => doExportRegister("pdf")}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <Download size={14} /> PDF
+                  <Download size={14} /> Export Register
                 </span>
               </Btn>
             )}

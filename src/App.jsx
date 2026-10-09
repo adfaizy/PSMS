@@ -65,13 +65,13 @@ const APP_MAIN_NAV = [
   { id: "dashboard", l: "Dashboard", i: "🏠" },
   { id: "timetable", l: "Timetable", i: "📅" },
   { id: "attendance", l: "Attendance", i: "📋" },
-  { id: "fees", l: "Fees", i: "💳" },
+  { id: "fees", l: "Fee Collection", i: "💳" },
   { id: "examination", l: "Examination", i: "📝" },
   { id: "paper", l: "Paper Generator", i: "📄" },
-  { id: "card", l: "Card Generator", i: "💳" },
-  { id: "book-bank", l: "PTBB Books", i: "📚" },
+  { id: "card", l: "ID Cards", i: "🪪" },
+  { id: "book-bank", l: "Book Bank", i: "📚" },
   { id: "library", l: "Library", i: "📖" },
-  { id: "about", l: "About Us", i: "ℹ️" },
+  { id: "about", l: "About", i: "ℹ️" },
   { id: "settings", l: "Settings", i: "⚙️" },
 ];
 

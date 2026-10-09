@@ -2049,7 +2049,7 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
               <Label>Section</Label>
               <Input value={newCls.section} onChange={e=>setNewCls(x=>({...x,section:e.target.value}))} className="w-[100px]"/>
             </div>
-            <Button type="button" onClick={addClass}>+ Add Class</Button>
+            <Button type="button" onClick={addClass}>Add Class</Button>
           </CardContent>
         </Card>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

@@ -225,7 +225,7 @@ export function AllClassesView({settings,staffProfiles,timetable,setTimetable,da
             </button>
             <div style={{display:"flex",gap:8}}>
               <Btn outline color={C.gray} onClick={closeEditor}>Cancel</Btn>
-              <Btn onClick={saveEditor}>Save</Btn>
+              <Btn onClick={saveEditor}>Save Period</Btn>
             </div>
           </div>
         </div>
@@ -551,7 +551,7 @@ export function ByClassView({settings,staffProfiles,timetable,setTimetable,selCl
             </button>
             <div style={{display:"flex",gap:8}}>
               <Btn outline color={C.gray} onClick={closeEditor}>Cancel</Btn>
-              <Btn onClick={saveEditor}>Save</Btn>
+              <Btn onClick={saveEditor}>Save Period</Btn>
             </div>
           </div>
         </div>
@@ -924,7 +924,7 @@ export function TimetablePage({settings,staffProfiles,timetable,setTimetable,cur
           {view==="byClass"&&<Sel value={byClassCls} onChange={setByClassCls} options={[{value:"__all_classes__",label:"All classes"},...settings.classes.map(c=>({value:c.id,label:formatClassDisplay(c)}))]}/>}
           {view==="byTeacher"&&<Sel value={byTeacherName} onChange={setByTeacherName} options={[{value:"__all_staff__",label:"All staff"},...teachingStaff.map(st=>({value:st.name,label:st.name}))]}/>}
           <Separator orientation="vertical" className="hidden h-6 sm:block" />
-          <Btn small onClick={autoGenerateTimetable}>Auto Generate</Btn>
+          <Btn small onClick={autoGenerateTimetable}>Generate Timetable</Btn>
           <Btn small outline onClick={handleTimetablePdf}>Export PDF</Btn>
         </div>
       </CardContent>

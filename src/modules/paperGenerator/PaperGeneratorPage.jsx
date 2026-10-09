@@ -340,7 +340,7 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
           </TabsList>
         </Tabs>
       </div>
-      {paperType!=="autoPaper"&&<Btn outline onClick={()=>setPreview(true)} style={{flexShrink:0,alignSelf:"center"}}>👁️ Preview</Btn>}
+      {paperType!=="autoPaper"&&<Btn outline onClick={()=>setPreview(true)} style={{flexShrink:0,alignSelf:"center"}}>Preview Paper</Btn>}
     </div>
     {paperType==="autoPaper" ? (
       <div style={{padding:24,background:"#f9fafb",borderRadius:8,border:"1px solid #e5e7eb"}}>
@@ -381,7 +381,7 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
               <div>
                 <h5 style={{margin:"0 0 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <span>Preview ({excelPreview.mcqs.length + excelPreview.short.length + excelPreview.long.length} questions)</span>
-                  <Btn onClick={()=>{ setBankForCurrent([...bankForCurrent, ...excelPreview.mcqs, ...excelPreview.short, ...excelPreview.long]); setExcelPreview(null); alert("Imported!"); setAutoPaperSubPage("dashboard"); }}>✅ Save to Bank</Btn>
+                  <Btn onClick={()=>{ setBankForCurrent([...bankForCurrent, ...excelPreview.mcqs, ...excelPreview.short, ...excelPreview.long]); setExcelPreview(null); alert("Questions imported to question bank."); setAutoPaperSubPage("dashboard"); }}>Save to Question Bank</Btn>
                 </h5>
                 <div style={{maxHeight:300,overflowY:"auto",border:"1px solid #e2e8f0",borderRadius:6,fontSize:11}}>
                   <table style={{width:"100%",borderCollapse:"collapse"}}>
@@ -407,9 +407,9 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
               <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:11,fontWeight:700,color:C.gray}}>MCQs (%)</label><input type="number" value={genPercentMcq} onChange={e=>setGenPercentMcq(e.target.value)} placeholder="All" style={{padding:8,border:"1px solid #cbd5e1",borderRadius:6,width:70}}/></div>
               <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:11,fontWeight:700,color:C.gray}}>Short (%)</label><input type="number" value={genPercentShort} onChange={e=>setGenPercentShort(e.target.value)} placeholder="All" style={{padding:8,border:"1px solid #cbd5e1",borderRadius:6,width:70}}/></div>
               <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:11,fontWeight:700,color:C.gray}}>Long (%)</label><input type="number" value={genPercentLong} onChange={e=>setGenPercentLong(e.target.value)} placeholder="All" style={{padding:8,border:"1px solid #cbd5e1",borderRadius:6,width:70}}/></div>
-              <Btn style={{marginTop:18}} onClick={advancedGenerateFromBank}>🎲 Random Selection & Preview</Btn>
+              <Btn style={{marginTop:18}} onClick={advancedGenerateFromBank}>Generate Random Paper</Btn>
             </div>
-            {preview && <div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><h5 style={{margin:0}}>Preview</h5><Btn outline onClick={()=>{setPrintPaperMode(true); setTimeout(()=>window.print(),50);}}>🖨️ Print</Btn></div><div style={{padding:24,background:"#fff",border:"2px solid #e2e8f0",borderRadius:8,fontFamily:UI.fontHeading}}>{paperContent}</div></div>}
+            {preview && <div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><h5 style={{margin:0}}>Preview</h5><Btn outline onClick={()=>{setPrintPaperMode(true); setTimeout(()=>window.print(),50);}}>Print Paper</Btn></div><div style={{padding:24,background:"#fff",border:"2px solid #e2e8f0",borderRadius:8,fontFamily:UI.fontHeading}}>{paperContent}</div></div>}
           </div>
         ) : (
           <div style={{background:"#fff",padding:20,borderRadius:8,border:"1px solid #e5e7eb"}}>
@@ -421,9 +421,9 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
               <Sel label="Topic" value={qbFilterTopic} onChange={v=>{setQbFilterTopic(v); setQbPage(1);}} options={[{value:"all",label:"All Topics"}, ...topics.map(t=>({value:t,label:t}))]}/>
             </div>
             <div style={{marginBottom:16,display:"flex",gap:8,flexWrap:"wrap"}}>
-              <Btn outline onClick={()=>setBankForCurrent([...bankForCurrent, {id:genId(),type:"MCQs",text:"",options:["","","",""],correct:0,chapter:"",topic:"",difficulty:"Medium"}])}>+ MCQ</Btn>
-              <Btn outline onClick={()=>setBankForCurrent([...bankForCurrent, {id:genId(),type:"Short",text:"",chapter:"",topic:"",difficulty:"Medium"}])}>+ Short</Btn>
-              <Btn outline onClick={()=>setBankForCurrent([...bankForCurrent, {id:genId(),type:"Long",text:"",chapter:"",topic:"",difficulty:"Medium"}])}>+ Long</Btn>
+              <Btn outline onClick={()=>setBankForCurrent([...bankForCurrent, {id:genId(),type:"MCQs",text:"",options:["","","",""],correct:0,chapter:"",topic:"",difficulty:"Medium"}])}>Add MCQ</Btn>
+              <Btn outline onClick={()=>setBankForCurrent([...bankForCurrent, {id:genId(),type:"Short",text:"",chapter:"",topic:"",difficulty:"Medium"}])}>Add Short</Btn>
+              <Btn outline onClick={()=>setBankForCurrent([...bankForCurrent, {id:genId(),type:"Long",text:"",chapter:"",topic:"",difficulty:"Medium"}])}>Add Long</Btn>
               <button type="button" onClick={() => void handleExportExcel()} style={{marginLeft:"auto",padding:"8px 14px",borderRadius:6,border:"1px solid #10b981",background:"#fff",color:"#10b981",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",gap:6,alignItems:"center"}}><Download size={14}/> Export Excel</button>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr",gap:10}}>
@@ -484,7 +484,7 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
             </div>)}
           </div>}
         </div>)}
-        <Btn small outline color={C.navy} onClick={()=>addQ(sec.id)}>+ Add Question</Btn>
+        <Btn small outline color={C.navy} onClick={()=>addQ(sec.id)}>Add Question</Btn>
       </div>
     </div>)}
     </>

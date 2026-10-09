@@ -62,7 +62,12 @@ export async function ensureClassPhotoFolders(classes) {
       body: JSON.stringify({ folders }),
       cache: 'no-store',
     })
-    const json = res.ok ? await res.json() : { ok: false, created: [], existing: [], failed: folders }
+    const ctype = String(res.headers.get('content-type') || '').toLowerCase()
+    if (!res.ok || !ctype.includes('application/json')) {
+      invalidatePhotosApiAvailability()
+      return { ok: false, created: [], existing: [], failed: folders }
+    }
+    const json = await res.json()
     return {
       ok: !!json.ok,
       created: Array.isArray(json.created) ? json.created : [],
@@ -71,18 +76,30 @@ export async function ensureClassPhotoFolders(classes) {
     }
   } catch (err) {
     console.warn('[photosFolderSync] ensure-folders failed', err)
+    invalidatePhotosApiAvailability()
     return { ok: false, created: [], existing: [], failed: folders, error: err }
   }
 }
 
 let _photosApiAvailable = null
 let _photosApiCheckedAt = 0
+/** Short TTL so LAN up/down is noticed quickly (auto-watch polls ~4s). */
+const PHOTOS_API_CACHE_MS = 2000
+/** Negative results expire even sooner so recovery is fast. */
+const PHOTOS_API_NEG_CACHE_MS = 800
+
+/** Drop cached availability (call after a failed Photos-api request). */
+export function invalidatePhotosApiAvailability() {
+  _photosApiAvailable = null
+  _photosApiCheckedAt = 0
+}
 
 /** True when Vite Photos-api is reachable (main PC / LAN only — not Vercel/mobile alone). */
 export async function isPhotosApiAvailable({ force = false } = {}) {
   const now = Date.now()
-  if (!force && _photosApiAvailable != null && now - _photosApiCheckedAt < 30000) {
-    return _photosApiAvailable
+  if (!force && _photosApiAvailable != null) {
+    const ttl = _photosApiAvailable ? PHOTOS_API_CACHE_MS : PHOTOS_API_NEG_CACHE_MS
+    if (now - _photosApiCheckedAt < ttl) return _photosApiAvailable
   }
   try {
     const res = await fetch('/Photos-api/list-folder?name=__ping__', { cache: 'no-store' })
@@ -105,7 +122,12 @@ export async function listPhotosFolder(folder) {
     const res = await fetch(`/Photos-api/list-folder?name=${encodeURIComponent(folder)}`, {
       cache: 'no-store',
     })
-    const json = res.ok ? await res.json() : { files: [], signature: '', exists: false }
+    const ctype = String(res.headers.get('content-type') || '').toLowerCase()
+    if (!res.ok || !ctype.includes('application/json')) {
+      invalidatePhotosApiAvailability()
+      return { exists: false, files: [], signature: '' }
+    }
+    const json = await res.json()
     const files = Array.isArray(json.files) ? json.files : []
     // Normalize to { name, size, mtime }
     const normalized = files.map((f) =>
@@ -129,6 +151,7 @@ export async function listPhotosFolder(folder) {
       signature,
     }
   } catch {
+    invalidatePhotosApiAvailability()
     return { exists: false, files: [], signature: '' }
   }
 }

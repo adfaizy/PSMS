@@ -557,7 +557,7 @@ export function StudentCardGeneratorPage({ settings, students, currentSession })
           onClick={handleDownloadPdf}
           disabled={cardsToRender.length === 0 || downloading}
         >
-          {downloading ? "⏳ Preparing PDF..." : "📄 Download cards PDF"}
+          {downloading ? "Preparing PDF…" : "Export Cards PDF"}
         </Btn>
       </div>
       {!settings.classes?.length ? (
@@ -763,7 +763,7 @@ export function StaffCardGeneratorPage({ settings = {}, staffProfiles = [] }) {
           width={280}
         />
         <Btn outline onClick={handleDownloadPdf} disabled={profilesToRender.length === 0 || downloading}>
-          {downloading ? "⏳ Preparing PDF..." : "📄 Download cards PDF"}
+          {downloading ? "Preparing PDF…" : "Export Cards PDF"}
         </Btn>
       </div>
       {safeProfiles.length === 0 ? (

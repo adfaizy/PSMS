@@ -47,11 +47,11 @@ const jsPDF =
     : jsPDFModule?.jsPDF ?? jsPDFModule?.default;
 
 const EXAM_TABS = [
-  { id: "admission", l: "Admission Form" },
-  { id: "record", l: "Student Record" },
-  { id: "marks", l: "Enter Marks" },
+  { id: "admission", l: "Admission" },
+  { id: "record", l: "Student Records" },
+  { id: "marks", l: "Marks Entry" },
   { id: "consolidated", l: "Consolidated Sheet" },
-  { id: "card", l: "Result Card" },
+  { id: "card", l: "Result Cards" },
   { id: "datesheet", l: "Date Sheet" },
 ];
 
@@ -450,7 +450,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
       };
       setStudents(s=>[...s,payload]);
       setAdmissionForm(admissionEmpty);
-      alert("Student admitted successfully. You can view them in Student Record.");
+      alert("Student admitted successfully. Open Student Records to review the entry.");
     }catch(err){
       console.error("Admission save failed", err);
       alert("Could not admit student: "+(err?.message||String(err)));
@@ -1366,7 +1366,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
 
       {tab === "admission" && (
         <div style={{ maxWidth: 720, margin: "0 auto" }}>
-          <SchoolHeader settings={settings} subtitle="ADMISSION FORM" />
+          <SchoolHeader settings={settings} subtitle="STUDENT ADMISSION" />
           <div style={{ ...panel, padding: 20, marginTop: 12 }}>
             <div className="psms-photo-form-row" style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 14, flexWrap: "wrap" }}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
@@ -1383,14 +1383,14 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                 </div>
                 <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "center" }}>
                   <Btn type="button" small outline onClick={() => admissionPhotoGalleryRef.current?.click()} disabled={admissionPhotoBusy}>
-                    Gallery
+                    Select Image
                   </Btn>
                   <Btn type="button" small outline onClick={() => admissionPhotoCameraRef.current?.click()} disabled={admissionPhotoBusy}>
-                    Camera
+                    Capture Photo
                   </Btn>
                   {admissionForm.photo && !admissionPhotoBusy && (
                     <Btn type="button" small danger onClick={() => setAdmissionForm((x) => ({ ...x, photo: null }))}>
-                      Remove
+                      Clear Photo
                     </Btn>
                   )}
                 </div>
@@ -1433,7 +1433,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
             </div>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <Btn onClick={() => void saveAdmission()} disabled={admissionSaving || admissionPhotoBusy}>
-                {admissionSaving ? "Saving…" : "Save & Admit Student"}
+                {admissionSaving ? "Processing…" : "Admit Student"}
               </Btn>
             </div>
           </div>
@@ -1455,7 +1455,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               <Btn small outline onClick={() => void exportMarksTemplateExcel()}>
-                📊 Export Excel
+                Export Template
               </Btn>
               <Btn
                 small
@@ -1474,10 +1474,10 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                 }}
                 disabled={!setExamMarks}
               >
-                📥 Import Excel
+                Import Marks
               </Btn>
               <Btn small outline onClick={() => exportMarksPdf().catch(() => alert("PDF export failed."))}>
-                📄 PDF
+                Export PDF
               </Btn>
             </div>
           </div>
@@ -1576,7 +1576,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                   void exportConsolidatedSheetToPdf(settings, currentSession, exam, clsName, headers, rows, `Consolidated_${String(exam || "").replace(/\s/g, "_")}_${safeCls}.pdf`).catch(() => alert("PDF export failed."));
                 }}
               >
-                📄 PDF
+                Export PDF
               </Btn>
             </div>
           </div>
@@ -1672,7 +1672,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                                   onClick={() => promoteStudentToNextClass(s)}
                                   style={{ padding: "2px 7px", fontSize: 11, border: "1px solid #86efac", borderRadius: 4, background: "#f0fdf4", color: "#166534", cursor: "pointer", fontWeight: 700 }}
                                 >
-                                  Promote
+                                  Promote Student
                                 </button>
                               </div>
                             )}
@@ -1857,7 +1857,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                   onClick={() => void exportSingleResultCardPdf()}
                   style={{ height: 36, minHeight: 36, padding: "0 12px", display: "inline-flex", alignItems: "center" }}
                 >
-                  {singlePdfBusy ? "⏳ PDF…" : "📄 PDF"}
+                  {singlePdfBusy ? "Exporting…" : "Export PDF"}
                 </Btn>
                 <Btn
                   small
@@ -1865,7 +1865,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                   onClick={requestClassPdfExport}
                   style={{ height: 36, minHeight: 36, padding: "0 12px", display: "inline-flex", alignItems: "center" }}
                 >
-                  {classPdfBusy ? "⏳ Class PDF…" : "📄 Class PDF"}
+                  {classPdfBusy ? "Exporting…" : "Export Class PDF"}
                 </Btn>
               </div>
             </div>
@@ -1891,12 +1891,12 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
               <Sel label="Exam" value={exam} onChange={setExam} options={exams} width={ctrlW} />
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              <Btn onClick={() => setDsDates((rows) => [...rows, { id: genId(), date: new Date().toISOString().split("T")[0] }])}>+ Add Date</Btn>
+              <Btn onClick={() => setDsDates((rows) => [...rows, { id: genId(), date: new Date().toISOString().split("T")[0] }])}>Add Date</Btn>
               <Btn outline danger disabled={dsDates.length <= 1} onClick={() => setDsDates((rows) => (rows.length > 1 ? rows.slice(0, -1) : rows))}>
                 Remove Date
               </Btn>
               <Btn outline onClick={() => setDsCols((cols) => [...cols, { id: genId(), classId: "" }])}>
-                + Add Class Column
+                Add Class Column
               </Btn>
               <Btn outline danger disabled={dsCols.length <= 1} onClick={() => setDsCols((cols) => (cols.length > 1 ? cols.slice(0, -1) : cols))}>
                 Remove Class Column
@@ -2720,7 +2720,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
           className="!h-9 !min-h-9 !px-3 !text-sm"
           style={{ height: 36, minHeight: 36 }}
         >
-          + Add Student
+          Add Student
         </Btn>
         <Btn
           outline
@@ -2728,7 +2728,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
           className="!h-9 !min-h-9 !px-3 !text-sm"
           style={{ height: 36, minHeight: 36 }}
         >
-          📄 PDF
+          Export PDF
         </Btn>
         <Btn
           outline
@@ -2744,7 +2744,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
                   `Photo folders ready under PSMS/Photos:\n\n`+
                   names.join("\n")+
                   (result.created?.length?`\n\nNewly created: ${result.created.join(", ")}`:"")+
-                  `\n\nPut photos as: Photos/<Class>/1.jpg or (1).jpeg — auto-sync will pick them up.`
+                  `\n\nName files by roll number (e.g. 1.jpg or (1).jpeg).`
                 );
                 return;
               }
@@ -2755,9 +2755,9 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
           }}
           className="!h-9 !min-h-9 !px-3 !text-sm"
           style={{ height: 36, minHeight: 36 }}
-          title="Create Photos subfolders for classes of this school login"
+          title="Create Photos/<Class>/ folders on the local workstation"
         >
-          📁 Create class folders
+          Create Photo Folders
         </Btn>
         <Btn
           outline
@@ -2772,10 +2772,10 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
               if(apiOk){
                 if(filterCls==="all"){
                   const ok=confirm(
-                    "Sync all classes from Photos folder?\n\n"+
-                    "• Files found → update student photo (worldwide)\n"+
-                    "• File removed from class folder → remove photo worldwide\n\n"+
-                    "Tip: Auto-sync already watches the folder every few seconds."
+                    "Import photos for all classes from the Photos folder?\n\n"+
+                    "• Matching roll files update student photos\n"+
+                    "• Removed files clear photos in the system\n\n"+
+                    "Automatic folder watch remains enabled on the workstation."
                   );
                   if(!ok) return;
                 }
@@ -2790,12 +2790,12 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
           }}
           className="!h-9 !min-h-9 !px-3 !text-sm"
           style={{ height: 36, minHeight: 36 }}
-          title="Sync photos: PC Photos folder, or pick images on mobile (named by roll)"
+          title="Import photos from Photos folder (PC) or select images (mobile)"
         >
-          🔄 Sync from Photos
+          Import Photos
         </Btn>
-        <span style={{fontSize:11,color:C.gray,whiteSpace:"nowrap"}} title="PC: watches Photos/<Class>/. Mobile: use Sync to pick photos.">
-          {autoPhotoSyncStatus==="syncing"?"⟳ Syncing…":autoPhotoSyncStatus==="picker"?"● Tap Sync to pick photos":"● Auto-sync ON"}
+        <span style={{fontSize:11,color:C.gray,whiteSpace:"nowrap"}} title="Workstation: watches Photos/<Class>/. Mobile: use Import Photos.">
+          {autoPhotoSyncStatus==="syncing"?"Importing…":autoPhotoSyncStatus==="picker"?"Select images to import":"Folder watch active"}
         </span>
         <input
           ref={photosDirRef}
@@ -2862,7 +2862,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
               </select>
             )}
           </td>
-          <td style={{padding:"5px 10px"}}><div style={{display:"flex",flexDirection:"column",gap:4}}><Btn small outline onClick={()=>openEdit(s)}>Edit</Btn><Btn small danger disabled={isPromotedStudent(s)} onClick={()=>{if(isPromotedStudent(s)) return; setStudents(x=>x.filter(st=>st.id!==s.id));}}>{isPromotedStudent(s)?"Promoted":"Remove"}</Btn></div></td>
+          <td style={{padding:"5px 10px"}}><div style={{display:"flex",flexDirection:"column",gap:4}}><Btn small outline onClick={()=>openEdit(s)}>Edit</Btn><Btn small danger disabled={isPromotedStudent(s)} onClick={()=>{if(isPromotedStudent(s)) return; if(!confirm("Delete this student record?")) return; setStudents(x=>x.filter(st=>st.id!==s.id));}}>{isPromotedStudent(s)?"Promoted":"Delete"}</Btn></div></td>
         </tr>)}
         {filtered.length===0&&<tr><td colSpan={10} style={{padding:20,textAlign:"center",color:C.gray}}>No students found</td></tr>}
         </tbody>
@@ -2881,10 +2881,10 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
                 {photoBusy?<span style={{fontSize:10,color:C.gray,textAlign:"center",padding:4,lineHeight:1.3}}>{photoStatus||"AI processing…"}</span>:isDisplayablePhotoSrc(form.photo)?<img src={form.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:10,color:C.gray,textAlign:"center"}}>Photo</span>}
               </div>
               <div style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"center"}}>
-                <Btn type="button" small outline onClick={()=>photoGalleryRef.current?.click()} disabled={photoBusy}>Gallery</Btn>
-                <Btn type="button" small outline onClick={()=>photoCameraRef.current?.click()} disabled={photoBusy}>Camera</Btn>
+                <Btn type="button" small outline onClick={()=>photoGalleryRef.current?.click()} disabled={photoBusy}>Select Image</Btn>
+                <Btn type="button" small outline onClick={()=>photoCameraRef.current?.click()} disabled={photoBusy}>Capture Photo</Btn>
                 {form.photo&&!photoBusy&&(
-                  <Btn type="button" small danger onClick={()=>setForm(x=>({...x,photo:null}))}>Remove</Btn>
+                  <Btn type="button" small danger onClick={()=>setForm(x=>({...x,photo:null}))}>Clear Photo</Btn>
                 )}
               </div>
               <input ref={photoGalleryRef} type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];e.target.value="";if(!f)return;photoFileRef.current=f;await handleStudentPhotoFile(f);}}/>
@@ -2927,7 +2927,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
               ):<div style={{fontSize:12,color:C.gray}}>No personal-info changes recorded.</div>}
             </div>
           )}
-          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn outline color={C.gray} onClick={closeModal}>Cancel</Btn><Btn onClick={save}>Save</Btn></div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn outline color={C.gray} onClick={closeModal}>Cancel</Btn><Btn onClick={save}>{editingId?"Update Student":"Save Student"}</Btn></div>
         </div>
       </div>
     </div>}

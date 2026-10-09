@@ -75,8 +75,8 @@ export function FeePage({ settings, students, activeSchoolId, setBarSubtitle }) 
     return () => { cancelled = true; };
   }, [activeSchoolId]);
 
-  // Persist only through saveFeeRecords() — do not also save on every feeRecords change
-  // (that double-wrote to cloud on every toggle / mark-all).
+  // Fee persistence: toggleFeePayment / markAllClassPaid → saveFeeRecords() → feeService.save().
+  // Do not also auto-save on every feeRecords change (hydrate + setState would double-write).
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
@@ -98,7 +98,7 @@ export function FeePage({ settings, students, activeSchoolId, setBarSubtitle }) 
     }
   };
 
-  const toggleFeePayment = async (studentId, classId, studentName) => {
+  const toggleFeePayment = async (studentId, classId) => {
     setSaving(studentId);
     try {
       const feeStatus = feeService.studentStatus(feeRecords, { classId, studentId, month: selectedMonth.month, year: selectedMonth.year });
@@ -106,10 +106,8 @@ export function FeePage({ settings, students, activeSchoolId, setBarSubtitle }) 
       let newRecords;
       if (feeStatus.paid) {
         newRecords = feeService.remove(feeRecords, studentId, classId, selectedMonth.month, selectedMonth.year);
-        alert(`Fee marked as UNPAID for ${studentName}`);
       } else {
         newRecords = feeService.markStudent(feeRecords, { studentId, classId, month: selectedMonth.month, year: selectedMonth.year });
-        alert(`Fee marked as PAID for ${studentName} - Rs. ${feeCore.FEE_AMOUNT}`);
       }
       await saveFeeRecords(newRecords);
     } finally {
@@ -121,13 +119,12 @@ export function FeePage({ settings, students, activeSchoolId, setBarSubtitle }) 
     const classObj = monthlySummary.find(c => String(c.classId) === String(classId));
     if (!classObj) return;
     
-    if (confirm(`Mark all ${classObj.totalStudents} students in ${classObj.className} as PAID for ${getCurrentMonthName()} ${selectedMonth.year}?`)) {
+    if (confirm(`Mark all ${classObj.totalStudents} students in ${classObj.className} as paid for ${getCurrentMonthName()} ${selectedMonth.year}?`)) {
       try {
         const newRecords = feeService.markAll(feeRecords, { classId, month: selectedMonth.month, year: selectedMonth.year, students, classes });
         await saveFeeRecords(newRecords);
-        alert(`All ${classObj.totalStudents} students marked as PAID - ${feeService.formatCurrency(classObj.expectedAmount)}`);
       } catch {
-        alert('Failed to mark all as paid. Please try again.');
+        alert("Unable to update fee records. Please try again.");
       }
     }
   };
@@ -206,10 +203,10 @@ export function FeePage({ settings, students, activeSchoolId, setBarSubtitle }) 
       doc.text(`Collected: ${feeCore.formatCurrency(classObj.collectedAmount)}`, 14, finalY + 24);
 
       doc.save(`Fee_Collection_${classObj.className}_${getCurrentMonthName()}_${selectedMonth.year}.pdf`);
-      alert('PDF downloaded successfully!');
+      // File download starts via jsPDF — avoid blocking success dialogs.
     } catch (error) {
       console.error('PDF generation error:', error);
-      alert('Failed to generate PDF. Please try again.');
+      alert("Unable to export fee report. Please try again.");
     } finally {
       setPdfLoading(false);
     }
@@ -228,7 +225,7 @@ export function FeePage({ settings, students, activeSchoolId, setBarSubtitle }) 
       <div className="fees-page mx-auto max-w-[1200px] space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0 space-y-1">
-            <Button type="button" variant="outline" size="sm" onClick={goBack}>← Back to Summary</Button>
+            <Button type="button" variant="outline" size="sm" onClick={goBack}>Back to Summary</Button>
             <h2 className="m-0 truncate text-xl font-bold text-primary">{classObj.className} — Fee Details</h2>
             <p className="m-0 text-sm text-muted-foreground">
               {getCurrentMonthName()} {selectedMonth.year} · {classObj.totalStudents} students · Paid {classObj.paidCount} · Pending {classObj.pendingCount}
@@ -242,7 +239,7 @@ export function FeePage({ settings, students, activeSchoolId, setBarSubtitle }) 
               onClick={() => markAllClassPaid(classObj.classId)}
               className="bg-green-700 hover:bg-green-800"
             >
-              ✓ Mark All Paid ({classObj.pendingCount})
+              Mark Class Paid ({classObj.pendingCount})
             </Button>
             <Button type="button" size="sm" onClick={() => generateClassPdf(classObj)} disabled={pdfLoading}>
               <Download size={16} className="mr-1.5" />
@@ -316,10 +313,10 @@ export function FeePage({ settings, students, activeSchoolId, setBarSubtitle }) 
                               size="sm"
                               variant="outline"
                               disabled={saving === student.id}
-                              onClick={() => toggleFeePayment(student.id, classObj.classId, student.name)}
+                              onClick={() => toggleFeePayment(student.id, classObj.classId)}
                               className={feeStatus.paid ? "border-amber-300 text-amber-700" : "border-green-300 text-green-700"}
                             >
-                              {saving === student.id ? "…" : (feeStatus.paid ? "← Unmark" : "✓ Mark")}
+                              {saving === student.id ? "Saving…" : (feeStatus.paid ? "Mark Unpaid" : "Mark Paid")}
                             </Button>
                           </TableCell>
                         </TableRow>
