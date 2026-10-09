@@ -34,6 +34,7 @@ const {
   drawTeacherPlannerFooterColumn, appendTeacherPlannerScheduleFooterPdf,
   isTeacherPlannerTimetablePdfTitle, downloadExcel, brandingLogoDataUrlForPdf,
   processStudentPhotoWithBackground,
+  preloadStudentPhotoAi,
   readStudentPhotoAsJpeg,
   isStudentPhotoFile,
   isDisplayablePhotoSrc,
@@ -362,8 +363,14 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
   const admissionPhotoGalleryRef=useRef(null);
   const admissionPhotoCameraRef=useRef(null);
   const [admissionPhotoBusy,setAdmissionPhotoBusy]=useState(false);
+  const [admissionPhotoStatus,setAdmissionPhotoStatus]=useState("");
   const [admissionSaving,setAdmissionSaving]=useState(false);
   const admissionSaveLockRef=useRef(false);
+  // Warm AI background-removal model while user is on Admission tab
+  useEffect(()=>{
+    if(tab!=="admission") return;
+    void preloadStudentPhotoAi();
+  },[tab]);
   const suggestedNextAdm=useMemo(()=>nextAdmissionNo(students),[students]);
   const suggestedNextRoll=useMemo(()=>nextRollNoForClass(students,settings.classes,admissionForm.classId,settings.commonTeachers),[students,settings.classes,admissionForm.classId,settings.commonTeachers]);
   const formatDobAf=(v)=>{ const d=String(v||"").replace(/\D/g,"").slice(0,8); if(d.length<=2) return d; if(d.length<=4) return d.slice(0,2)+"/"+d.slice(2); return d.slice(0,2)+"/"+d.slice(2,4)+"/"+d.slice(4); };
@@ -388,9 +395,13 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
       return;
     }
     setAdmissionPhotoBusy(true);
+    setAdmissionPhotoStatus("Preparing…");
     try{
-      const data=await processStudentPhotoWithBackground(f);
+      const data=await processStudentPhotoWithBackground(f,{
+        onProgress:(msg)=>setAdmissionPhotoStatus(String(msg||"Processing…")),
+      });
       if(!data){ alert("Could not process this photo. Try another image."); return; }
+      setAdmissionPhotoStatus("Uploading…");
       const worldwide=await toWorldwidePhoto(data, admissionForm.id||"admission");
       setAdmissionForm(x=>({...x,photo:worldwide}));
     }catch(err){
@@ -398,6 +409,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
       alert("Photo upload failed: "+(err?.message||String(err)));
     }finally{
       setAdmissionPhotoBusy(false);
+      setAdmissionPhotoStatus("");
     }
   };
   const saveAdmission=async ()=>{
@@ -1352,200 +1364,81 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
         </div>
       </div>
 
-      {tab === "admission" && (() => {
-        const admNo = String(admissionForm.admissionNo || "").trim() || suggestedNextAdm;
-        const admRoll = String(admissionForm.rollNo || "").trim() || suggestedNextRoll;
-        const admClass = getClassLabel(settings, admissionForm.classId) || formatClassDisplay(resolveClass(settings.classes, admissionForm.classId)) || "—";
-        const admDate = new Date().toLocaleDateString("en-PK", { day: "2-digit", month: "long", year: "numeric" });
-        const admSession = currentSession || "";
-        const printField = (label, value) => (
-          <tr key={label}>
-            <td className="adm-print-label">{label}</td>
-            <td className="adm-print-value">{value || <span className="adm-print-blank">&nbsp;</span>}</td>
-          </tr>
-        );
-        const openAdmissionPrint = () => {
-          const el = document.getElementById("admission-print-document");
-          if (!el) {
-            alert("Print document not found.");
-            return;
-          }
-          let cleaned = false;
-          const cleanup = () => {
-            if (cleaned) return;
-            cleaned = true;
-            document.body.classList.remove("printing-admission");
-            window.removeEventListener("afterprint", cleanup);
-            window.removeEventListener("focus", onFocusCleanup);
-          };
-          const onFocusCleanup = () => {
-            // After the print dialog closes, focus returns to the window.
-            setTimeout(cleanup, 300);
-          };
-          document.body.classList.add("printing-admission");
-          window.addEventListener("afterprint", cleanup);
-          // Give the browser a tick to apply print styles, then open the dialog.
-          // Do not remove printing-admission while the dialog is still open (blank preview).
-          setTimeout(() => {
-            try {
-              window.print();
-            } catch (_) {
-              cleanup();
-              return;
-            }
-            window.addEventListener("focus", onFocusCleanup);
-            // Last-resort cleanup if afterprint/focus never fire.
-            setTimeout(cleanup, 120000);
-          }, 100);
-        };
-        return (
-        <div>
-          <div className="no-print psms-toolbar" style={{ ...toolbar }}>
-            <p style={{ fontSize: 13, color: "#6b7280", margin: 0, maxWidth: 560 }}>
-              Fill the form to admit a new student. Use Print for the official paper copy (no buttons).
-            </p>
-            <Btn small outline onClick={openAdmissionPrint}>Print Admission Form</Btn>
-          </div>
-
-          {/* Screen editor — interactive controls stay here */}
-          <div className="no-print admission-screen-editor" style={{ maxWidth: 720, margin: "0 auto" }}>
-            <SchoolHeader settings={settings} subtitle="ADMISSION FORM" />
-            <div style={{ ...panel, padding: 20, marginTop: 12 }}>
-              <div className="psms-photo-form-row" style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 14, flexWrap: "wrap" }}>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                  <div style={{ width: 80, height: 100, border: "2px dashed #d1d5db", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", background: "#fafafa" }}>
-                    {admissionPhotoBusy ? (
-                      <span style={{ fontSize: 10, color: C.gray, textAlign: "center", padding: 4 }}>Processing…</span>
-                    ) : isDisplayablePhotoSrc(admissionForm.photo) ? (
-                      <img src={admissionForm.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    ) : (
-                      <span style={{ fontSize: 10, color: C.gray, textAlign: "center" }}>Photo</span>
-                    )}
-                  </div>
-                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "center" }}>
-                    <Btn type="button" small outline onClick={() => admissionPhotoGalleryRef.current?.click()} disabled={admissionPhotoBusy}>
-                      Gallery
+      {tab === "admission" && (
+        <div style={{ maxWidth: 720, margin: "0 auto" }}>
+          <SchoolHeader settings={settings} subtitle="ADMISSION FORM" />
+          <div style={{ ...panel, padding: 20, marginTop: 12 }}>
+            <div className="psms-photo-form-row" style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 14, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                <div style={{ width: 80, height: 100, border: "2px dashed #d1d5db", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", background: "#fafafa" }}>
+                  {admissionPhotoBusy ? (
+                    <span style={{ fontSize: 10, color: C.gray, textAlign: "center", padding: 4, lineHeight: 1.3 }}>
+                      {admissionPhotoStatus || "AI processing…"}
+                    </span>
+                  ) : isDisplayablePhotoSrc(admissionForm.photo) ? (
+                    <img src={admissionForm.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : (
+                    <span style={{ fontSize: 10, color: C.gray, textAlign: "center" }}>Photo</span>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "center" }}>
+                  <Btn type="button" small outline onClick={() => admissionPhotoGalleryRef.current?.click()} disabled={admissionPhotoBusy}>
+                    Gallery
+                  </Btn>
+                  <Btn type="button" small outline onClick={() => admissionPhotoCameraRef.current?.click()} disabled={admissionPhotoBusy}>
+                    Camera
+                  </Btn>
+                  {admissionForm.photo && !admissionPhotoBusy && (
+                    <Btn type="button" small danger onClick={() => setAdmissionForm((x) => ({ ...x, photo: null }))}>
+                      Remove
                     </Btn>
-                    <Btn type="button" small outline onClick={() => admissionPhotoCameraRef.current?.click()} disabled={admissionPhotoBusy}>
-                      Camera
-                    </Btn>
-                    {admissionForm.photo && !admissionPhotoBusy && (
-                      <Btn type="button" small danger onClick={() => setAdmissionForm((x) => ({ ...x, photo: null }))}>
-                        Remove
-                      </Btn>
-                    )}
-                  </div>
-                  <input
-                    ref={admissionPhotoGalleryRef}
-                    type="file"
-                    accept="image/*"
-                    style={{ display: "none" }}
-                    onChange={async (e) => {
-                      const f = e.target.files?.[0];
-                      e.target.value = "";
-                      if (!f) return;
-                      await handleAdmissionPhotoFile(f);
-                    }}
-                  />
-                  <input
-                    ref={admissionPhotoCameraRef}
-                    type="file"
-                    accept="image/*"
-                    capture="user"
-                    style={{ display: "none" }}
-                    onChange={async (e) => {
-                      const f = e.target.files?.[0];
-                      e.target.value = "";
-                      if (!f) return;
-                      await handleAdmissionPhotoFile(f);
-                    }}
-                  />
+                  )}
                 </div>
-                <div className="psms-grid-2" style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, minWidth: 0 }}>
-                  <Inp label="Admission No" value={admissionForm.admissionNo} onChange={(v) => setAdmissionForm((x) => ({ ...x, admissionNo: v }))} placeholder={"Next: " + suggestedNextAdm} width="100%" />
-                  <Inp label="Roll No" value={admissionForm.rollNo} onChange={(v) => setAdmissionForm((x) => ({ ...x, rollNo: v }))} placeholder={"Next in class: " + suggestedNextRoll} width="100%" />
-                  <Inp label="Student Name" value={admissionForm.name} onChange={(v) => setAdmissionForm((x) => ({ ...x, name: toProperCaseNameInput(v) }))} width="100%" />
-                  <Inp label="Father's Name" value={admissionForm.fatherName} onChange={(v) => setAdmissionForm((x) => ({ ...x, fatherName: toProperCaseNameInput(v) }))} width="100%" />
-                  <Inp label="Form B / Bay Form" value={admissionForm.bayForm} onChange={(v) => setAdmissionForm((x) => ({ ...x, bayForm: formatCnicAf(v) }))} placeholder="00000-0000000-0" width="100%" />
-                  <Inp label="Date of Birth" value={admissionForm.dob} onChange={(v) => setAdmissionForm((x) => ({ ...x, dob: formatDobAf(v) }))} placeholder="dd/mm/yyyy" width="100%" />
-                  <Inp label="WhatsApp No" value={admissionForm.whatsapp} onChange={(v) => setAdmissionForm((x) => ({ ...x, whatsapp: formatWhatsappAf(v) }))} placeholder="0000-0000000" width="100%" />
-                  <Sel label="Class" value={admissionForm.classId} onChange={(v) => setAdmissionForm((x) => ({ ...x, classId: v }))} options={settings.classes.map((c) => ({ value: c.id, label: formatClassDisplay(c) }))} width="100%" />
-                </div>
+                <input
+                  ref={admissionPhotoGalleryRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!f) return;
+                    await handleAdmissionPhotoFile(f);
+                  }}
+                />
+                <input
+                  ref={admissionPhotoCameraRef}
+                  type="file"
+                  accept="image/*"
+                  capture="user"
+                  style={{ display: "none" }}
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!f) return;
+                    await handleAdmissionPhotoFile(f);
+                  }}
+                />
               </div>
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <Btn onClick={() => void saveAdmission()} disabled={admissionSaving || admissionPhotoBusy}>
-                  {admissionSaving ? "Saving…" : "Save & Admit Student"}
-                </Btn>
+              <div className="psms-grid-2" style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, minWidth: 0 }}>
+                <Inp label="Admission No" value={admissionForm.admissionNo} onChange={(v) => setAdmissionForm((x) => ({ ...x, admissionNo: v }))} placeholder={"Next: " + suggestedNextAdm} width="100%" />
+                <Inp label="Roll No" value={admissionForm.rollNo} onChange={(v) => setAdmissionForm((x) => ({ ...x, rollNo: v }))} placeholder={"Next in class: " + suggestedNextRoll} width="100%" />
+                <Inp label="Student Name" value={admissionForm.name} onChange={(v) => setAdmissionForm((x) => ({ ...x, name: toProperCaseNameInput(v) }))} width="100%" />
+                <Inp label="Father's Name" value={admissionForm.fatherName} onChange={(v) => setAdmissionForm((x) => ({ ...x, fatherName: toProperCaseNameInput(v) }))} width="100%" />
+                <Inp label="Form B / Bay Form" value={admissionForm.bayForm} onChange={(v) => setAdmissionForm((x) => ({ ...x, bayForm: formatCnicAf(v) }))} placeholder="00000-0000000-0" width="100%" />
+                <Inp label="Date of Birth" value={admissionForm.dob} onChange={(v) => setAdmissionForm((x) => ({ ...x, dob: formatDobAf(v) }))} placeholder="dd/mm/yyyy" width="100%" />
+                <Inp label="WhatsApp No" value={admissionForm.whatsapp} onChange={(v) => setAdmissionForm((x) => ({ ...x, whatsapp: formatWhatsappAf(v) }))} placeholder="0000-0000000" width="100%" />
+                <Sel label="Class" value={admissionForm.classId} onChange={(v) => setAdmissionForm((x) => ({ ...x, classId: v }))} options={settings.classes.map((c) => ({ value: c.id, label: formatClassDisplay(c) }))} width="100%" />
               </div>
             </div>
-          </div>
-
-          {/* Official print document — no UI buttons; used only by Print */}
-          <div id="admission-print-document" className="admission-print-document" aria-hidden="true">
-            <div className="adm-print-top">
-              <img className="adm-print-logo" src={schoolOrBrandLogo(settings.logo)} alt="" />
-              <div className="adm-print-title-wrap">
-                <div className="adm-print-school">{settings.schoolName || "School Name"}</div>
-                <div className="adm-print-doc-title">Student Admission Form</div>
-              </div>
-              <div className="adm-print-meta">
-                {admSession ? <div><strong>Session:</strong> {admSession}</div> : null}
-                <div><strong>Date:</strong> {admDate}</div>
-              </div>
-            </div>
-            <div className="adm-print-body">
-              <div className="adm-print-photo">
-                {isDisplayablePhotoSrc(admissionForm.photo) ? (
-                  <img src={admissionForm.photo} alt="Student" />
-                ) : (
-                  <span className="adm-print-photo-label">Passport<br />Photo</span>
-                )}
-              </div>
-              <div className="adm-print-fields">
-                <table className="adm-print-table">
-                  <tbody>
-                    {printField("Admission No.", admNo)}
-                    {printField("Roll No.", admRoll)}
-                    {printField("Student Name", admissionForm.name)}
-                    {printField("Father's Name", admissionForm.fatherName)}
-                    {printField("Class / Section", admClass)}
-                    {printField("Date of Birth", admissionForm.dob)}
-                    {printField("Form-B / B-Form", admissionForm.bayForm)}
-                    {printField("WhatsApp No.", admissionForm.whatsapp)}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div className="adm-print-section">
-              <div className="adm-print-section-title">Declaration</div>
-              <p className="adm-print-decl">
-                I hereby declare that the particulars given above are true and correct to the best of my knowledge.
-                I undertake to abide by the rules and regulations of the institution. I understand that any false
-                information may lead to cancellation of admission.
-              </p>
-              <div className="adm-print-signs">
-                <div className="adm-print-sign">
-                  <div className="adm-print-sign-line" />
-                  Parent / Guardian Signature
-                </div>
-                <div className="adm-print-sign">
-                  <div className="adm-print-sign-line" />
-                  Class Teacher
-                </div>
-                <div className="adm-print-sign">
-                  <div className="adm-print-sign-line" />
-                  Head Teacher / Principal
-                </div>
-              </div>
-            </div>
-            <div className="adm-print-footer">
-              <span>Official use — Punjab School Management System</span>
-              <span>Page 1 of 1</span>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <Btn onClick={() => void saveAdmission()} disabled={admissionSaving || admissionPhotoBusy}>
+                {admissionSaving ? "Saving…" : "Save & Admit Student"}
+              </Btn>
             </div>
           </div>
         </div>
-        );
-      })()}
+      )}
 
       {tab === "record" && (
         <div style={{ ...panel, padding: 12 }}>
@@ -2137,10 +2030,15 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
   const photoCameraRef=useRef();
   const photoFileRef=useRef(null);
   const [photoBusy,setPhotoBusy]=useState(false);
+  const [photoStatus,setPhotoStatus]=useState("");
   const [autoPhotoSyncStatus,setAutoPhotoSyncStatus]=useState("watching"); // watching | syncing | idle
   const photoFileSigRef=useRef({});
   const photosFolderSigRef=useRef("");
   const photosSyncInFlight=useRef(false);
+  useEffect(()=>{
+    if(!showAdd) return;
+    void preloadStudentPhotoAi();
+  },[showAdd]);
   const toWorldwidePhoto=useCallback(async (dataUrl, studentId)=>{
     if(!dataUrl||!isDisplayablePhotoSrc(dataUrl)) return dataUrl;
     if(/^https?:\/\//i.test(dataUrl)) return dataUrl;
@@ -2616,9 +2514,13 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
       return;
     }
     setPhotoBusy(true);
+    setPhotoStatus("Preparing…");
     try{
-      const data=await processStudentPhotoWithBackground(f);
+      const data=await processStudentPhotoWithBackground(f,{
+        onProgress:(msg)=>setPhotoStatus(String(msg||"Processing…")),
+      });
       if(!data){ alert("Could not process this photo. Try another image."); return; }
+      setPhotoStatus("Uploading…");
       const worldwide=await toWorldwidePhoto(data, editingId||form.id||"record");
       setForm(x=>({...x,photo:worldwide}));
     }catch(err){
@@ -2626,6 +2528,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
       alert("Photo upload failed: "+(err?.message||String(err)));
     }finally{
       setPhotoBusy(false);
+      setPhotoStatus("");
     }
   };
   const save=async()=>{
@@ -2975,7 +2878,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
           <div style={{display:"flex",gap:16,alignItems:"flex-start",marginBottom:14,flexWrap:"wrap"}} className="psms-photo-form-row">
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,flexShrink:0}}>
               <div style={{width:80,height:100,border:"2px dashed #d1d5db",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",background:"#fafafa"}}>
-                {photoBusy?<span style={{fontSize:10,color:C.gray,textAlign:"center",padding:4}}>Processing…</span>:isDisplayablePhotoSrc(form.photo)?<img src={form.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:10,color:C.gray,textAlign:"center"}}>Photo</span>}
+                {photoBusy?<span style={{fontSize:10,color:C.gray,textAlign:"center",padding:4,lineHeight:1.3}}>{photoStatus||"AI processing…"}</span>:isDisplayablePhotoSrc(form.photo)?<img src={form.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:10,color:C.gray,textAlign:"center"}}>Photo</span>}
               </div>
               <div style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"center"}}>
                 <Btn type="button" small outline onClick={()=>photoGalleryRef.current?.click()} disabled={photoBusy}>Gallery</Btn>

@@ -199,81 +199,257 @@ export function stripDuplicateAdmissionsForImport(importedStudents,merged,allCla
 export const IMGLY_BACKGROUND_REMOVAL_DATA_VER ="1.7.0";
 export const IMGLY_BG_MODEL_BASE_URL =`https://staticimgly.com/@imgly/background-removal-data/${IMGLY_BACKGROUND_REMOVAL_DATA_VER}/dist/`;
 
-export async function processStudentPhotoWithBackground(file){
-  if(!file) throw new Error("No file selected");
-  const compositeToWhiteJpeg=(src)=>{
-    const sw="naturalWidth" in src&&src.naturalWidth?src.naturalWidth:src.width;
-    const sh="naturalHeight" in src&&src.naturalHeight?src.naturalHeight:src.height;
-    const MAX_W=400,MAX_H=500;
-    let w=sw,h=sh;
-    if(!w||!h) return null;
-    const ratio=Math.min(MAX_W/w,MAX_H/h,1);
-    w=Math.round(w*ratio); h=Math.round(h*ratio);
-    const canvas=document.createElement("canvas");
-    canvas.width=w; canvas.height=h;
-    const ctx=canvas.getContext("2d");
-    if(!ctx) return null;
-    ctx.fillStyle="#ffffff";
-    ctx.fillRect(0,0,w,h);
-    ctx.imageSmoothingEnabled=true;
-    ctx.imageSmoothingQuality="high";
-    ctx.drawImage(src,0,0,w,h);
-    return canvas.toDataURL("image/jpeg",0.88);
+/** Max side length sent into the AI model (smaller = much faster). */
+const AI_BG_MAX_SIDE = 512;
+/** Final student photo size on white background. */
+const PHOTO_OUT_MAX_W = 400;
+const PHOTO_OUT_MAX_H = 500;
+
+let _bgRemovalModPromise = null;
+let _bgPreloadPromise = null;
+let _bgGpuFailed = false;
+
+function canUseWebGpu() {
+  try {
+    return typeof navigator !== "undefined" && !!navigator.gpu && !_bgGpuFailed;
+  } catch {
+    return false;
+  }
+}
+
+function getBgRemovalConfig(device) {
+  return {
+    publicPath: IMGLY_BG_MODEL_BASE_URL,
+    // Smallest quantized ISNet (~40MB) — fast enough for school ID photos
+    model: "isnet_quint8",
+    device: device || (canUseWebGpu() ? "gpu" : "cpu"),
+    output: { format: "image/png", quality: 0.85, type: "foreground" },
   };
-  const loadImageFromBlobOrFile=(src)=>new Promise((resolve,reject)=>{
-    const img=new Image();
-    const url=typeof src==="string"?src:URL.createObjectURL(src);
-    const revoke=()=>{ if(typeof src!=="string") URL.revokeObjectURL(url); };
-    img.onload=async ()=>{
-      try{ if(img.decode) await img.decode(); }catch{ /* ignore */ }
+}
+
+async function loadBgRemovalModule() {
+  if (!_bgRemovalModPromise) {
+    _bgRemovalModPromise = import("@imgly/background-removal").catch((err) => {
+      _bgRemovalModPromise = null;
+      throw err;
+    });
+  }
+  return _bgRemovalModPromise;
+}
+
+/**
+ * Warm the AI model in the background so the first photo is fast.
+ * Safe to call multiple times (shared promise).
+ */
+export function preloadStudentPhotoAi() {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (_bgPreloadPromise) return _bgPreloadPromise;
+  _bgPreloadPromise = (async () => {
+    try {
+      const mod = await loadBgRemovalModule();
+      const preload = mod.preload || mod.default?.preload;
+      const cfg = getBgRemovalConfig();
+      if (typeof preload === "function") {
+        await preload(cfg);
+      } else {
+        // Touch init path by importing; model downloads on first removeBackground
+        await loadBgRemovalModule();
+      }
+    } catch (err) {
+      console.warn("[photo-ai] preload failed (will retry on first photo)", err);
+      _bgPreloadPromise = null;
+    }
+  })();
+  return _bgPreloadPromise;
+}
+
+function loadImageFromBlobOrFile(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = typeof src === "string" ? src : URL.createObjectURL(src);
+    const revoke = () => {
+      if (typeof src !== "string") URL.revokeObjectURL(url);
+    };
+    img.onload = async () => {
+      try {
+        if (img.decode) await img.decode();
+      } catch {
+        /* ignore */
+      }
       revoke();
       resolve(img);
     };
-    img.onerror=()=>{
+    img.onerror = () => {
       revoke();
       reject(new Error("Could not decode image"));
     };
-    img.src=url;
+    img.src = url;
   });
-  const fallbackFromFile=async ()=>{
-    try{
-      const img=await loadImageFromBlobOrFile(file);
-      const out=compositeToWhiteJpeg(img);
-      if(out) return out;
-    }catch{ /* fall through to FileReader */ }
-    return await new Promise((resolve,reject)=>{
-      const r=new FileReader();
-      r.onload=()=>resolve(r.result||"");
-      r.onerror=()=>reject(new Error("Could not read image file"));
+}
+
+function drawScaledToCanvas(src, maxW, maxH) {
+  const sw = "naturalWidth" in src && src.naturalWidth ? src.naturalWidth : src.width;
+  const sh = "naturalHeight" in src && src.naturalHeight ? src.naturalHeight : src.height;
+  if (!sw || !sh) return null;
+  const ratio = Math.min(maxW / sw, maxH / sh, 1);
+  const w = Math.max(1, Math.round(sw * ratio));
+  const h = Math.max(1, Math.round(sh * ratio));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d", { alpha: true });
+  if (!ctx) return null;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(src, 0, 0, w, h);
+  return canvas;
+}
+
+function compositeToWhiteJpeg(src) {
+  const canvas = drawScaledToCanvas(src, PHOTO_OUT_MAX_W, PHOTO_OUT_MAX_H);
+  if (!canvas) return null;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  // Rebuild on opaque white (canvas may already contain RGBA cutout)
+  const w = canvas.width;
+  const h = canvas.height;
+  const out = document.createElement("canvas");
+  out.width = w;
+  out.height = h;
+  const octx = out.getContext("2d");
+  if (!octx) return null;
+  octx.fillStyle = "#ffffff";
+  octx.fillRect(0, 0, w, h);
+  octx.imageSmoothingEnabled = true;
+  octx.imageSmoothingQuality = "high";
+  octx.drawImage(canvas, 0, 0);
+  return out.toDataURL("image/jpeg", 0.88);
+}
+
+/** Shrink large phone photos before AI — biggest speed win. */
+async function downscaleForAi(file) {
+  try {
+    let bmp = null;
+    if (typeof createImageBitmap === "function") {
+      try {
+        bmp = await createImageBitmap(file);
+      } catch {
+        bmp = null;
+      }
+    }
+    const src = bmp || (await loadImageFromBlobOrFile(file));
+    const sw = "naturalWidth" in src && src.naturalWidth ? src.naturalWidth : src.width;
+    const sh = "naturalHeight" in src && src.naturalHeight ? src.naturalHeight : src.height;
+    const maxSide = Math.max(sw || 0, sh || 0);
+    if (!maxSide) {
+      if (bmp) bmp.close();
+      return file;
+    }
+    if (maxSide <= AI_BG_MAX_SIDE) {
+      if (bmp) bmp.close();
+      return file;
+    }
+    const canvas = drawScaledToCanvas(src, AI_BG_MAX_SIDE, AI_BG_MAX_SIDE);
+    if (bmp) bmp.close();
+    if (!canvas) return file;
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob((b) => resolve(b), "image/jpeg", 0.92),
+    );
+    if (!blob || !blob.size) return file;
+    return new File([blob], "photo-ai.jpg", { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
+}
+
+async function runAiBackgroundRemoval(input, onProgress) {
+  const mod = await loadBgRemovalModule();
+  const removeBackground = mod.removeBackground || mod.default;
+  if (typeof removeBackground !== "function") {
+    throw new Error("AI background removal unavailable");
+  }
+  const tryDevice = async (device) => {
+    onProgress?.(device === "gpu" ? "AI GPU…" : "AI removing…");
+    const cfg = getBgRemovalConfig(device);
+    if (typeof onProgress === "function") {
+      cfg.progress = (key, current, total) => {
+        if (key === "fetch:model" || String(key).startsWith("fetch")) {
+          onProgress("Loading AI model…");
+        } else if (String(key).includes("inference") || String(key).includes("compute")) {
+          onProgress(device === "gpu" ? "AI GPU…" : "AI removing…");
+        } else if (total) {
+          onProgress(`AI ${Math.min(99, Math.round((current / total) * 100))}%`);
+        }
+      };
+    }
+    return removeBackground(input, cfg);
+  };
+  if (canUseWebGpu()) {
+    try {
+      return await tryDevice("gpu");
+    } catch (err) {
+      console.warn("[photo-ai] WebGPU failed, falling back to CPU", err);
+      _bgGpuFailed = true;
+    }
+  }
+  return tryDevice("cpu");
+}
+
+/**
+ * AI background removal → white studio background JPEG for student photos.
+ * @param {File|Blob} file
+ * @param {{ onProgress?: (msg: string) => void }} [opts]
+ */
+export async function processStudentPhotoWithBackground(file, opts = {}) {
+  if (!file) throw new Error("No file selected");
+  const onProgress = typeof opts.onProgress === "function" ? opts.onProgress : null;
+
+  const fallbackFromFile = async () => {
+    onProgress?.("Preparing photo…");
+    try {
+      const img = await loadImageFromBlobOrFile(file);
+      const out = compositeToWhiteJpeg(img);
+      if (out) return out;
+    } catch {
+      /* fall through */
+    }
+    return await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result || "");
+      r.onerror = () => reject(new Error("Could not read image file"));
       r.readAsDataURL(file);
     });
   };
-  try{
-    const { removeBackground }=await import("@imgly/background-removal");
-    const blob=await removeBackground(file,{
-      publicPath:IMGLY_BG_MODEL_BASE_URL,
-      model:"isnet_quint8",
-      device:"cpu",
-      output:{format:"image/png"},
-    });
-    if(!blob||blob.size===0) throw new Error("empty result from background removal");
-    if(typeof createImageBitmap==="function"){
-      try{
-        const bmp=await createImageBitmap(blob);
-        try{
-          const out=compositeToWhiteJpeg(bmp);
-          if(out) return out;
-        }finally{ bmp.close(); }
-      }catch{ /* fall through to Image() */ }
+
+  try {
+    onProgress?.("Preparing…");
+    // Kick preload in parallel if not already warm
+    void preloadStudentPhotoAi();
+    const small = await downscaleForAi(file);
+    const blob = await runAiBackgroundRemoval(small, onProgress);
+    if (!blob || blob.size === 0) throw new Error("empty result from background removal");
+    onProgress?.("Finishing…");
+    if (typeof createImageBitmap === "function") {
+      try {
+        const bmp = await createImageBitmap(blob);
+        try {
+          const out = compositeToWhiteJpeg(bmp);
+          if (out) return out;
+        } finally {
+          bmp.close();
+        }
+      } catch {
+        /* fall through */
+      }
     }
-    const img=await loadImageFromBlobOrFile(blob);
-    const out=compositeToWhiteJpeg(img);
-    if(out) return out;
+    const img = await loadImageFromBlobOrFile(blob);
+    const out = compositeToWhiteJpeg(img);
+    if (out) return out;
     throw new Error("composite failed");
-  }catch(e){
-    console.warn("Background removal failed, using fallback",e);
-    const out=await fallbackFromFile();
-    if(!isDisplayablePhotoSrc(out)) throw new Error("Could not process this photo. Try JPG or PNG.");
+  } catch (e) {
+    console.warn("Background removal failed, using fallback", e);
+    const out = await fallbackFromFile();
+    if (!isDisplayablePhotoSrc(out)) throw new Error("Could not process this photo. Try JPG or PNG.");
     return out;
   }
 }
