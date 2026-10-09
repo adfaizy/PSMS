@@ -91,39 +91,43 @@ export function FeePage({ settings, students, activeSchoolId, setBarSubtitle }) 
   const [pdfLoading, setPdfLoading] = useState(false);
   const [saving, setSaving] = useState(null); // studentId being saved
 
-  const saveFeeRecords = (newRecords) => {
+  const saveFeeRecords = async (newRecords) => {
     setFeeRecords(newRecords);
+    if (!activeSchoolId || !feesHydratedRef.current) return;
+    try {
+      await feeService.save(activeSchoolId, newRecords);
+    } catch (err) {
+      console.warn("Fee cloud save failed", err);
+    }
   };
 
-  const toggleFeePayment = (studentId, classId, studentName) => {
+  const toggleFeePayment = async (studentId, classId, studentName) => {
     setSaving(studentId);
     try {
       const feeStatus = feeService.studentStatus(feeRecords, { classId, studentId, month: selectedMonth.month, year: selectedMonth.year });
 
       let newRecords;
       if (feeStatus.paid) {
-        // Remove payment (mark as unpaid)
         newRecords = feeService.remove(feeRecords, studentId, classId, selectedMonth.month, selectedMonth.year);
         alert(`Fee marked as UNPAID for ${studentName}`);
       } else {
-        // Add payment (mark as paid)
         newRecords = feeService.markStudent(feeRecords, { studentId, classId, month: selectedMonth.month, year: selectedMonth.year });
         alert(`Fee marked as PAID for ${studentName} - Rs. ${feeCore.FEE_AMOUNT}`);
       }
-      saveFeeRecords(newRecords);
+      await saveFeeRecords(newRecords);
     } finally {
       setSaving(null);
     }
   };
 
-  const markAllClassPaid = (classId) => {
+  const markAllClassPaid = async (classId) => {
     const classObj = monthlySummary.find(c => String(c.classId) === String(classId));
     if (!classObj) return;
     
     if (confirm(`Mark all ${classObj.totalStudents} students in ${classObj.className} as PAID for ${getCurrentMonthName()} ${selectedMonth.year}?`)) {
       try {
         const newRecords = feeService.markAll(feeRecords, { classId, month: selectedMonth.month, year: selectedMonth.year, students, classes });
-        saveFeeRecords(newRecords);
+        await saveFeeRecords(newRecords);
         alert(`All ${classObj.totalStudents} students marked as PAID - ${feeService.formatCurrency(classObj.expectedAmount)}`);
       } catch {
         alert('Failed to mark all as paid. Please try again.');

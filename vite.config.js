@@ -157,7 +157,8 @@ export default defineConfig(({ mode }) => {
           server.middlewares.use("/Photos-api", (req, res, next) => {
             try {
               const url = new URL(req.url || "/", "http://psms.local");
-              if (url.pathname === "/folder-exists" || url.pathname.endsWith("/folder-exists")) {
+              const pathname = url.pathname || "";
+              if (pathname === "/folder-exists" || pathname.endsWith("/folder-exists")) {
                 const name = String(url.searchParams.get("name") || "").trim();
                 const dir = path.normalize(path.join(photosRoot, name));
                 const ok =
@@ -167,6 +168,33 @@ export default defineConfig(({ mode }) => {
                   fs.statSync(dir).isDirectory();
                 res.setHeader("Content-Type", "application/json");
                 res.end(JSON.stringify({ exists: ok }));
+                return;
+              }
+              // List image files in a class folder (one call instead of dozens of 404 probes)
+              if (pathname === "/list-folder" || pathname.endsWith("/list-folder")) {
+                const name = String(url.searchParams.get("name") || "").trim();
+                const dir = path.normalize(path.join(photosRoot, name));
+                const imageExt =
+                  /\.(jpe?g|jfif|jpe|png|webp|bmp|gif|heic|heif|avif|tiff?|ico|svg)$/i;
+                let files = [];
+                if (
+                  name &&
+                  dir.startsWith(photosRoot) &&
+                  fs.existsSync(dir) &&
+                  fs.statSync(dir).isDirectory()
+                ) {
+                  files = fs
+                    .readdirSync(dir)
+                    .filter((f) => {
+                      try {
+                        return fs.statSync(path.join(dir, f)).isFile() && imageExt.test(f);
+                      } catch {
+                        return false;
+                      }
+                    });
+                }
+                res.setHeader("Content-Type", "application/json");
+                res.end(JSON.stringify({ exists: files.length > 0 || (name && fs.existsSync(dir)), files }));
                 return;
               }
               next();
@@ -183,24 +211,37 @@ export default defineConfig(({ mode }) => {
                 res.end("Forbidden");
                 return;
               }
+              // Must 404 — do not fall through to SPA index.html (that was saved as "photos")
               if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
-                next();
+                res.statusCode = 404;
+                res.setHeader("Content-Type", "text/plain; charset=utf-8");
+                res.end("Not found");
                 return;
               }
               const ext = path.extname(filePath).toLowerCase();
               const types = {
                 ".jpg": "image/jpeg",
                 ".jpeg": "image/jpeg",
+                ".jpe": "image/jpeg",
+                ".jfif": "image/jpeg",
                 ".png": "image/png",
                 ".webp": "image/webp",
                 ".gif": "image/gif",
                 ".bmp": "image/bmp",
+                ".tif": "image/tiff",
+                ".tiff": "image/tiff",
+                ".heic": "image/heic",
+                ".heif": "image/heif",
+                ".avif": "image/avif",
+                ".ico": "image/x-icon",
+                ".svg": "image/svg+xml",
               };
               res.setHeader("Content-Type", types[ext] || "application/octet-stream");
               res.setHeader("Cache-Control", "no-cache");
               fs.createReadStream(filePath).pipe(res);
             } catch {
-              next();
+              res.statusCode = 500;
+              res.end("Error");
             }
           });
         },

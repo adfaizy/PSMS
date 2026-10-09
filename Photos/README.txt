@@ -15,7 +15,10 @@ Structure:
     Class 2/
       ...
 
-Put each photo file named with the student roll number (any image format).
+Put each photo file named with the student roll number.
+Any common image format is accepted: jpg, jpeg, jfif, png, webp, bmp, gif,
+heic, heif, avif, tif, tiff, ico, svg.
+Both roll name styles are accepted: 1.jpg  or  (1).jpg  /  (1).jpeg
 
 Import:
 1. Examination → Student Record

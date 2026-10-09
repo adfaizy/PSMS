@@ -272,13 +272,50 @@ export async function processStudentPhotoWithBackground(file){
     throw new Error("composite failed");
   }catch(e){
     console.warn("Background removal failed, using fallback",e);
-    return fallbackFromFile();
+    const out=await fallbackFromFile();
+    if(!isDisplayablePhotoSrc(out)) throw new Error("Could not process this photo. Try JPG or PNG.");
+    return out;
   }
+}
+
+/** Extensions accepted for student / class photos (any common image format). */
+export const STUDENT_PHOTO_EXTS = [
+  ".jpg", ".jpeg", ".jpe", ".jfif",
+  ".png", ".webp", ".bmp", ".gif",
+  ".heic", ".heif", ".avif",
+  ".tif", ".tiff", ".ico", ".svg",
+];
+export const STUDENT_PHOTO_EXT_RE =
+  /\.(jpe?g|jfif|jpe|png|webp|bmp|gif|heic|heif|avif|tiff?|ico|svg)$/i;
+
+/** True if File/Blob looks like an image (MIME and/or extension). */
+export function isStudentPhotoFile(file) {
+  if (!file) return false;
+  const type = String(file.type || "").toLowerCase();
+  if (type.startsWith("image/")) return true;
+  // Some OS/browsers leave type empty for HEIC/JFIF/etc.
+  return STUDENT_PHOTO_EXT_RE.test(String(file.name || ""));
+}
+
+/** True if a stored photo src can render in <img> (rejects HTML/HEIC dumps). */
+export function isDisplayablePhotoSrc(src) {
+  if (!src || typeof src !== "string") return false;
+  const s = src.trim();
+  if (!s) return false;
+  if (/^https?:\/\//i.test(s) || s.startsWith("blob:")) return true;
+  if (!s.startsWith("data:")) return false;
+  // Only raster formats browsers reliably paint
+  return /^data:image\/(jpeg|jpg|png|webp|gif|bmp)[;,]/i.test(s);
 }
 
 /** Fast photo load for bulk folder import (no AI background removal). */
 export async function readStudentPhotoAsJpeg(file){
   if(!file) throw new Error("No file selected");
+  const type = String(file.type || "").toLowerCase();
+  // Reject SPA HTML / non-image blobs that Sync used to save as "photos"
+  if (type && !type.startsWith("image/") && type !== "application/octet-stream") {
+    throw new Error("Not an image file");
+  }
   const loadImageFromBlobOrFile=(src)=>new Promise((resolve,reject)=>{
     const img=new Image();
     const url=typeof src==="string"?src:URL.createObjectURL(src);
@@ -294,33 +331,26 @@ export async function readStudentPhotoAsJpeg(file){
     };
     img.src=url;
   });
-  try{
-    const img=await loadImageFromBlobOrFile(file);
-    const sw=img.naturalWidth||img.width;
-    const sh=img.naturalHeight||img.height;
-    if(!sw||!sh) throw new Error("empty image");
-    const MAX_W=400,MAX_H=500;
-    const ratio=Math.min(MAX_W/sw,MAX_H/sh,1);
-    const w=Math.round(sw*ratio);
-    const h=Math.round(sh*ratio);
-    const canvas=document.createElement("canvas");
-    canvas.width=w; canvas.height=h;
-    const ctx=canvas.getContext("2d");
-    if(!ctx) throw new Error("no canvas");
-    ctx.fillStyle="#ffffff";
-    ctx.fillRect(0,0,w,h);
-    ctx.imageSmoothingEnabled=true;
-    ctx.imageSmoothingQuality="high";
-    ctx.drawImage(img,0,0,w,h);
-    return canvas.toDataURL("image/jpeg",0.88);
-  }catch{
-    return await new Promise((resolve,reject)=>{
-      const r=new FileReader();
-      r.onload=()=>resolve(r.result||"");
-      r.onerror=()=>reject(new Error("Could not read image file"));
-      r.readAsDataURL(file);
-    });
-  }
+  const img=await loadImageFromBlobOrFile(file);
+  const sw=img.naturalWidth||img.width;
+  const sh=img.naturalHeight||img.height;
+  if(!sw||!sh) throw new Error("empty image");
+  const MAX_W=400,MAX_H=500;
+  const ratio=Math.min(MAX_W/sw,MAX_H/sh,1);
+  const w=Math.round(sw*ratio);
+  const h=Math.round(sh*ratio);
+  const canvas=document.createElement("canvas");
+  canvas.width=w; canvas.height=h;
+  const ctx=canvas.getContext("2d");
+  if(!ctx) throw new Error("no canvas");
+  ctx.fillStyle="#ffffff";
+  ctx.fillRect(0,0,w,h);
+  ctx.imageSmoothingEnabled=true;
+  ctx.imageSmoothingQuality="high";
+  ctx.drawImage(img,0,0,w,h);
+  const out=canvas.toDataURL("image/jpeg",0.88);
+  if(!isDisplayablePhotoSrc(out)) throw new Error("Could not convert image");
+  return out;
 }
 /**
  * One row per pupil when admission is missing or class_id strings differ across sync (e.g. operator devices).

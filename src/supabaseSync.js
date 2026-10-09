@@ -3,7 +3,7 @@ import {
   getSupabase,
   getIsSupabaseConfigured,
 } from './lib/supabase.js'
-import { migrateEntityPhotos } from './lib/photoStorage.js'
+import { migrateEntityPhotos, cloudSafePhoto } from './lib/photoStorage.js'
 
 export { isSupabaseConfigured, getSupabase, getIsSupabaseConfigured }
 
@@ -29,7 +29,8 @@ function studentToRow(schoolId, s) {
     bay_form: s.bayForm || '',
     father_cnic: s.fatherCnic || '',
     whatsapp: s.whatsapp || '',
-    photo: s.photo || null,
+    // Only public HTTPS URLs — data URLs break worldwide upserts / other devices
+    photo: cloudSafePhoto(s.photo),
     meta: {},
   }
 }
@@ -54,7 +55,7 @@ function staffToRow(schoolId, p) {
   return {
     id: p.id,
     school_id: schoolId,
-    photo: p.photo || null,
+    photo: cloudSafePhoto(p.photo),
     staff_category: p.staffCategory || null,
     cpn: p.cpn || null,
     name: p.name || null,
@@ -292,9 +293,13 @@ export async function saveSchoolsToCloud(schools, activeSchoolId) {
         if (error) logSyncError('upsertClasses', error)
       }
 
-      // students / staff — migrate a limited batch of data-URL photos per save
-      const students = await migrateEntityPhotos(school.id, school.students || [], 'students', 15)
-      const staffProfiles = await migrateEntityPhotos(school.id, school.staffProfiles || [], 'staff', 10)
+      // Upload data-URL photos to public Storage so every device can load them
+      let students = await migrateEntityPhotos(school.id, school.students || [], 'students', 40)
+      let staffProfiles = await migrateEntityPhotos(school.id, school.staffProfiles || [], 'staff', 20)
+      // Second pass if many photos remain (keeps payload small for worldwide sync)
+      const stillData = (list) => (list || []).some((e) => String(e?.photo || '').startsWith('data:image'))
+      if (stillData(students)) students = await migrateEntityPhotos(school.id, students, 'students', 40)
+      if (stillData(staffProfiles)) staffProfiles = await migrateEntityPhotos(school.id, staffProfiles, 'staff', 20)
       const nextSchool = { ...school, students, staffProfiles }
       migratedSchools.push(nextSchool)
       await replaceChildren('students', school.id, students.map((s) => studentToRow(school.id, s)))
@@ -618,8 +623,7 @@ export async function loadFeesFromCloud(schoolId) {
 
 export async function saveFeesToCloud(schoolId, feeRecords) {
   if (!getIsSupabaseConfigured() || !getSupabase() || !schoolId) return { ok: false, skipped: true }
-  // Stable ids + onConflict on business unique key — fee marks regenerate random ids,
-  // so PK-only upsert races and fails silently on other devices.
+  // Stable ids + orphan-only delete (never wipe whole school — that broke worldwide sync).
   const rows = (feeRecords || [])
     .filter((rec) => rec?.studentId && rec?.classId && rec?.month && rec?.year)
     .map((rec) => {
@@ -640,10 +644,22 @@ export async function saveFeesToCloud(schoolId, feeRecords) {
       }
     })
   try {
-    const { error: delErr } = await getSupabase().from('fee_records').delete().eq('school_id', schoolId)
-    if (delErr) {
-      logSyncError('saveFees:delete', delErr)
-      return { ok: false, error: delErr }
+    const { data: existing, error: listErr } = await getSupabase()
+      .from('fee_records')
+      .select('id')
+      .eq('school_id', schoolId)
+    if (listErr) {
+      logSyncError('saveFees:list', listErr)
+      return { ok: false, error: listErr }
+    }
+    const nextIds = new Set(rows.map((r) => r.id))
+    const toDelete = (existing || []).map((r) => r.id).filter((id) => !nextIds.has(id))
+    if (toDelete.length) {
+      const { error: delErr } = await getSupabase().from('fee_records').delete().in('id', toDelete)
+      if (delErr) {
+        logSyncError('saveFees:delete', delErr)
+        return { ok: false, error: delErr }
+      }
     }
     if (rows.length) {
       const { error } = await getSupabase().from('fee_records').upsert(rows, {

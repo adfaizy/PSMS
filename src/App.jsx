@@ -1468,8 +1468,10 @@ function App(){
         if(att&&Object.keys(att).length) await saveAttendanceToCloud(schoolId, att);
       }catch(e){ console.warn("Attendance cloud flush failed", e); }
       try{
-        const fees=feeCore.loadFeeFromLocal(schoolId);
-        if(fees?.length) await saveFeesToCloud(schoolId, fees);
+        // Hydrate first so this device does not overwrite newer worldwide fee marks
+        const cloudFees=await feeCore.hydrateFeesFromCloud(schoolId);
+        const fees=Array.isArray(cloudFees)?cloudFees:feeCore.loadFeeFromLocal(schoolId);
+        await saveFeesToCloud(schoolId, fees||[]);
       }catch(e){ console.warn("Fees cloud flush failed", e); }
       try{
         const lib=loadLibraryFromLocal(schoolId);
@@ -2127,7 +2129,7 @@ function App(){
           {page==="timetable"&&<TimetablePage settings={effectiveSettings} staffProfiles={staffProfiles} timetable={timetable} setTimetable={setTimetable} currentSession={curSession} setBarSubtitle={setBarSubtitle}/>}
           {page==="attendance"&&<AttendancePage settings={effectiveSettings} students={students} currentSession={curSession} activeSchoolId={activeSchoolId} setBarSubtitle={setBarSubtitle}/>}
           {page==="fees"&&<FeePage settings={effectiveSettings} students={students} activeSchoolId={activeSchoolId} setBarSubtitle={setBarSubtitle}/>}
-          {page==="examination"&&<ExaminationErrorBoundary><ExaminationPage settings={effectiveSettings} setSettings={setSettingsForActive} students={students} setStudents={setStudentsForActive} timetable={timetable} exam_tm={exam_tm} exam_om={exam_om} setExamMarks={setExamMarksForActive} exam_datesheet={exam_datesheet} setDatesheet={setDatesheetForActive} currentSession={curSession} currentUser={currentUser} setBarSubtitle={setBarSubtitle}/></ExaminationErrorBoundary>}
+          {page==="examination"&&<ExaminationErrorBoundary><ExaminationPage settings={effectiveSettings} setSettings={setSettingsForActive} students={students} setStudents={setStudentsForActive} timetable={timetable} exam_tm={exam_tm} exam_om={exam_om} setExamMarks={setExamMarksForActive} exam_datesheet={exam_datesheet} setDatesheet={setDatesheetForActive} currentSession={curSession} currentUser={currentUser} activeSchoolId={activeSchoolId} setBarSubtitle={setBarSubtitle}/></ExaminationErrorBoundary>}
           {page==="paper"&&<PaperGeneratorPage settings={effectiveSettings} questionBank={activeSchool.questionBank||{}} setQuestionBank={updater=>setSchools(prev=>prev.map(s=>s.id===activeSchoolId?{...s,questionBank:typeof updater==="function"?updater(s.questionBank||{}):updater}:s))} setBarSubtitle={setBarSubtitle}/>}
           {page==="card"&&<CardGeneratorPage settings={effectiveSettings} students={students} currentSession={curSession} staffProfiles={staffProfiles} setBarSubtitle={setBarSubtitle}/>}
           {page==="book-bank"&&<BookBankPage setBarSubtitle={setBarSubtitle}/>}

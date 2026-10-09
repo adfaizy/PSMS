@@ -298,13 +298,21 @@ export function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, 
 
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setFormData((prev) => ({ ...prev, photo: ev.target.result, photoPosition: prev.photoPosition || "50% 50%" }));
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      let photo = ev.target.result;
+      try {
+        if (typeof photo === "string" && photo.startsWith("data:image")) {
+          const { uploadDataUrlPhoto } = await import("../../lib/photoStorage.js");
+          photo = await uploadDataUrlPhoto(photo, `${activeSchoolId || "school"}/staff/${editingId || "new"}`);
+        }
+      } catch (err) {
+        console.warn("Staff photo cloud upload skipped", err);
+      }
+      setFormData((prev) => ({ ...prev, photo, photoPosition: prev.photoPosition || "50% 50%" }));
+    };
+    reader.readAsDataURL(file);
   };
 
   const PHOTO_POSITIONS = [

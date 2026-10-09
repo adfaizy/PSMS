@@ -35,6 +35,9 @@ const {
   isTeacherPlannerTimetablePdfTitle, downloadExcel, brandingLogoDataUrlForPdf,
   processStudentPhotoWithBackground,
   readStudentPhotoAsJpeg,
+  isStudentPhotoFile,
+  isDisplayablePhotoSrc,
+  STUDENT_PHOTO_EXT_RE,
 } = H;
 
 const jsPDF =
@@ -280,7 +283,7 @@ export function ResultCardHeader({
               overflow: "hidden",
             }}
           >
-            {photo ? (
+            {isDisplayablePhotoSrc(photo) ? (
               <img src={photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             ) : (
               <div style={{ textAlign: "center", padding: 4, maxWidth: "100%", boxSizing: "border-box" }}>
@@ -341,7 +344,7 @@ export function MarksInput({initialValue,onSave,rowIdx,colIdx,totalRows,totalCol
     }}
     style={{width:58,padding:"4px",border:"1.5px solid #d1d5db",borderRadius:4,fontSize:12,textAlign:"center",...(inputStyle||{})}}/>;
 }
-export function ExaminationPage({settings:settingsProp,setSettings,students:studentsProp,setStudents,timetable,exam_tm:exam_tmProp,exam_om:exam_omProp,setExamMarks,exam_datesheet:exam_datesheetProp,setDatesheet,currentSession,currentUser,setBarSubtitle}){
+export function ExaminationPage({settings:settingsProp,setSettings,students:studentsProp,setStudents,timetable,exam_tm:exam_tmProp,exam_om:exam_omProp,setExamMarks,exam_datesheet:exam_datesheetProp,setDatesheet,currentSession,currentUser,activeSchoolId,setBarSubtitle}){
   const settings=useMemo(()=>{
     const s=settingsProp||defaultSettings;
     return {
@@ -364,17 +367,30 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
   const formatDobAf=(v)=>{ const d=String(v||"").replace(/\D/g,"").slice(0,8); if(d.length<=2) return d; if(d.length<=4) return d.slice(0,2)+"/"+d.slice(2); return d.slice(0,2)+"/"+d.slice(2,4)+"/"+d.slice(4); };
   const formatCnicAf=(v)=>{ const d=(v||"").replace(/\D/g,"").slice(0,13); if(d.length<=5) return d; if(d.length<=12) return d.slice(0,5)+"-"+d.slice(5); return d.slice(0,5)+"-"+d.slice(5,12)+"-"+d.slice(12); };
   const formatWhatsappAf=(v)=>{ const d=(v||"").replace(/\D/g,"").slice(0,11); if(d.length<=4) return d; return d.slice(0,4)+"-"+d.slice(4); };
+  const toWorldwidePhoto=async (dataUrl, studentId)=>{
+    if(!dataUrl||!isDisplayablePhotoSrc(dataUrl)) return dataUrl;
+    if(/^https?:\/\//i.test(dataUrl)) return dataUrl;
+    try{
+      const { uploadDataUrlPhoto }=await import("../../lib/photoStorage.js");
+      const prefix=`${activeSchoolId||"school"}/students/${studentId||"new"}`;
+      return await uploadDataUrlPhoto(dataUrl, prefix);
+    }catch(err){
+      console.warn("Photo cloud upload skipped", err);
+      return dataUrl;
+    }
+  };
   const handleAdmissionPhotoFile=async (f)=>{
     if(!f) return;
-    if(!String(f.type||"").startsWith("image/") && !/\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(f.name||"")){
-      alert("Please choose an image file (JPG, PNG, etc.).");
+    if(!isStudentPhotoFile(f)){
+      alert("Please choose an image file (any format: JPG, PNG, WEBP, HEIC, etc.).");
       return;
     }
     setAdmissionPhotoBusy(true);
     try{
       const data=await processStudentPhotoWithBackground(f);
       if(!data){ alert("Could not process this photo. Try another image."); return; }
-      setAdmissionForm(x=>({...x,photo:data}));
+      const worldwide=await toWorldwidePhoto(data, admissionForm.id||"admission");
+      setAdmissionForm(x=>({...x,photo:worldwide}));
     }catch(err){
       console.error("Admission photo failed",err);
       alert("Photo upload failed: "+(err?.message||String(err)));
@@ -382,7 +398,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
       setAdmissionPhotoBusy(false);
     }
   };
-  const saveAdmission=()=>{
+  const saveAdmission=async ()=>{
     if(!(admissionForm.name||"").trim()){ alert("Please enter Student Name."); return; }
     const name=toProperCase(admissionForm.name||"");
     const fatherName=toProperCase(admissionForm.fatherName||"");
@@ -401,6 +417,8 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
       return;
     }
     const id=genId();
+    let photo=admissionForm.photo||null;
+    if(photo&&String(photo).startsWith("data:image")) photo=await toWorldwidePhoto(photo, id);
     const payload={
       ...admissionForm,
       name,
@@ -408,7 +426,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
       admissionNo,
       rollNo,
       id,
-      photo:admissionForm.photo||null,
+      photo,
       personalInfoLockSession: null,
       personalInfoHistory: [],
     };
@@ -1362,7 +1380,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                   <div style={{ width: 80, height: 100, border: "2px dashed #d1d5db", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", background: "#fafafa" }}>
                     {admissionPhotoBusy ? (
                       <span style={{ fontSize: 10, color: C.gray, textAlign: "center", padding: 4 }}>Processing…</span>
-                    ) : admissionForm.photo ? (
+                    ) : isDisplayablePhotoSrc(admissionForm.photo) ? (
                       <img src={admissionForm.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     ) : (
                       <span style={{ fontSize: 10, color: C.gray, textAlign: "center" }}>Photo</span>
@@ -1610,7 +1628,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                         <tr key={s.id} style={{ background: i % 2 === 0 ? "#f8fafc" : "#fff" }}>
                           <td style={{ padding: 4, verticalAlign: "middle", textAlign: "center" }}>
                             <div style={{ width: 36, height: 44, border: "1px solid #d1d5db", borderRadius: 4, display: "inline-flex", alignItems: "center", justifyContent: "center", overflow: "hidden", background: "#f3f4f6" }}>
-                              {s.photo ? <img src={s.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 9, color: C.gray }}>Photo</span>}
+                              {isDisplayablePhotoSrc(s.photo) ? <img src={s.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 9, color: C.gray }}>Photo</span>}
                             </div>
                           </td>
                           <td style={{ padding: "5px 8px", fontVariantNumeric: "tabular-nums" }}>{s.admissionNo}</td>
@@ -2157,15 +2175,16 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
   const openEdit=(s)=>{ setEditingId(s.id); setForm({admissionNo:s.admissionNo||"",rollNo:s.rollNo||"",name:toProperCase(s.name||""),fatherName:toProperCase(s.fatherName||""),classId:s.classId||"",dob:formatDob(s.dob||""),bayForm:s.bayForm||"",fatherCnic:s.fatherCnic||"",whatsapp:s.whatsapp||"",photo:s.photo||null}); photoFileRef.current=null; setShowAdd(true); };
   const handleStudentPhotoFile=async (f)=>{
     if(!f) return;
-    if(!String(f.type||"").startsWith("image/") && !/\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(f.name||"")){
-      alert("Please choose an image file (JPG, PNG, etc.).");
+    if(!isStudentPhotoFile(f)){
+      alert("Please choose an image file (any format: JPG, PNG, WEBP, HEIC, etc.).");
       return;
     }
     setPhotoBusy(true);
     try{
       const data=await processStudentPhotoWithBackground(f);
       if(!data){ alert("Could not process this photo. Try another image."); return; }
-      setForm(x=>({...x,photo:data}));
+      const worldwide=await toWorldwidePhoto(data, editingId||form.id||"record");
+      setForm(x=>({...x,photo:worldwide}));
     }catch(err){
       console.error("Student photo failed",err);
       alert("Photo upload failed: "+(err?.message||String(err)));
@@ -2194,7 +2213,10 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
       return;
     }
     const id=editingId||genId();
-    const photoVal=form.photo||null;
+    let photoVal=form.photo||null;
+    if(photoVal&&String(photoVal).startsWith("data:image")){
+      photoVal=await toWorldwidePhoto(photoVal, id);
+    }
     const name=toProperCase(form.name||"");
     const fatherName=toProperCase(form.fatherName||"");
     const payload={...form,name,fatherName,admissionNo,rollNo,id:editingId||id,photo:photoVal};
@@ -2318,7 +2340,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
       didDrawCell:(data)=>{
         if(data.section==="body" && data.column.index===0){
           const s=filtered[data.row.index];
-          if(!s.photo) return;
+          if(!isDisplayablePhotoSrc(s.photo)) return;
           try{
             const cell=data.cell;
             const padding=1;
@@ -2396,7 +2418,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
             alert(
               "Class folders for this login (create these under PSMS/Photos):\n\n"+
               folderNames.join("\n")+
-              "\n\nThen put photos as: Photos/<Class>/<roll>.jpg"
+              "\n\nThen put photos as: Photos/<Class>/<roll>.jpg  (or .png / .heic / any image; also (roll).jpg)"
             );
           }}
           className="!h-9 !min-h-9 !px-3 !text-sm"
@@ -2421,7 +2443,6 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
               );
               if(!ok) return;
             }
-            const exts=[".jpg",".jpeg",".png",".webp",".bmp",".gif"];
             const folderNamesForClass=(c)=>{
               const names=new Set();
               [formatClassDisplay(c),c.name,c.id,c.grade,formatGradeLabel(c.grade),`${c.grade||""}${c.section?`-${c.section}`:""}`]
@@ -2430,59 +2451,83 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
                 .forEach(v=>names.add(v));
               return [...names];
             };
-            const folderExistsCache={};
-            const classFolderExists=async (folders)=>{
-              for(const folder of folders){
-                if(folderExistsCache[folder]!=null){
-                  if(folderExistsCache[folder]) return true;
-                  continue;
-                }
-                try{
-                  const res=await fetch(`/Photos-api/folder-exists?name=${encodeURIComponent(folder)}`,{cache:"no-store"});
-                  const json=res.ok?await res.json():{exists:false};
-                  folderExistsCache[folder]=!!json.exists;
-                  if(json.exists) return true;
-                }catch{
-                  folderExistsCache[folder]=false;
-                }
-              }
-              return false;
+            const rollKeyFromName=(filename)=>{
+              const base=String(filename||"").replace(/\.[^.]+$/,"").trim();
+              if(!base) return "";
+              if(/^\d+$/.test(base)) return normalizeRollNo(base);
+              const paren=base.match(/^\(\s*(\d+)\s*\)$/);
+              if(paren) return normalizeRollNo(paren[1]);
+              const digits=base.match(/\d+/);
+              return digits?normalizeRollNo(digits[0]):"";
             };
-            const tryFetchPhoto=async (folders,roll)=>{
+            // One list-folder call per class (not dozens of 404 probes per student)
+            const folderFilesCache={};
+            const listFolderFiles=async (folder)=>{
+              if(folderFilesCache[folder]) return folderFilesCache[folder];
+              try{
+                const res=await fetch(`/Photos-api/list-folder?name=${encodeURIComponent(folder)}`,{cache:"no-store"});
+                const json=res.ok?await res.json():{files:[]};
+                const files=Array.isArray(json.files)?json.files:[];
+                folderFilesCache[folder]={ exists:!!json.exists||files.length>0, files };
+                return folderFilesCache[folder];
+              }catch{
+                folderFilesCache[folder]={ exists:false, files:[] };
+                return folderFilesCache[folder];
+              }
+            };
+            const findPhotoFile=async (folders,roll)=>{
+              const want=normalizeRollNo(roll);
+              if(!want) return null;
               for(const folder of folders){
-                for(const ext of exts){
-                  const url=`/Photos/${encodeURIComponent(folder)}/${encodeURIComponent(roll)}${ext}`;
-                  try{
-                    const res=await fetch(url,{cache:"no-store"});
-                    if(!res.ok) continue;
-                    const blob=await res.blob();
-                    if(!blob||!blob.size) continue;
-                    const file=new File([blob],`${roll}${ext}`,{type:blob.type||"image/jpeg"});
-                    return await readStudentPhotoAsJpeg(file);
-                  }catch{ /* try next */ }
-                }
+                const listed=await listFolderFiles(folder);
+                if(!listed.exists) continue;
+                const match=listed.files.find(f=>rollKeyFromName(f)===want);
+                if(match) return { folder, fileName: match };
               }
               return null;
             };
+            const tryFetchPhoto=async (folders,roll)=>{
+              const hit=await findPhotoFile(folders,roll);
+              if(!hit) return null;
+              const url=`/Photos/${encodeURIComponent(hit.folder)}/${encodeURIComponent(hit.fileName)}`;
+              try{
+                const res=await fetch(url,{cache:"no-store"});
+                if(!res.ok) return null;
+                const ctype=String(res.headers.get("content-type")||"").toLowerCase();
+                if(ctype.includes("text/html")||ctype.includes("application/json")) return null;
+                const blob=await res.blob();
+                if(!blob||!blob.size||blob.size<32) return null;
+                if(String(blob.type||"").includes("text/html")) return null;
+                const file=new File([blob],hit.fileName,{type:(blob.type||ctype||"image/jpeg")});
+                const data=await readStudentPhotoAsJpeg(file);
+                return isDisplayablePhotoSrc(data)?data:null;
+              }catch{
+                return null;
+              }
+            };
             let applied=0, removed=0, missing=0, failed=0, skippedNoFolder=0;
             const updates={}; // id -> photo data URL or null to clear
+            const pendingCloudUpload=[]; // upload after UI update so sync never hangs on Storage
             for(const s of list){
               const sc=resolveClass(classes,s.classId);
               if(!sc){ missing++; continue; }
               const roll=normalizeRollNo(s.rollNo);
               if(!roll){ missing++; continue; }
               const folders=folderNamesForClass(sc);
-              const folderOk=await classFolderExists(folders);
+              let folderOk=false;
+              for(const folder of folders){
+                const listed=await listFolderFiles(folder);
+                if(listed.exists){ folderOk=true; break; }
+              }
               if(!folderOk){
                 skippedNoFolder++;
                 continue; // don't clear if class folder itself is missing
               }
               try{
-                const data=await tryFetchPhoto(folders,roll);
-                const padded=(/^\d+$/.test(roll)&&roll.length===1)?`0${roll}`:null;
-                const photo=data||(padded?await tryFetchPhoto(folders,padded):null);
+                const photo=await tryFetchPhoto(folders,roll);
                 if(photo){
-                  updates[s.id]=photo;
+                  updates[s.id]=photo; // apply local JPEG immediately
+                  pendingCloudUpload.push({ id:s.id, photo });
                   applied++;
                 }else if(s.photo){
                   updates[s.id]=null; // file removed from folder → clear student photo
@@ -2495,12 +2540,30 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
               }
               if((applied+removed+missing+failed)%10===0) await yieldToMain();
             }
-            if(Object.keys(updates).length){
-              setStudents(prev=>prev.map(s=>{
-                if(!(s.id in updates)) return s;
+            // Also clear previously saved broken photos (HTML/non-image data URLs)
+            setStudents(prev=>prev.map(s=>{
+              if(s.id in updates){
                 const next=updates[s.id];
                 return next?{...s,photo:next}:{...s,photo:null};
-              }));
+              }
+              if(s.photo&&!isDisplayablePhotoSrc(s.photo)) return {...s,photo:null};
+              return s;
+            }));
+            // Background: push synced photos to public Storage (worldwide) without blocking Sync UI
+            if(pendingCloudUpload.length){
+              void (async ()=>{
+                const cloudUpdates={};
+                for(const item of pendingCloudUpload){
+                  try{
+                    const url=await toWorldwidePhoto(item.photo, item.id);
+                    if(url&&url!==item.photo&&/^https?:\/\//i.test(url)) cloudUpdates[item.id]=url;
+                  }catch{ /* keep local jpeg */ }
+                  await yieldToMain();
+                }
+                if(Object.keys(cloudUpdates).length){
+                  setStudents(prev=>prev.map(s=>cloudUpdates[s.id]?{...s,photo:cloudUpdates[s.id]}:s));
+                }
+              })();
             }
             alert(
               `Synced photos from Photos folder.\n\n`+
@@ -2509,7 +2572,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
               `No file / already empty: ${missing}\n`+
               (skippedNoFolder?`Skipped (no class folder): ${skippedNoFolder}\n`:"")+
               (failed?`Failed: ${failed}\n`:"")+
-              `\nDelete a file under Photos/<Class>/<roll>.jpg then Sync again to clear it from Student Record.`
+              `\nDelete the roll photo under Photos/<Class>/ then Sync again to clear it from Student Record.`
             );
           }}
           className="!h-9 !min-h-9 !px-3 !text-sm"
@@ -2521,7 +2584,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
         <input
           ref={photosDirRef}
           type="file"
-          accept="image/*,.jpg,.jpeg,.png,.webp,.bmp,.gif,.jfif,.heic,.heif,.avif,.tif,.tiff"
+          accept="image/*,.jpg,.jpeg,.jpe,.jfif,.png,.webp,.bmp,.gif,.heic,.heif,.avif,.tif,.tiff,.ico,.svg"
           style={{display:"none"}}
           multiple
           webkitdirectory=""
@@ -2530,7 +2593,6 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
             const files=Array.from(e.target.files||[]);
             e.target.value="";
             if(!files.length) return;
-            const IMAGE_EXT=/\.(jpe?g|png|webp|bmp|gif|jfif|heic|heif|avif|tiff?)$/i;
             const normalizeRollKey=(v)=>{
               const digits=String(v??"").match(/\d+/);
               if(!digits) return "";
@@ -2539,7 +2601,10 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
             const extractRollFromFilename=(filename)=>{
               const base=String(filename||"").replace(/\.[^.]+$/,"").trim();
               if(!base) return "";
+              // Accept 1, 01, (1), (01)
               if(/^\d+$/.test(base)) return normalizeRollKey(base);
+              const paren=base.match(/^\(\s*(\d+)\s*\)$/);
+              if(paren) return normalizeRollKey(paren[1]);
               const lead=base.match(/^(\d{1,4})(?:[^\d].*)?$/);
               if(lead) return normalizeRollKey(lead[1]);
               const labeled=base.match(/(?:roll|r(?:no)?|no)[^\d]*(\d{1,4})/i);
@@ -2609,10 +2674,10 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
             const imageFiles=files.filter(f=>{
               const name=f.name||"";
               if(/^\.gitkeep$/i.test(name)||/^readme/i.test(name)) return false;
-              return IMAGE_EXT.test(name)||(f.type&&f.type.startsWith("image/"));
+              return isStudentPhotoFile(f)||STUDENT_PHOTO_EXT_RE.test(name);
             });
             if(!imageFiles.length){
-              alert("No image files found in that folder. Use jpg, jpeg, png, webp, bmp, gif, or similar.");
+              alert("No image files found in that folder. Any common image format is accepted (JPG, PNG, WEBP, HEIC, AVIF, TIFF, etc.).");
               return;
             }
             const targets=[];
@@ -2668,14 +2733,15 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
                 }
               }));
               for(const {t,data} of results){
-                if(!data){ failed++; continue; }
+                if(!data||!isDisplayablePhotoSrc(data)){ failed++; continue; }
+                const worldwide=await toWorldwidePhoto(data, `${t.classId}_${t.roll}`);
                 const keys=new Set([
                   `${t.classId}|${t.roll}`,
                   `${String(t.cls?.name||"").trim()}|${t.roll}`,
                   `${String(t.cls?.grade||"").trim()}|${t.roll}`,
                   `${formatClassDisplay(t.cls)}|${t.roll}`,
                 ]);
-                keys.forEach(k=>{ if(k&&!k.startsWith("|")) photosMap[k]=data; });
+                keys.forEach(k=>{ if(k&&!k.startsWith("|")) photosMap[k]=worldwide; });
               }
               await yieldToMain();
             }
@@ -2719,7 +2785,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
       <table style={{borderCollapse:"collapse",fontSize:13,minWidth:"100%"}}>
         <thead><tr style={{background:C.navy,color:"#fff"}}>{["Photo","Adm#","Roll#","Student Name","Father's Name","Form B","DOB","WhatsApp","Class","Action"].map(h=><th key={h} style={{padding:"7px 10px",textAlign:"left",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
         <tbody>{filtered.map((s,i)=><tr key={s.id} style={{background:i%2===0?"#f9fafb":"#fff"}}>
-          <td style={{padding:"5px 10px"}}><div style={{width:34,height:34,borderRadius:"50%",overflow:"hidden",border:"2px solid #d1d5db",background:"#e5e7eb",display:"flex",alignItems:"center",justifyContent:"center"}}>{s.photo?<img src={s.photo} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:"👤"}</div></td>
+          <td style={{padding:"5px 10px"}}><div style={{width:34,height:34,borderRadius:"50%",overflow:"hidden",border:"2px solid #d1d5db",background:"#e5e7eb",display:"flex",alignItems:"center",justifyContent:"center"}}>{isDisplayablePhotoSrc(s.photo)?<img src={s.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:"👤"}</div></td>
           <td style={{padding:"5px 10px"}}>{s.admissionNo}</td>
           <td style={{padding:"5px 10px"}}>
             <div style={{fontWeight:700}}>{s.rollNo}</div>
@@ -2764,7 +2830,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
           <div style={{display:"flex",gap:16,alignItems:"flex-start",marginBottom:14,flexWrap:"wrap"}} className="psms-photo-form-row">
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,flexShrink:0}}>
               <div style={{width:80,height:100,border:"2px dashed #d1d5db",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",background:"#fafafa"}}>
-                {photoBusy?<span style={{fontSize:10,color:C.gray,textAlign:"center",padding:4}}>Processing…</span>:form.photo?<img src={form.photo} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:10,color:C.gray,textAlign:"center"}}>Photo</span>}
+                {photoBusy?<span style={{fontSize:10,color:C.gray,textAlign:"center",padding:4}}>Processing…</span>:isDisplayablePhotoSrc(form.photo)?<img src={form.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:10,color:C.gray,textAlign:"center"}}>Photo</span>}
               </div>
               <div style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"center"}}>
                 <Btn type="button" small outline onClick={()=>photoGalleryRef.current?.click()} disabled={photoBusy}>Gallery</Btn>

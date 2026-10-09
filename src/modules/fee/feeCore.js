@@ -27,9 +27,9 @@ export function loadFeeFromLocal(schoolId, storageOverride) {
 
 export function saveFeeToLocal(schoolId, feeRecords, storageOverride) {
   try {
-    if (!schoolId) return
+    if (!schoolId) return Promise.resolve()
     const storage = getStorage(storageOverride)
-    if (!storage) return
+    if (!storage) return Promise.resolve()
     const raw = storage.getItem(FEE_DATA_KEY)
     const allSchools = raw ? JSON.parse(raw) : {}
     allSchools[schoolId] = Array.isArray(feeRecords) ? feeRecords : []
@@ -38,10 +38,11 @@ export function saveFeeToLocal(schoolId, feeRecords, storageOverride) {
     // silent fail to keep app resilient in restricted storage contexts
   }
   if (!storageOverride && schoolId) {
-    import('../../supabaseSync.js')
-      .then((m) => m.getIsSupabaseConfigured() && m.saveFeesToCloud(schoolId, feeRecords))
-      .catch(() => {})
+    return import('../../supabaseSync.js')
+      .then((m) => (m.getIsSupabaseConfigured() ? m.saveFeesToCloud(schoolId, feeRecords) : null))
+      .catch(() => null)
   }
+  return Promise.resolve()
 }
 
 export async function hydrateFeesFromCloud(schoolId, storageOverride) {
@@ -49,15 +50,23 @@ export async function hydrateFeesFromCloud(schoolId, storageOverride) {
     const m = await import('../../supabaseSync.js')
     if (!m.getIsSupabaseConfigured() || !schoolId) return loadFeeFromLocal(schoolId, storageOverride)
     const cloud = await m.loadFeesFromCloud(schoolId)
-    if (!cloud || !cloud.length) return loadFeeFromLocal(schoolId, storageOverride)
+    // null = load error → keep local
+    if (cloud === null) return loadFeeFromLocal(schoolId, storageOverride)
+    const local = loadFeeFromLocal(schoolId, storageOverride)
+    // Empty cloud + local marks → seed worldwide cloud from this device once
+    let next = cloud
+    if (!cloud.length && local.length) {
+      await m.saveFeesToCloud(schoolId, local)
+      next = local
+    }
     const storage = getStorage(storageOverride)
     if (storage) {
       const raw = storage.getItem(FEE_DATA_KEY)
       const allSchools = raw ? JSON.parse(raw) : {}
-      allSchools[schoolId] = cloud
+      allSchools[schoolId] = next
       storage.setItem(FEE_DATA_KEY, JSON.stringify(allSchools))
     }
-    return cloud
+    return next
   } catch {
     return loadFeeFromLocal(schoolId, storageOverride)
   }
