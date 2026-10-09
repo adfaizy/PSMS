@@ -39,7 +39,7 @@ export function saveFeeToLocal(schoolId, feeRecords, storageOverride) {
   }
   if (!storageOverride && schoolId) {
     import('../../supabaseSync.js')
-      .then((m) => m.isSupabaseConfigured && m.saveFeesToCloud(schoolId, feeRecords))
+      .then((m) => m.getIsSupabaseConfigured() && m.saveFeesToCloud(schoolId, feeRecords))
       .catch(() => {})
   }
 }
@@ -47,7 +47,7 @@ export function saveFeeToLocal(schoolId, feeRecords, storageOverride) {
 export async function hydrateFeesFromCloud(schoolId, storageOverride) {
   try {
     const m = await import('../../supabaseSync.js')
-    if (!m.isSupabaseConfigured || !schoolId) return loadFeeFromLocal(schoolId, storageOverride)
+    if (!m.getIsSupabaseConfigured() || !schoolId) return loadFeeFromLocal(schoolId, storageOverride)
     const cloud = await m.loadFeesFromCloud(schoolId)
     if (!cloud || !cloud.length) return loadFeeFromLocal(schoolId, storageOverride)
     const storage = getStorage(storageOverride)

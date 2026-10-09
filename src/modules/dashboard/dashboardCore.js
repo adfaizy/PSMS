@@ -5,22 +5,35 @@ function toNumber(value) {
   return Number.isNaN(parsed) ? null : parsed
 }
 
+function isNonTeachingCategory(value) {
+  const v = String(value || '').trim().toLowerCase().replace(/[_-]+/g, ' ')
+  const compact = v.replace(/\s+/g, '')
+  return (
+    compact === 'nonteaching' ||
+    compact.startsWith('nonteaching') ||
+    v.includes('non teaching') ||
+    v.includes('worker') ||
+    v.includes('clerk') ||
+    v.includes('peon') ||
+    v.includes('support') ||
+    v.includes('labour') ||
+    v.includes('labor')
+  )
+}
+
 export function computeStaffCounts({ settings, staffProfiles }) {
   const profiles = Array.isArray(staffProfiles) ? staffProfiles : []
   if (profiles.length > 0) {
-    const teaching = profiles.filter((p) =>
-      String(p?.staffCategory || '').toLowerCase().includes('teaching') &&
-      !String(p?.staffCategory || '').toLowerCase().includes('non'),
-    ).length
-    return { teaching, nonTeaching: Math.max(0, profiles.length - teaching) }
+    const nonTeaching = profiles.filter((p) => isNonTeachingCategory(p?.staffCategory)).length
+    const teaching = Math.max(0, profiles.length - nonTeaching)
+    return { teaching, nonTeaching }
   }
 
   const staff = Array.isArray(settings?.staff) ? settings.staff : []
-  const teaching = staff.filter((s) => {
-    const text = `${s?.designation || ''} ${s?.staffCategory || ''}`.toLowerCase()
-    return !text.includes('non') && !text.includes('worker')
-  }).length
-  return { teaching, nonTeaching: Math.max(0, staff.length - teaching) }
+  const nonTeaching = staff.filter((s) =>
+    isNonTeachingCategory(s?.staffCategory) || isNonTeachingCategory(s?.designation),
+  ).length
+  return { teaching: Math.max(0, staff.length - nonTeaching), nonTeaching }
 }
 
 export function subjectStatDash({ mode, exams, examTm, examOm, classId, studentId, subject }) {

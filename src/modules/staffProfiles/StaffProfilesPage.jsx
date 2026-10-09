@@ -169,7 +169,9 @@ export function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, 
       setFormData(normalized);
     } else {
       setEditingId(null);
-      setFormData({ staffCategory: "Teaching", employeeStatus: "Active" });
+      // Match the open tab — otherwise Non Teaching adds were saved as Teaching by default.
+      const defaultCategory = tableTab === "Non Teaching" ? "Non Teaching" : "Teaching";
+      setFormData({ staffCategory: defaultCategory, employeeStatus: "Active" });
     }
     setFormTab("Personal");
     setIsFormOpen(true);
@@ -242,7 +244,8 @@ export function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, 
       return;
     }
     const newId = editingId || genId();
-    const payload = { ...formData, id: newId, staffCategory: normalizeStaffCategory(formData.staffCategory) };
+    const category = normalizeStaffCategory(formData.staffCategory);
+    const payload = { ...formData, id: newId, staffCategory: category };
     setSchools((prev) =>
       prev.map((s) => {
         if (s.id !== activeSchoolId) return s;
@@ -255,6 +258,7 @@ export function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, 
         return { ...s, staffProfiles: nextProfiles };
       })
     );
+    setTableTab(category);
     setIsFormOpen(false);
   };
 

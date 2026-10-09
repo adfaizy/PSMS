@@ -58,23 +58,27 @@ export function FeePage({ settings, students, activeSchoolId, setBarSubtitle }) 
   const [feeRecords, setFeeRecords] = useState(() => {
     return feeService.load(activeSchoolId || "");
   });
+  const feesHydratedRef = useRef(false);
 
   useEffect(() => {
     if (!activeSchoolId) return;
+    feesHydratedRef.current = false;
     let cancelled = false;
     (async () => {
       const records = feeService.hydrate
         ? await feeService.hydrate(activeSchoolId)
         : feeService.load(activeSchoolId);
-      if (!cancelled) setFeeRecords(Array.isArray(records) ? records : []);
+      if (cancelled) return;
+      feesHydratedRef.current = true;
+      setFeeRecords(Array.isArray(records) ? records : []);
     })();
     return () => { cancelled = true; };
   }, [activeSchoolId]);
 
   useEffect(() => {
-    if (activeSchoolId) {
-      feeService.save(activeSchoolId, feeRecords);
-    }
+    // Skip until cloud/local hydrate finishes — otherwise empty local state wipes online fees.
+    if (!activeSchoolId || !feesHydratedRef.current) return;
+    feeService.save(activeSchoolId, feeRecords);
   }, [activeSchoolId, feeRecords]);
 
   const [selectedMonth, setSelectedMonth] = useState(() => {

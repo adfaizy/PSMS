@@ -618,21 +618,37 @@ export async function loadFeesFromCloud(schoolId) {
 
 export async function saveFeesToCloud(schoolId, feeRecords) {
   if (!getIsSupabaseConfigured() || !getSupabase() || !schoolId) return { ok: false, skipped: true }
-  const rows = (feeRecords || []).map((rec) => ({
-    id: rec.id || undefined,
-    school_id: schoolId,
-    class_id: rec.classId || null,
-    student_id: rec.studentId || null,
-    month: rec.month,
-    year: rec.year,
-    amount: rec.amount ?? 20,
-    paid_at: rec.paidAt || new Date().toISOString(),
-    meta: {},
-  }))
+  // Stable ids + onConflict on business unique key — fee marks regenerate random ids,
+  // so PK-only upsert races and fails silently on other devices.
+  const rows = (feeRecords || [])
+    .filter((rec) => rec?.studentId && rec?.classId && rec?.month && rec?.year)
+    .map((rec) => {
+      const month = Number(rec.month)
+      const year = Number(rec.year)
+      const classId = String(rec.classId)
+      const studentId = String(rec.studentId)
+      return {
+        id: `${schoolId}_${classId}_${studentId}_${month}_${year}`,
+        school_id: schoolId,
+        class_id: classId,
+        student_id: studentId,
+        month,
+        year,
+        amount: Number(rec.amount) || 20,
+        paid_at: rec.paidAt || new Date().toISOString(),
+        meta: {},
+      }
+    })
   try {
-    await getSupabase().from('fee_records').delete().eq('school_id', schoolId)
+    const { error: delErr } = await getSupabase().from('fee_records').delete().eq('school_id', schoolId)
+    if (delErr) {
+      logSyncError('saveFees:delete', delErr)
+      return { ok: false, error: delErr }
+    }
     if (rows.length) {
-      const { error } = await getSupabase().from('fee_records').upsert(rows)
+      const { error } = await getSupabase().from('fee_records').upsert(rows, {
+        onConflict: 'school_id,class_id,student_id,month,year',
+      })
       if (error) {
         logSyncError('saveFees', error)
         return { ok: false, error }

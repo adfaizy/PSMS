@@ -1622,7 +1622,13 @@ function App(){
       classSubjects:(s.classSubjects&&typeof s.classSubjects==="object")?s.classSubjects:{},
       classSubjectsExam:(s.classSubjectsExam&&typeof s.classSubjectsExam==="object")?s.classSubjectsExam:((s.classSubjects&&typeof s.classSubjects==="object")?s.classSubjects:{}),
       classSubjectsTimetable:(s.classSubjectsTimetable&&typeof s.classSubjectsTimetable==="object")?s.classSubjectsTimetable:((s.classSubjects&&typeof s.classSubjects==="object")?s.classSubjects:{}),
-      staff:(staffProfiles||[]).map(p=>({id:p.id,name:p.name||"",designation:p.designation||"",photo:p.photo||null})),
+      staff:(staffProfiles||[]).map(p=>({
+        id:p.id,
+        name:p.name||"",
+        designation:p.designation||"",
+        staffCategory:normalizeStaffCategory(p.staffCategory),
+        photo:p.photo||null,
+      })),
     };
   },[settings,staffProfiles]);
   const timetable=activeSchool.timetable||{};

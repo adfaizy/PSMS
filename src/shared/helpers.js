@@ -49,14 +49,13 @@ export function getClassSubjects(settings,classId,type="exam"){
 }
 export function isTeachingStaffMember(staff){
   if(!staff) return false;
-  const rawCat=String(staff.staffCategory||"").trim().toLowerCase();
-  if(rawCat){
-    if(rawCat.includes("non teaching")||rawCat.includes("non-teaching")||rawCat.includes("worker")) return false;
-    if(rawCat.includes("teaching")||rawCat.includes("teacher")) return true;
+  // Prefer explicit category (must run before designation heuristics).
+  if(String(staff.staffCategory||"").trim()){
+    return normalizeStaffCategory(staff.staffCategory)==="Teaching";
   }
   const d=String(staff.designation||staff.role||"").trim().toLowerCase();
   if(!d) return true;
-  if(d.includes("clerk")||d.includes("peon")||d.includes("naib")||d.includes("qasid")||d.includes("chowkidar")||d.includes("sweeper")||d.includes("driver")||d.includes("support")||d.includes("non teaching")||d.includes("non-teaching")||d.includes("labour")||d.includes("labor")) return false;
+  if(d.includes("clerk")||d.includes("peon")||d.includes("naib")||d.includes("qasid")||d.includes("chowkidar")||d.includes("sweeper")||d.includes("driver")||d.includes("support")||d.includes("non teaching")||d.includes("non-teaching")||d.includes("nonteaching")||d.includes("labour")||d.includes("labor")||d.includes("worker")) return false;
   return true;
 }
 export function teachingStaffList(settings,staffProfiles){
@@ -65,12 +64,14 @@ export function teachingStaffList(settings,staffProfiles){
   const catByName=new Map(
     profiles
       .filter(p=>p&&p.name)
-      .map(p=>[String(p.name).trim().toLowerCase(),String(p.staffCategory||"").trim().toLowerCase()])
+      .map(p=>[String(p.name).trim().toLowerCase(),normalizeStaffCategory(p.staffCategory)])
   );
   return list.filter(st=>{
     const key=String(st?.name||"").trim().toLowerCase();
-    const cat=catByName.get(key)||"";
-    if(cat.includes("non teaching")||cat.includes("non-teaching")||cat.includes("worker")) return false;
+    const cat=catByName.get(key);
+    if(cat==="Non Teaching") return false;
+    if(cat==="Teaching") return true;
+    // Prefer staffCategory on the staff row itself when profiles map missed (id/name mismatch).
     return isTeachingStaffMember(st);
   });
 }
@@ -1381,9 +1382,27 @@ export function getTeachersWithAssignments(settings,timetable){
 }
 
 export const normalizeStaffCategory = (value) => {
-  const v = String(value || "").trim().toLowerCase();
+  const v = String(value || "").trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
   if (!v) return "Teaching";
-  if (v.includes("worker") || v.includes("non-teaching") || v.includes("non teaching") || v.includes("labour") || v.includes("labor") || v.includes("support") || v.includes("clerk") || v.includes("peon") || v.includes("naib") || v.includes("qasid") || v.includes("chowkidar") || v.includes("sweeper") || v.includes("driver") || v === "worker staff" || v === "non teaching") return "Non Teaching";
+  // Check non-teaching BEFORE "teaching" — "non teaching" contains the substring "teaching".
+  const compact = v.replace(/\s+/g, "");
+  if (
+    compact === "nonteaching" ||
+    compact.startsWith("nonteaching") ||
+    v.includes("non teaching") ||
+    v.includes("worker") ||
+    v.includes("labour") ||
+    v.includes("labor") ||
+    v.includes("support") ||
+    v.includes("clerk") ||
+    v.includes("peon") ||
+    v.includes("naib") ||
+    v.includes("qasid") ||
+    v.includes("chowkidar") ||
+    v.includes("sweeper") ||
+    v.includes("driver") ||
+    v === "worker staff"
+  ) return "Non Teaching";
   if (v.includes("teacher") || v.includes("teaching") || v === "teacher staff") return "Teaching";
   return "Teaching";
 };

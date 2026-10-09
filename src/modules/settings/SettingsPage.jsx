@@ -164,8 +164,8 @@ export function CommonTeachersEditor({settings,setSettings}){
 export function SettingsPage({settings,setSettings,setSchools,students,setStudents,schools,activeSchoolId,timetable,exam_tm,exam_om,setExamMarks,currentSession,sessions,setCurrentSession,addSession,staffProfiles,setBarSubtitle,session}){
   const isPrincipal = !session || session.userType==="principal"||session.userType==="school"||session.userType==="admin-created"||session.userType==="local";
   const staffList=Array.isArray(staffProfiles)?staffProfiles:[];
-  const teachingStaffCount=staffList.filter(isTeachingStaffMember).length;
-  const nonTeachingStaffCount=Math.max(0,staffList.length-teachingStaffCount);
+  const teachingStaffCount=staffList.filter((p)=>normalizeStaffCategory(p?.staffCategory)==="Teaching").length;
+  const nonTeachingStaffCount=staffList.filter((p)=>normalizeStaffCategory(p?.staffCategory)==="Non Teaching").length;
   const [tab,setTab]=useState("general");
   const [schoolSection,setSchoolSection]=useState("basic");
   const [newCls,setNewCls]=useState({grade:"",section:""});
