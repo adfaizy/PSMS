@@ -75,9 +75,33 @@ export async function ensureClassPhotoFolders(classes) {
   }
 }
 
+let _photosApiAvailable = null
+let _photosApiCheckedAt = 0
+
+/** True when Vite Photos-api is reachable (main PC / LAN only — not Vercel/mobile alone). */
+export async function isPhotosApiAvailable({ force = false } = {}) {
+  const now = Date.now()
+  if (!force && _photosApiAvailable != null && now - _photosApiCheckedAt < 30000) {
+    return _photosApiAvailable
+  }
+  try {
+    const res = await fetch('/Photos-api/list-folder?name=__ping__', { cache: 'no-store' })
+    // Middleware always returns JSON (exists:false for missing folders). SPA HTML = not available.
+    const ctype = String(res.headers.get('content-type') || '').toLowerCase()
+    _photosApiAvailable = res.ok && ctype.includes('application/json')
+  } catch {
+    _photosApiAvailable = false
+  }
+  _photosApiCheckedAt = now
+  return _photosApiAvailable
+}
+
 /** List images + change signature for a Photos subfolder. */
 export async function listPhotosFolder(folder) {
   try {
+    if (!(await isPhotosApiAvailable())) {
+      return { exists: false, files: [], signature: '' }
+    }
     const res = await fetch(`/Photos-api/list-folder?name=${encodeURIComponent(folder)}`, {
       cache: 'no-store',
     })

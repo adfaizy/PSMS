@@ -662,9 +662,19 @@ export async function saveFeesToCloud(schoolId, feeRecords) {
       }
     }
     if (rows.length) {
-      const { error } = await getSupabase().from('fee_records').upsert(rows, {
-        onConflict: 'school_id,class_id,student_id,month,year',
+      // onConflict must list columns of a real UNIQUE/PK constraint.
+      // Use primary key `id` (always present). Stable composite ids above + orphan
+      // delete keep one row per fee; schema also has UNIQUE(school_id,class_id,student_id,month,year).
+      let { error } = await getSupabase().from('fee_records').upsert(rows, {
+        onConflict: 'id',
       })
+      if (error) {
+        // Fallback for DBs where callers expect the composite unique target.
+        const retry = await getSupabase().from('fee_records').upsert(rows, {
+          onConflict: 'school_id,class_id,student_id,month,year',
+        })
+        error = retry.error
+      }
       if (error) {
         logSyncError('saveFees', error)
         return { ok: false, error }

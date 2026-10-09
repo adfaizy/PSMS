@@ -291,6 +291,10 @@ const PRINT_CSS=[
   "  body.printing-result-cards #print-section .result-card-promo-banner{page-break-inside:avoid!important;break-inside:avoid!important;margin-top:10px!important;padding-top:8px!important}",
   "  body.printing-result-cards #print-section .result-card-promo-banner img{display:block!important;width:100%!important;max-width:100%!important;max-height:52mm!important;height:auto!important;object-fit:contain!important}",
   "  body.printing-result-cards-class #print-section .result-card-print-area:not(.print-only){visibility:hidden!important;display:none!important}",
+  "  body.printing-admission #print-section *{visibility:hidden!important}",
+  "  body.printing-admission #print-section .admission-print-document,body.printing-admission #print-section .admission-print-document *{visibility:visible!important}",
+  "  body.printing-admission #print-section .admission-print-document{display:block!important;position:static!important;left:auto!important;top:auto!important;width:100%!important;max-width:190mm!important;margin:0 auto!important;padding:14px 16px 18px!important;border:2px solid #0f2744!important;background:#fff!important;page:paperPortrait}",
+  "  body.printing-admission{page:paperPortrait}",
   "  #print-section .students-record-print table th:last-child,#print-section .students-record-print table td:last-child{display:none!important}",
   "}"
 ].join("\n");

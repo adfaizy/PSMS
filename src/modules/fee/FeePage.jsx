@@ -75,11 +75,8 @@ export function FeePage({ settings, students, activeSchoolId, setBarSubtitle }) 
     return () => { cancelled = true; };
   }, [activeSchoolId]);
 
-  useEffect(() => {
-    // Skip until cloud/local hydrate finishes — otherwise empty local state wipes online fees.
-    if (!activeSchoolId || !feesHydratedRef.current) return;
-    feeService.save(activeSchoolId, feeRecords);
-  }, [activeSchoolId, feeRecords]);
+  // Persist only through saveFeeRecords() — do not also save on every feeRecords change
+  // (that double-wrote to cloud on every toggle / mark-all).
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();

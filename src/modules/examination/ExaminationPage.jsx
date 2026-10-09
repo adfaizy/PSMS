@@ -362,6 +362,8 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
   const admissionPhotoGalleryRef=useRef(null);
   const admissionPhotoCameraRef=useRef(null);
   const [admissionPhotoBusy,setAdmissionPhotoBusy]=useState(false);
+  const [admissionSaving,setAdmissionSaving]=useState(false);
+  const admissionSaveLockRef=useRef(false);
   const suggestedNextAdm=useMemo(()=>nextAdmissionNo(students),[students]);
   const suggestedNextRoll=useMemo(()=>nextRollNoForClass(students,settings.classes,admissionForm.classId,settings.commonTeachers),[students,settings.classes,admissionForm.classId,settings.commonTeachers]);
   const formatDobAf=(v)=>{ const d=String(v||"").replace(/\D/g,"").slice(0,8); if(d.length<=2) return d; if(d.length<=4) return d.slice(0,2)+"/"+d.slice(2); return d.slice(0,2)+"/"+d.slice(2,4)+"/"+d.slice(4); };
@@ -399,40 +401,51 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
     }
   };
   const saveAdmission=async ()=>{
+    if(admissionSaveLockRef.current||admissionSaving) return;
     if(!(admissionForm.name||"").trim()){ alert("Please enter Student Name."); return; }
-    const name=toProperCase(admissionForm.name||"");
-    const fatherName=toProperCase(admissionForm.fatherName||"");
-    let admissionNo=(admissionForm.admissionNo||"").trim();
-    let rollNo=(admissionForm.rollNo||"").trim();
-    if(!admissionNo) admissionNo=nextAdmissionNo(students);
-    if(!rollNo) rollNo=nextRollNoForClass(students,settings.classes,admissionForm.classId,settings.commonTeachers);
-    const dupAdm=findStudentByAdmissionNo(students,admissionNo,null);
-    if(dupAdm){
-      alert("This admission number is already assigned to:\nClass: "+getClassLabel(settings,dupAdm.classId)+"\nRoll: "+(dupAdm.rollNo||"—")+"\nName: "+(dupAdm.name||"")+"\nFather: "+(dupAdm.fatherName||""));
-      return;
+    admissionSaveLockRef.current=true;
+    setAdmissionSaving(true);
+    try{
+      const name=toProperCase(admissionForm.name||"");
+      const fatherName=toProperCase(admissionForm.fatherName||"");
+      let admissionNo=(admissionForm.admissionNo||"").trim();
+      let rollNo=(admissionForm.rollNo||"").trim();
+      if(!admissionNo) admissionNo=nextAdmissionNo(students);
+      if(!rollNo) rollNo=nextRollNoForClass(students,settings.classes,admissionForm.classId,settings.commonTeachers);
+      const dupAdm=findStudentByAdmissionNo(students,admissionNo,null);
+      if(dupAdm){
+        alert("This admission number is already assigned to:\nClass: "+getClassLabel(settings,dupAdm.classId)+"\nRoll: "+(dupAdm.rollNo||"—")+"\nName: "+(dupAdm.name||"")+"\nFather: "+(dupAdm.fatherName||""));
+        return;
+      }
+      const dupRoll=findStudentByRollInClass(students,settings.classes,admissionForm.classId,rollNo,null,settings.commonTeachers);
+      if(dupRoll){
+        alert("This roll number is already used in this class by:\nName: "+(dupRoll.name||"")+"\nFather: "+(dupRoll.fatherName||"")+"\nAdm#: "+(dupRoll.admissionNo||"—"));
+        return;
+      }
+      const id=genId();
+      let photo=admissionForm.photo||null;
+      if(photo&&String(photo).startsWith("data:image")) photo=await toWorldwidePhoto(photo, id);
+      const payload={
+        ...admissionForm,
+        name,
+        fatherName,
+        admissionNo,
+        rollNo,
+        id,
+        photo,
+        personalInfoLockSession: null,
+        personalInfoHistory: [],
+      };
+      setStudents(s=>[...s,payload]);
+      setAdmissionForm(admissionEmpty);
+      alert("Student admitted successfully. You can view them in Student Record.");
+    }catch(err){
+      console.error("Admission save failed", err);
+      alert("Could not admit student: "+(err?.message||String(err)));
+    }finally{
+      admissionSaveLockRef.current=false;
+      setAdmissionSaving(false);
     }
-    const dupRoll=findStudentByRollInClass(students,settings.classes,admissionForm.classId,rollNo,null,settings.commonTeachers);
-    if(dupRoll){
-      alert("This roll number is already used in this class by:\nName: "+(dupRoll.name||"")+"\nFather: "+(dupRoll.fatherName||"")+"\nAdm#: "+(dupRoll.admissionNo||"—"));
-      return;
-    }
-    const id=genId();
-    let photo=admissionForm.photo||null;
-    if(photo&&String(photo).startsWith("data:image")) photo=await toWorldwidePhoto(photo, id);
-    const payload={
-      ...admissionForm,
-      name,
-      fatherName,
-      admissionNo,
-      rollNo,
-      id,
-      photo,
-      personalInfoLockSession: null,
-      personalInfoHistory: [],
-    };
-    setStudents(s=>[...s,payload]);
-    setAdmissionForm(admissionEmpty);
-    alert("Student admitted successfully. You can view them in Student Record.");
   };
   const [selCls,setSelCls]=useState(settings.classes[0]?.id||"");
   const [promotionTargetByStudent,setPromotionTargetByStudent]=useState({});
@@ -1357,55 +1370,33 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
             alert("Print document not found.");
             return;
           }
-          const printWindow = window.open("", "_blank", "width=900,height=1100");
-          if (!printWindow) {
-            alert("Please allow pop-ups to print.");
-            return;
-          }
-          const css = `
-            @page { size: A4 portrait; margin: 12mm; }
-            * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            body { margin: 0; padding: 0; font-family: "Times New Roman", Times, Georgia, serif; color: #111; background: #fff; }
-            .admission-print-document { width: 100%; max-width: 190mm; margin: 0 auto; border: 2px solid #0f2744; padding: 14px 16px 18px; }
-            .adm-print-top { display: flex; align-items: flex-start; gap: 14px; border-bottom: 2px solid #0f2744; padding-bottom: 10px; margin-bottom: 12px; }
-            .adm-print-logo { width: 72px; height: 72px; object-fit: cover; border: 1px solid #0f2744; }
-            .adm-print-title-wrap { flex: 1; text-align: center; min-width: 0; }
-            .adm-print-school { font-size: 20px; font-weight: 700; letter-spacing: 0.02em; color: #0f2744; text-transform: uppercase; }
-            .adm-print-doc-title { margin-top: 4px; font-size: 15px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
-            .adm-print-meta { font-size: 11px; text-align: right; line-height: 1.45; white-space: nowrap; color: #333; }
-            .adm-print-body { display: flex; gap: 16px; align-items: flex-start; }
-            .adm-print-photo { width: 28mm; height: 35mm; border: 1.5px solid #0f2744; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fff; flex-shrink: 0; }
-            .adm-print-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-            .adm-print-photo-label { font-size: 10px; color: #666; text-align: center; padding: 4px; }
-            .adm-print-fields { flex: 1; min-width: 0; }
-            .adm-print-table { width: 100%; border-collapse: collapse; }
-            .adm-print-table td { padding: 5px 0; vertical-align: bottom; font-size: 13px; }
-            .adm-print-label { width: 34%; font-weight: 700; color: #0f2744; padding-right: 8px !important; white-space: nowrap; }
-            .adm-print-value { border-bottom: 1px solid #333; min-height: 18px; font-weight: 600; }
-            .adm-print-blank { display: inline-block; min-width: 100%; border-bottom: none; }
-            .adm-print-section { margin-top: 14px; border-top: 1px solid #cbd5e1; padding-top: 10px; }
-            .adm-print-section-title { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #0f2744; margin-bottom: 6px; }
-            .adm-print-decl { font-size: 11.5px; line-height: 1.5; text-align: justify; color: #222; margin: 0 0 16px; }
-            .adm-print-signs { display: flex; justify-content: space-between; gap: 24px; margin-top: 28px; }
-            .adm-print-sign { flex: 1; text-align: center; font-size: 11px; }
-            .adm-print-sign-line { border-top: 1px solid #111; margin: 36px 8px 6px; }
-            .adm-print-footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #94a3b8; font-size: 10px; color: #475569; display: flex; justify-content: space-between; }
-            @media print { body { margin: 0; } .admission-print-document { border-width: 2px; } }
-          `;
-          printWindow.document.open();
-          printWindow.document.write(
-            "<!DOCTYPE html><html><head><meta charset=\"utf-8\"/><title>Admission Form — " +
-              String(settings.schoolName || "School").replace(/[<>&]/g, "") +
-              "</title><style>" + css + "</style></head><body>" +
-              el.outerHTML +
-              "</body></html>"
-          );
-          printWindow.document.close();
-          printWindow.focus();
+          let cleaned = false;
+          const cleanup = () => {
+            if (cleaned) return;
+            cleaned = true;
+            document.body.classList.remove("printing-admission");
+            window.removeEventListener("afterprint", cleanup);
+            window.removeEventListener("focus", onFocusCleanup);
+          };
+          const onFocusCleanup = () => {
+            // After the print dialog closes, focus returns to the window.
+            setTimeout(cleanup, 300);
+          };
+          document.body.classList.add("printing-admission");
+          window.addEventListener("afterprint", cleanup);
+          // Give the browser a tick to apply print styles, then open the dialog.
+          // Do not remove printing-admission while the dialog is still open (blank preview).
           setTimeout(() => {
-            printWindow.print();
-            printWindow.onafterprint = () => printWindow.close();
-          }, 250);
+            try {
+              window.print();
+            } catch (_) {
+              cleanup();
+              return;
+            }
+            window.addEventListener("focus", onFocusCleanup);
+            // Last-resort cleanup if afterprint/focus never fire.
+            setTimeout(cleanup, 120000);
+          }, 100);
         };
         return (
         <div>
@@ -1482,13 +1473,15 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <Btn onClick={saveAdmission}>Save & Admit Student</Btn>
+                <Btn onClick={() => void saveAdmission()} disabled={admissionSaving || admissionPhotoBusy}>
+                  {admissionSaving ? "Saving…" : "Save & Admit Student"}
+                </Btn>
               </div>
             </div>
           </div>
 
           {/* Official print document — no UI buttons; used only by Print */}
-          <div id="admission-print-document" className="admission-print-document" aria-hidden="true" style={{ position: "absolute", left: -99999, top: 0, width: 720 }}>
+          <div id="admission-print-document" className="admission-print-document" aria-hidden="true">
             <div className="adm-print-top">
               <img className="adm-print-logo" src={schoolOrBrandLogo(settings.logo)} alt="" />
               <div className="adm-print-title-wrap">
@@ -2225,13 +2218,18 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
     }
   },[settings.classes,filterCls,activeSchoolId,setStudents]);
 
-  // Automatic watch: poll Photos folders; sync add/remove → system + worldwide cloud
+  // Automatic watch: poll Photos folders on main PC only (Photos-api). Mobile uses file picker.
   useEffect(()=>{
     let cancelled=false;
     const poll=async ()=>{
       if(cancelled||photosSyncInFlight.current) return;
       try{
-        const { folderNamesForClass, listPhotosFolder }=await import("../../lib/photosFolderSync.js");
+        const { isPhotosApiAvailable, folderNamesForClass, listPhotosFolder }=await import("../../lib/photosFolderSync.js");
+        if(!(await isPhotosApiAvailable())){
+          setAutoPhotoSyncStatus("picker");
+          return;
+        }
+        setAutoPhotoSyncStatus((s)=>s==="syncing"?s:"watching");
         const classes=settings.classes||[];
         const names=new Set();
         classes.forEach(c=>folderNamesForClass(c).forEach(n=>names.add(n)));
@@ -2336,6 +2334,218 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
   };
   const arrowBtnStyle={padding:"2px 6px",fontSize:11,border:"1px solid #cbd5e1",borderRadius:4,background:"#fff",cursor:"pointer",lineHeight:1.2,minWidth:22};
   const photosDirRef=useRef(null);
+  const photosFilesRef=useRef(null);
+  const isMobilePhotoDevice=()=>{
+    if(typeof navigator==="undefined") return false;
+    const ua=navigator.userAgent||"";
+    if(/Android|iPhone|iPad|iPod|Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua)) return true;
+    // iPadOS desktop UA still has touch
+    if(navigator.maxTouchPoints>1&&/Mac/i.test(navigator.platform||"")) return true;
+    return false;
+  };
+  const openPhotoPickerForSync=()=>{
+    const mobile=isMobilePhotoDevice();
+    if(mobile){
+      if(filterCls==="all"){
+        alert(
+          "On mobile: choose a Class in the filter first, then pick photos named by roll number\n"+
+          "(1.jpg, 2.png, (3).jpeg, …).\n\n"+
+          "Photos upload to cloud so they show worldwide."
+        );
+      }
+      photosFilesRef.current?.click();
+      return;
+    }
+    // Desktop without Photos-api: pick the Photos folder (class subfolders)
+    photosDirRef.current?.click();
+  };
+  const importPickedPhotoFiles=useCallback(async (filesInput)=>{
+            const files=Array.from(filesInput||[]);
+            if(!files.length) return;
+            const normalizeRollKey=(v)=>{
+              const digits=String(v??"").match(/\d+/);
+              if(!digits) return "";
+              return digits[0].replace(/^0+/,"")||"0";
+            };
+            const extractRollFromFilename=(filename)=>{
+              const base=String(filename||"").replace(/\.[^.]+$/,"").trim();
+              if(!base) return "";
+              // Accept 1, 01, (1), (01)
+              if(/^\d+$/.test(base)) return normalizeRollKey(base);
+              const paren=base.match(/^\(\s*(\d+)\s*\)$/);
+              if(paren) return normalizeRollKey(paren[1]);
+              const lead=base.match(/^(\d{1,4})(?:[^\d].*)?$/);
+              if(lead) return normalizeRollKey(lead[1]);
+              const labeled=base.match(/(?:roll|r(?:no)?|no)[^\d]*(\d{1,4})/i);
+              if(labeled) return normalizeRollKey(labeled[1]);
+              const any=base.match(/(\d{1,4})/);
+              return any?normalizeRollKey(any[1]):"";
+            };
+            const clean=(v)=>String(v||"").trim().toLowerCase().replace(/[^a-z0-9]+/g,"");
+            const folderAliases=(folder)=>{
+              const raw=String(folder||"").trim();
+              if(!raw) return [];
+              const aliases=new Set([raw]);
+              aliases.add(raw.replace(/[_]+/g,"-"));
+              aliases.add(raw.replace(/[-]+/g," "));
+              // 1st-A / 2nd B → 1-A / 2-B
+              const ord=raw.match(/^(\d{1,2})(?:st|nd|rd|th)?\s*[-_ ]\s*([a-zA-Z])$/i);
+              if(ord){
+                aliases.add(`${ord[1]}-${ord[2]}`);
+                aliases.add(`${ord[1]}${ord[2]}`);
+                aliases.add(`Class ${ord[1]}-${ord[2].toUpperCase()}`);
+                aliases.add(`Class ${ord[1]}${ord[2].toUpperCase()}`);
+              }
+              const onlyNum=raw.match(/^(\d{1,2})$/);
+              if(onlyNum){
+                aliases.add(`Class ${onlyNum[1]}`);
+                aliases.add(onlyNum[1]);
+              }
+              const classPref=raw.match(/^class\s*(.+)$/i);
+              if(classPref) aliases.add(classPref[1].trim());
+              return [...aliases];
+            };
+            const classMatch=(folder)=>{
+              if(!folder) return null;
+              // Try every alias through the same resolver used across PSMS
+              for(const alias of folderAliases(folder)){
+                const hit=resolveClass(settings.classes,alias);
+                if(hit) return hit;
+              }
+              const f=clean(folder);
+              if(!f) return null;
+              return (settings.classes||[]).find(c=>{
+                const labels=[
+                  c.id,c.name,c.grade,c.section,
+                  formatClassDisplay(c),
+                  formatGradeLabel(c.grade),
+                  `${c.grade||""}${c.section||""}`,
+                  `${c.grade||""}-${c.section||""}`,
+                  `Class ${c.grade||""}-${c.section||""}`,
+                  `Class ${c.grade||""}${c.section||""}`,
+                ];
+                return labels.some(l=>l&&(clean(l)===f||clean(l).endsWith(f)||f.endsWith(clean(l))));
+              })||null;
+            };
+            /** Walk path folders from nearest parent up; first class match wins. */
+            const classFromPath=(parts)=>{
+              // Skip common root folder names that are not classes
+              const skip=new Set(["photos","photo","images","image","img","pics","pictures","psms"]);
+              for(let i=parts.length-2;i>=0;i--){
+                const seg=String(parts[i]||"").trim();
+                if(!seg||skip.has(seg.toLowerCase())) continue;
+                const hit=classMatch(seg);
+                if(hit) return hit;
+              }
+              return null;
+            };
+            const filterResolved=filterCls!=="all"?resolveClass(settings.classes,filterCls):null;
+            const imageFiles=files.filter(f=>{
+              const name=f.name||"";
+              if(/^\.gitkeep$/i.test(name)||/^readme/i.test(name)) return false;
+              return isStudentPhotoFile(f)||STUDENT_PHOTO_EXT_RE.test(name);
+            });
+            if(!imageFiles.length){
+              alert("No image files found. Any common image format is accepted (JPG, PNG, WEBP, HEIC, AVIF, TIFF, etc.).");
+              return;
+            }
+            const targets=[];
+            let skippedNoRoll=0;
+            let skippedNoClass=0;
+            const folderHints=new Set();
+            for(const file of imageFiles){
+              const rel=file.webkitRelativePath||file.name;
+              const parts=rel.split(/[\\/]/).filter(Boolean);
+              const namePart=parts[parts.length-1]||file.name;
+              const roll=extractRollFromFilename(namePart);
+              if(!roll){ skippedNoRoll++; continue; }
+              // Class subfolders: Photos/ECE/1.jpg or Photos/Class 1/2.jpg
+              let cls=classFromPath(parts);
+              // Flat pick (mobile) or flat folder of rolls → use selected class filter
+              if(!cls&&filterResolved) cls=filterResolved;
+              if(!cls){
+                skippedNoClass++;
+                if(parts.length>=2) folderHints.add(parts[parts.length-2]);
+                continue;
+              }
+              const resolved=resolveClass(settings.classes,cls.id)||cls;
+              targets.push({file,classId:resolved.id,roll,cls:resolved});
+            }
+            if(!targets.length){
+              const sampleFolders=[...folderHints].slice(0,8).join(", ");
+              const sampleClasses=(settings.classes||[]).map(c=>formatClassDisplay(c)||c.name||c.grade).filter(Boolean).join(", ");
+              alert(
+                "No photos matched.\n\n"+
+                "Mobile: select a Class filter, then pick images named by roll (1.jpg, 2.png).\n"+
+                "PC: select the Photos folder with class subfolders:\n"+
+                "  Photos / Class 1 / 1.jpg\n\n"+
+                (sampleFolders?`Folders seen: ${sampleFolders}\n`:"")+
+                (sampleClasses?`Classes in this login: ${sampleClasses}\n`:"")+
+                `\nImages: ${imageFiles.length}`+
+                (skippedNoRoll?` | no roll in name: ${skippedNoRoll}`:"")+
+                (skippedNoClass?` | no class folder match: ${skippedNoClass}`:"")
+              );
+              return;
+            }
+            // Fast bulk import (no AI background removal — that was hanging on large folders)
+            const photosMap={};
+            let failed=0;
+            const BATCH=8;
+            for(let i=0;i<targets.length;i+=BATCH){
+              const slice=targets.slice(i,i+BATCH);
+              const results=await Promise.all(slice.map(async t=>{
+                try{
+                  const data=await readStudentPhotoAsJpeg(t.file);
+                  return {t,data};
+                }catch{
+                  return {t,data:null};
+                }
+              }));
+              for(const {t,data} of results){
+                if(!data||!isDisplayablePhotoSrc(data)){ failed++; continue; }
+                const worldwide=await toWorldwidePhoto(data, `${t.classId}_${t.roll}`);
+                const keys=new Set([
+                  `${t.classId}|${t.roll}`,
+                  `${String(t.cls?.name||"").trim()}|${t.roll}`,
+                  `${String(t.cls?.grade||"").trim()}|${t.roll}`,
+                  `${formatClassDisplay(t.cls)}|${t.roll}`,
+                ]);
+                keys.forEach(k=>{ if(k&&!k.startsWith("|")) photosMap[k]=worldwide; });
+              }
+              await yieldToMain();
+            }
+            let applied=0;
+            setStudents(prev=>prev.map(s=>{
+              const sc=resolveClass(settings.classes,s.classId);
+              const roll=normalizeRollKey(s.rollNo);
+              if(!roll) return s;
+              const tryKeys=[
+                `${sc?.id||s.classId}|${roll}`,
+                `${String(sc?.name||s.classId||"").trim()}|${roll}`,
+                `${String(sc?.grade||"").trim()}|${roll}`,
+                `${formatClassDisplay(sc)||""}|${roll}`,
+                `${String(s.classId||"").trim()}|${roll}`,
+              ];
+              const photo=tryKeys.map(k=>photosMap[k]).find(Boolean);
+              if(!photo) return s;
+              applied++;
+              return {...s,photo};
+            }));
+            const processed=targets.length-failed;
+            const byClass={};
+            targets.forEach(t=>{
+              const label=formatClassDisplay(t.cls)||getClassLabel(settings,t.classId)||t.classId;
+              byClass[label]=(byClass[label]||0)+1;
+            });
+            const classSummary=Object.entries(byClass).map(([k,v])=>`${k}: ${v}`).join("\n");
+            alert(
+              `Imported photos for ${applied} student(s).\n`+
+              `Files processed: ${processed}`+
+              (failed?` | failed: ${failed}`:"")+
+              (classSummary?`\n\nBy class:\n${classSummary}`:"")+
+              (processed>applied?`\n\n(${processed-applied} file(s) had no matching student roll.)`:"")
+            );
+  },[filterCls,settings,setStudents,toWorldwidePhoto]);
   const matchesClassFilter=(student,classFilter)=>{
     if(classFilter==="all") return true;
     const filterCls=resolveClass(settings.classes,classFilter);
@@ -2653,25 +2863,36 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
             if(!classes.length){ alert("No classes found for this school login."); return; }
             const list=filterCls==="all"?students:filtered;
             if(!list.length){ alert("No students to sync photos for."); return; }
-            if(filterCls==="all"){
-              const ok=confirm(
-                "Sync all classes from Photos folder?\n\n"+
-                "• Files found → update student photo (worldwide)\n"+
-                "• File removed from class folder → remove photo worldwide\n\n"+
-                "Tip: Auto-sync already watches the folder every few seconds."
-              );
-              if(!ok) return;
+            try{
+              const { isPhotosApiAvailable }=await import("../../lib/photosFolderSync.js");
+              const apiOk=await isPhotosApiAvailable({ force:true });
+              if(apiOk){
+                if(filterCls==="all"){
+                  const ok=confirm(
+                    "Sync all classes from Photos folder?\n\n"+
+                    "• Files found → update student photo (worldwide)\n"+
+                    "• File removed from class folder → remove photo worldwide\n\n"+
+                    "Tip: Auto-sync already watches the folder every few seconds."
+                  );
+                  if(!ok) return;
+                }
+                await runPhotosFolderSync({ silent:false, scope:filterCls==="all"?"all":"filtered" });
+                return;
+              }
+            }catch(err){
+              console.warn("Photos-api check failed", err);
             }
-            await runPhotosFolderSync({ silent:false, scope:filterCls==="all"?"all":"filtered" });
+            // Mobile / Vercel / no local Photos folder API → open device photo picker
+            openPhotoPickerForSync();
           }}
           className="!h-9 !min-h-9 !px-3 !text-sm"
           style={{ height: 36, minHeight: 36 }}
-          title="Sync Photos folder ↔ Student Record (add or remove photos by roll file)"
+          title="Sync photos: PC Photos folder, or pick images on mobile (named by roll)"
         >
           🔄 Sync from Photos
         </Btn>
-        <span style={{fontSize:11,color:C.gray,whiteSpace:"nowrap"}} title="Watches Photos/<Class>/ and syncs add/remove worldwide">
-          {autoPhotoSyncStatus==="syncing"?"⟳ Auto-sync…":"● Auto-sync ON"}
+        <span style={{fontSize:11,color:C.gray,whiteSpace:"nowrap"}} title="PC: watches Photos/<Class>/. Mobile: use Sync to pick photos.">
+          {autoPhotoSyncStatus==="syncing"?"⟳ Syncing…":autoPhotoSyncStatus==="picker"?"● Tap Sync to pick photos":"● Auto-sync ON"}
         </span>
         <input
           ref={photosDirRef}
@@ -2685,189 +2906,21 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
             const files=Array.from(e.target.files||[]);
             e.target.value="";
             if(!files.length) return;
-            const normalizeRollKey=(v)=>{
-              const digits=String(v??"").match(/\d+/);
-              if(!digits) return "";
-              return digits[0].replace(/^0+/,"")||"0";
-            };
-            const extractRollFromFilename=(filename)=>{
-              const base=String(filename||"").replace(/\.[^.]+$/,"").trim();
-              if(!base) return "";
-              // Accept 1, 01, (1), (01)
-              if(/^\d+$/.test(base)) return normalizeRollKey(base);
-              const paren=base.match(/^\(\s*(\d+)\s*\)$/);
-              if(paren) return normalizeRollKey(paren[1]);
-              const lead=base.match(/^(\d{1,4})(?:[^\d].*)?$/);
-              if(lead) return normalizeRollKey(lead[1]);
-              const labeled=base.match(/(?:roll|r(?:no)?|no)[^\d]*(\d{1,4})/i);
-              if(labeled) return normalizeRollKey(labeled[1]);
-              const any=base.match(/(\d{1,4})/);
-              return any?normalizeRollKey(any[1]):"";
-            };
-            const clean=(v)=>String(v||"").trim().toLowerCase().replace(/[^a-z0-9]+/g,"");
-            const folderAliases=(folder)=>{
-              const raw=String(folder||"").trim();
-              if(!raw) return [];
-              const aliases=new Set([raw]);
-              aliases.add(raw.replace(/[_]+/g,"-"));
-              aliases.add(raw.replace(/[-]+/g," "));
-              // 1st-A / 2nd B → 1-A / 2-B
-              const ord=raw.match(/^(\d{1,2})(?:st|nd|rd|th)?\s*[-_ ]\s*([a-zA-Z])$/i);
-              if(ord){
-                aliases.add(`${ord[1]}-${ord[2]}`);
-                aliases.add(`${ord[1]}${ord[2]}`);
-                aliases.add(`Class ${ord[1]}-${ord[2].toUpperCase()}`);
-                aliases.add(`Class ${ord[1]}${ord[2].toUpperCase()}`);
-              }
-              const onlyNum=raw.match(/^(\d{1,2})$/);
-              if(onlyNum){
-                aliases.add(`Class ${onlyNum[1]}`);
-                aliases.add(onlyNum[1]);
-              }
-              const classPref=raw.match(/^class\s*(.+)$/i);
-              if(classPref) aliases.add(classPref[1].trim());
-              return [...aliases];
-            };
-            const classMatch=(folder)=>{
-              if(!folder) return null;
-              // Try every alias through the same resolver used across PSMS
-              for(const alias of folderAliases(folder)){
-                const hit=resolveClass(settings.classes,alias);
-                if(hit) return hit;
-              }
-              const f=clean(folder);
-              if(!f) return null;
-              return (settings.classes||[]).find(c=>{
-                const labels=[
-                  c.id,c.name,c.grade,c.section,
-                  formatClassDisplay(c),
-                  formatGradeLabel(c.grade),
-                  `${c.grade||""}${c.section||""}`,
-                  `${c.grade||""}-${c.section||""}`,
-                  `Class ${c.grade||""}-${c.section||""}`,
-                  `Class ${c.grade||""}${c.section||""}`,
-                ];
-                return labels.some(l=>l&&(clean(l)===f||clean(l).endsWith(f)||f.endsWith(clean(l))));
-              })||null;
-            };
-            /** Walk path folders from nearest parent up; first class match wins. */
-            const classFromPath=(parts)=>{
-              // Skip common root folder names that are not classes
-              const skip=new Set(["photos","photo","images","image","img","pics","pictures","psms"]);
-              for(let i=parts.length-2;i>=0;i--){
-                const seg=String(parts[i]||"").trim();
-                if(!seg||skip.has(seg.toLowerCase())) continue;
-                const hit=classMatch(seg);
-                if(hit) return hit;
-              }
-              return null;
-            };
-            const filterResolved=filterCls!=="all"?resolveClass(settings.classes,filterCls):null;
-            const imageFiles=files.filter(f=>{
-              const name=f.name||"";
-              if(/^\.gitkeep$/i.test(name)||/^readme/i.test(name)) return false;
-              return isStudentPhotoFile(f)||STUDENT_PHOTO_EXT_RE.test(name);
-            });
-            if(!imageFiles.length){
-              alert("No image files found in that folder. Any common image format is accepted (JPG, PNG, WEBP, HEIC, AVIF, TIFF, etc.).");
-              return;
-            }
-            const targets=[];
-            let skippedNoRoll=0;
-            let skippedNoClass=0;
-            const folderHints=new Set();
-            for(const file of imageFiles){
-              const rel=file.webkitRelativePath||file.name;
-              const parts=rel.split(/[\\/]/).filter(Boolean);
-              const namePart=parts[parts.length-1]||file.name;
-              const roll=extractRollFromFilename(namePart);
-              if(!roll){ skippedNoRoll++; continue; }
-              // Class subfolders: Photos/ECE/1.jpg or Photos/Class 1/2.jpg
-              let cls=classFromPath(parts);
-              // Flat folder of rolls → use selected class filter
-              if(!cls&&filterResolved) cls=filterResolved;
-              if(!cls){
-                skippedNoClass++;
-                if(parts.length>=2) folderHints.add(parts[parts.length-2]);
-                continue;
-              }
-              const resolved=resolveClass(settings.classes,cls.id)||cls;
-              targets.push({file,classId:resolved.id,roll,cls:resolved});
-            }
-            if(!targets.length){
-              const sampleFolders=[...folderHints].slice(0,8).join(", ");
-              const sampleClasses=(settings.classes||[]).map(c=>formatClassDisplay(c)||c.name||c.grade).filter(Boolean).join(", ");
-              alert(
-                "No photos matched class folders.\n\n"+
-                "Select the Photos folder that contains class subfolders:\n"+
-                "  Photos / ECE / 1.jpg\n"+
-                "  Photos / Class 1 / 2.png\n\n"+
-                (sampleFolders?`Folders seen: ${sampleFolders}\n`:"")+
-                (sampleClasses?`Classes in this login: ${sampleClasses}\n`:"")+
-                `\nImages: ${imageFiles.length}`+
-                (skippedNoRoll?` | no roll in name: ${skippedNoRoll}`:"")+
-                (skippedNoClass?` | no class folder match: ${skippedNoClass}`:"")
-              );
-              return;
-            }
-            // Fast bulk import (no AI background removal — that was hanging on large folders)
-            const photosMap={};
-            let failed=0;
-            const BATCH=8;
-            for(let i=0;i<targets.length;i+=BATCH){
-              const slice=targets.slice(i,i+BATCH);
-              const results=await Promise.all(slice.map(async t=>{
-                try{
-                  const data=await readStudentPhotoAsJpeg(t.file);
-                  return {t,data};
-                }catch{
-                  return {t,data:null};
-                }
-              }));
-              for(const {t,data} of results){
-                if(!data||!isDisplayablePhotoSrc(data)){ failed++; continue; }
-                const worldwide=await toWorldwidePhoto(data, `${t.classId}_${t.roll}`);
-                const keys=new Set([
-                  `${t.classId}|${t.roll}`,
-                  `${String(t.cls?.name||"").trim()}|${t.roll}`,
-                  `${String(t.cls?.grade||"").trim()}|${t.roll}`,
-                  `${formatClassDisplay(t.cls)}|${t.roll}`,
-                ]);
-                keys.forEach(k=>{ if(k&&!k.startsWith("|")) photosMap[k]=worldwide; });
-              }
-              await yieldToMain();
-            }
-            let applied=0;
-            setStudents(prev=>prev.map(s=>{
-              const sc=resolveClass(settings.classes,s.classId);
-              const roll=normalizeRollKey(s.rollNo);
-              if(!roll) return s;
-              const tryKeys=[
-                `${sc?.id||s.classId}|${roll}`,
-                `${String(sc?.name||s.classId||"").trim()}|${roll}`,
-                `${String(sc?.grade||"").trim()}|${roll}`,
-                `${formatClassDisplay(sc)||""}|${roll}`,
-                `${String(s.classId||"").trim()}|${roll}`,
-              ];
-              const photo=tryKeys.map(k=>photosMap[k]).find(Boolean);
-              if(!photo) return s;
-              applied++;
-              return {...s,photo};
-            }));
-            const processed=targets.length-failed;
-            const byClass={};
-            targets.forEach(t=>{
-              const label=formatClassDisplay(t.cls)||getClassLabel(settings,t.classId)||t.classId;
-              byClass[label]=(byClass[label]||0)+1;
-            });
-            const classSummary=Object.entries(byClass).map(([k,v])=>`${k}: ${v}`).join("\n");
-            alert(
-              `Imported photos for ${applied} student(s).\n`+
-              `Files processed: ${processed}`+
-              (failed?` | failed: ${failed}`:"")+
-              (classSummary?`\n\nBy class folder:\n${classSummary}`:"")+
-              (processed>applied?`\n\n(${processed-applied} file(s) had no matching student roll.)`:"")
-            );
+            await importPickedPhotoFiles(files);
+          }}
+        />
+        {/* Mobile: multi-select images (folder picker is unreliable on phones) */}
+        <input
+          ref={photosFilesRef}
+          type="file"
+          accept="image/*,.jpg,.jpeg,.jpe,.jfif,.png,.webp,.bmp,.gif,.heic,.heif,.avif,.tif,.tiff,.ico,.svg"
+          style={{display:"none"}}
+          multiple
+          onChange={async e=>{
+            const files=Array.from(e.target.files||[]);
+            e.target.value="";
+            if(!files.length) return;
+            await importPickedPhotoFiles(files);
           }}
         />
       </div>
