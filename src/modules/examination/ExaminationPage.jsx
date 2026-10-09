@@ -1339,40 +1339,85 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
         </div>
       </div>
 
-      {tab === "admission" && (
+      {tab === "admission" && (() => {
+        const admNo = String(admissionForm.admissionNo || "").trim() || suggestedNextAdm;
+        const admRoll = String(admissionForm.rollNo || "").trim() || suggestedNextRoll;
+        const admClass = getClassLabel(settings, admissionForm.classId) || formatClassDisplay(resolveClass(settings.classes, admissionForm.classId)) || "—";
+        const admDate = new Date().toLocaleDateString("en-PK", { day: "2-digit", month: "long", year: "numeric" });
+        const admSession = currentSession || "";
+        const printField = (label, value) => (
+          <tr key={label}>
+            <td className="adm-print-label">{label}</td>
+            <td className="adm-print-value">{value || <span className="adm-print-blank">&nbsp;</span>}</td>
+          </tr>
+        );
+        const openAdmissionPrint = () => {
+          const el = document.getElementById("admission-print-document");
+          if (!el) {
+            alert("Print document not found.");
+            return;
+          }
+          const printWindow = window.open("", "_blank", "width=900,height=1100");
+          if (!printWindow) {
+            alert("Please allow pop-ups to print.");
+            return;
+          }
+          const css = `
+            @page { size: A4 portrait; margin: 12mm; }
+            * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { margin: 0; padding: 0; font-family: "Times New Roman", Times, Georgia, serif; color: #111; background: #fff; }
+            .admission-print-document { width: 100%; max-width: 190mm; margin: 0 auto; border: 2px solid #0f2744; padding: 14px 16px 18px; }
+            .adm-print-top { display: flex; align-items: flex-start; gap: 14px; border-bottom: 2px solid #0f2744; padding-bottom: 10px; margin-bottom: 12px; }
+            .adm-print-logo { width: 72px; height: 72px; object-fit: cover; border: 1px solid #0f2744; }
+            .adm-print-title-wrap { flex: 1; text-align: center; min-width: 0; }
+            .adm-print-school { font-size: 20px; font-weight: 700; letter-spacing: 0.02em; color: #0f2744; text-transform: uppercase; }
+            .adm-print-doc-title { margin-top: 4px; font-size: 15px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+            .adm-print-meta { font-size: 11px; text-align: right; line-height: 1.45; white-space: nowrap; color: #333; }
+            .adm-print-body { display: flex; gap: 16px; align-items: flex-start; }
+            .adm-print-photo { width: 28mm; height: 35mm; border: 1.5px solid #0f2744; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fff; flex-shrink: 0; }
+            .adm-print-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+            .adm-print-photo-label { font-size: 10px; color: #666; text-align: center; padding: 4px; }
+            .adm-print-fields { flex: 1; min-width: 0; }
+            .adm-print-table { width: 100%; border-collapse: collapse; }
+            .adm-print-table td { padding: 5px 0; vertical-align: bottom; font-size: 13px; }
+            .adm-print-label { width: 34%; font-weight: 700; color: #0f2744; padding-right: 8px !important; white-space: nowrap; }
+            .adm-print-value { border-bottom: 1px solid #333; min-height: 18px; font-weight: 600; }
+            .adm-print-blank { display: inline-block; min-width: 100%; border-bottom: none; }
+            .adm-print-section { margin-top: 14px; border-top: 1px solid #cbd5e1; padding-top: 10px; }
+            .adm-print-section-title { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #0f2744; margin-bottom: 6px; }
+            .adm-print-decl { font-size: 11.5px; line-height: 1.5; text-align: justify; color: #222; margin: 0 0 16px; }
+            .adm-print-signs { display: flex; justify-content: space-between; gap: 24px; margin-top: 28px; }
+            .adm-print-sign { flex: 1; text-align: center; font-size: 11px; }
+            .adm-print-sign-line { border-top: 1px solid #111; margin: 36px 8px 6px; }
+            .adm-print-footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #94a3b8; font-size: 10px; color: #475569; display: flex; justify-content: space-between; }
+            @media print { body { margin: 0; } .admission-print-document { border-width: 2px; } }
+          `;
+          printWindow.document.open();
+          printWindow.document.write(
+            "<!DOCTYPE html><html><head><meta charset=\"utf-8\"/><title>Admission Form — " +
+              String(settings.schoolName || "School").replace(/[<>&]/g, "") +
+              "</title><style>" + css + "</style></head><body>" +
+              el.outerHTML +
+              "</body></html>"
+          );
+          printWindow.document.close();
+          printWindow.focus();
+          setTimeout(() => {
+            printWindow.print();
+            printWindow.onafterprint = () => printWindow.close();
+          }, 250);
+        };
+        return (
         <div>
-          <div className="psms-toolbar" style={{ ...toolbar }}>
+          <div className="no-print psms-toolbar" style={{ ...toolbar }}>
             <p style={{ fontSize: 13, color: "#6b7280", margin: 0, maxWidth: 560 }}>
-              Fill the form to admit a new student. After saving, they appear in Student Record.
+              Fill the form to admit a new student. Use Print for the official paper copy (no buttons).
             </p>
-            <Btn
-              small
-              outline
-              onClick={() => {
-                const el = document.getElementById("admission-form-print");
-                if (!el) {
-                  alert("Print area not found.");
-                  return;
-                }
-                const printWindow = window.open("", "", "width=800,height=600");
-                if (!printWindow) {
-                  alert("Please allow pop-ups to print.");
-                  return;
-                }
-                const style = "body{font-family:'Segoe UI',sans-serif;margin:12px;padding:0}";
-                printWindow.document.write("<html><head><title>Admission Form</title><style>" + style + "</style></head><body>");
-                printWindow.document.write(el.innerHTML);
-                printWindow.document.write("</body></html>");
-                printWindow.document.close();
-                printWindow.focus();
-                printWindow.print();
-                printWindow.onafterprint = () => printWindow.close();
-              }}
-            >
-              Print
-            </Btn>
+            <Btn small outline onClick={openAdmissionPrint}>Print Admission Form</Btn>
           </div>
-          <div id="admission-form-print" style={{ maxWidth: 720, margin: "0 auto" }}>
+
+          {/* Screen editor — interactive controls stay here */}
+          <div className="no-print admission-screen-editor" style={{ maxWidth: 720, margin: "0 auto" }}>
             <SchoolHeader settings={settings} subtitle="ADMISSION FORM" />
             <div style={{ ...panel, padding: 20, marginTop: 12 }}>
               <div className="psms-photo-form-row" style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 14, flexWrap: "wrap" }}>
@@ -1441,8 +1486,73 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
               </div>
             </div>
           </div>
+
+          {/* Official print document — no UI buttons; used only by Print */}
+          <div id="admission-print-document" className="admission-print-document" aria-hidden="true" style={{ position: "absolute", left: -99999, top: 0, width: 720 }}>
+            <div className="adm-print-top">
+              <img className="adm-print-logo" src={schoolOrBrandLogo(settings.logo)} alt="" />
+              <div className="adm-print-title-wrap">
+                <div className="adm-print-school">{settings.schoolName || "School Name"}</div>
+                <div className="adm-print-doc-title">Student Admission Form</div>
+              </div>
+              <div className="adm-print-meta">
+                {admSession ? <div><strong>Session:</strong> {admSession}</div> : null}
+                <div><strong>Date:</strong> {admDate}</div>
+              </div>
+            </div>
+            <div className="adm-print-body">
+              <div className="adm-print-photo">
+                {isDisplayablePhotoSrc(admissionForm.photo) ? (
+                  <img src={admissionForm.photo} alt="Student" />
+                ) : (
+                  <span className="adm-print-photo-label">Passport<br />Photo</span>
+                )}
+              </div>
+              <div className="adm-print-fields">
+                <table className="adm-print-table">
+                  <tbody>
+                    {printField("Admission No.", admNo)}
+                    {printField("Roll No.", admRoll)}
+                    {printField("Student Name", admissionForm.name)}
+                    {printField("Father's Name", admissionForm.fatherName)}
+                    {printField("Class / Section", admClass)}
+                    {printField("Date of Birth", admissionForm.dob)}
+                    {printField("Form-B / B-Form", admissionForm.bayForm)}
+                    {printField("WhatsApp No.", admissionForm.whatsapp)}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="adm-print-section">
+              <div className="adm-print-section-title">Declaration</div>
+              <p className="adm-print-decl">
+                I hereby declare that the particulars given above are true and correct to the best of my knowledge.
+                I undertake to abide by the rules and regulations of the institution. I understand that any false
+                information may lead to cancellation of admission.
+              </p>
+              <div className="adm-print-signs">
+                <div className="adm-print-sign">
+                  <div className="adm-print-sign-line" />
+                  Parent / Guardian Signature
+                </div>
+                <div className="adm-print-sign">
+                  <div className="adm-print-sign-line" />
+                  Class Teacher
+                </div>
+                <div className="adm-print-sign">
+                  <div className="adm-print-sign-line" />
+                  Head Teacher / Principal
+                </div>
+              </div>
+            </div>
+            <div className="adm-print-footer">
+              <span>Official use — Punjab School Management System</span>
+              <span>Page 1 of 1</span>
+            </div>
+          </div>
         </div>
-      )}
+        );
+      })()}
 
       {tab === "record" && (
         <div style={{ ...panel, padding: 12 }}>
