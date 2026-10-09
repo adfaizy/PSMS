@@ -170,6 +170,63 @@ export default defineConfig(({ mode }) => {
                 res.end(JSON.stringify({ exists: ok }));
                 return;
               }
+              // Create Photos/<Class>/ folders (+ .gitkeep) when classes are added
+              if (pathname === "/ensure-folders" || pathname.endsWith("/ensure-folders")) {
+                if (req.method !== "POST" && req.method !== "PUT") {
+                  res.statusCode = 405;
+                  res.end("Method not allowed");
+                  return;
+                }
+                const chunks = [];
+                req.on("data", (c) => chunks.push(c));
+                req.on("end", () => {
+                  try {
+                    const body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+                    const names = Array.isArray(body.folders)
+                      ? body.folders
+                      : Array.isArray(body.names)
+                        ? body.names
+                        : [];
+                    const created = [];
+                    const existing = [];
+                    const failed = [];
+                    if (!fs.existsSync(photosRoot)) fs.mkdirSync(photosRoot, { recursive: true });
+                    for (const raw of names) {
+                      const name = String(raw || "")
+                        .trim()
+                        .replace(/[<>:"/\\|?*\x00-\x1f]/g, "-")
+                        .replace(/\s+/g, " ")
+                        .replace(/[. ]+$/g, "")
+                        .trim();
+                      if (!name || name === "." || name === "..") continue;
+                      const dir = path.normalize(path.join(photosRoot, name));
+                      if (!dir.startsWith(photosRoot)) {
+                        failed.push(name);
+                        continue;
+                      }
+                      try {
+                        if (!fs.existsSync(dir)) {
+                          fs.mkdirSync(dir, { recursive: true });
+                          created.push(name);
+                        } else {
+                          existing.push(name);
+                        }
+                        const keep = path.join(dir, ".gitkeep");
+                        if (!fs.existsSync(keep)) fs.writeFileSync(keep, "");
+                      } catch {
+                        failed.push(name);
+                      }
+                    }
+                    res.setHeader("Content-Type", "application/json");
+                    res.end(JSON.stringify({ ok: true, created, existing, failed }));
+                  } catch (err) {
+                    res.statusCode = 400;
+                    res.setHeader("Content-Type", "application/json");
+                    res.end(JSON.stringify({ ok: false, error: String(err?.message || err) }));
+                  }
+                });
+                return;
+              }
               // List image files in a class folder (one call instead of dozens of 404 probes)
               if (pathname === "/list-folder" || pathname.endsWith("/list-folder")) {
                 const name = String(url.searchParams.get("name") || "").trim();
@@ -177,24 +234,40 @@ export default defineConfig(({ mode }) => {
                 const imageExt =
                   /\.(jpe?g|jfif|jpe|png|webp|bmp|gif|heic|heif|avif|tiff?|ico|svg)$/i;
                 let files = [];
+                let dirExists = false;
                 if (
                   name &&
                   dir.startsWith(photosRoot) &&
                   fs.existsSync(dir) &&
                   fs.statSync(dir).isDirectory()
                 ) {
+                  dirExists = true;
                   files = fs
                     .readdirSync(dir)
-                    .filter((f) => {
+                    .map((f) => {
                       try {
-                        return fs.statSync(path.join(dir, f)).isFile() && imageExt.test(f);
+                        const full = path.join(dir, f);
+                        const st = fs.statSync(full);
+                        if (!st.isFile() || !imageExt.test(f)) return null;
+                        return { name: f, size: st.size, mtime: Math.floor(st.mtimeMs || 0) };
                       } catch {
-                        return false;
+                        return null;
                       }
-                    });
+                    })
+                    .filter(Boolean);
                 }
+                const signature = files
+                  .map((f) => `${f.name}:${f.size}:${f.mtime}`)
+                  .sort()
+                  .join("|");
                 res.setHeader("Content-Type", "application/json");
-                res.end(JSON.stringify({ exists: files.length > 0 || (name && fs.existsSync(dir)), files }));
+                res.end(
+                  JSON.stringify({
+                    exists: dirExists,
+                    files,
+                    signature,
+                  }),
+                );
                 return;
               }
               next();

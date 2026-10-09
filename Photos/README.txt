@@ -25,5 +25,9 @@ Import:
 2. Import photos (folder)
 3. Select this Photos folder
 
-If you add/remove classes in Settings, use "Create class folders" in Student Record
-(or ask to regenerate this Photos tree for the logged-in school).
+Class folders are created automatically when you Add Class in Settings
+or import classes from Excel (under PSMS/Photos/<ClassName>/).
+You can also use "Create class folders" in Student Record.
+
+Auto-sync: while Student Record is open, new/removed roll photos in those
+folders sync to the system and worldwide cloud automatically.

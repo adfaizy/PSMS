@@ -331,26 +331,46 @@ export async function readStudentPhotoAsJpeg(file){
     };
     img.src=url;
   });
-  const img=await loadImageFromBlobOrFile(file);
-  const sw=img.naturalWidth||img.width;
-  const sh=img.naturalHeight||img.height;
-  if(!sw||!sh) throw new Error("empty image");
-  const MAX_W=400,MAX_H=500;
-  const ratio=Math.min(MAX_W/sw,MAX_H/sh,1);
-  const w=Math.round(sw*ratio);
-  const h=Math.round(sh*ratio);
-  const canvas=document.createElement("canvas");
-  canvas.width=w; canvas.height=h;
-  const ctx=canvas.getContext("2d");
-  if(!ctx) throw new Error("no canvas");
-  ctx.fillStyle="#ffffff";
-  ctx.fillRect(0,0,w,h);
-  ctx.imageSmoothingEnabled=true;
-  ctx.imageSmoothingQuality="high";
-  ctx.drawImage(img,0,0,w,h);
-  const out=canvas.toDataURL("image/jpeg",0.88);
-  if(!isDisplayablePhotoSrc(out)) throw new Error("Could not convert image");
-  return out;
+  const readAsDisplayableDataUrl=()=>new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>{
+      const raw=r.result||"";
+      // Only accept browser-displayable rasters — never HTML/HEIC dumps
+      if(isDisplayablePhotoSrc(raw)) resolve(raw);
+      else reject(new Error("Unsupported or non-displayable image"));
+    };
+    r.onerror=()=>reject(new Error("Could not read image file"));
+    r.readAsDataURL(file);
+  });
+  try{
+    const img=await loadImageFromBlobOrFile(file);
+    const sw=img.naturalWidth||img.width;
+    const sh=img.naturalHeight||img.height;
+    if(!sw||!sh) throw new Error("empty image");
+    const MAX_W=400,MAX_H=500;
+    const ratio=Math.min(MAX_W/sw,MAX_H/sh,1);
+    const w=Math.round(sw*ratio);
+    const h=Math.round(sh*ratio);
+    const canvas=document.createElement("canvas");
+    canvas.width=w; canvas.height=h;
+    const ctx=canvas.getContext("2d");
+    if(!ctx) throw new Error("no canvas");
+    ctx.fillStyle="#ffffff";
+    ctx.fillRect(0,0,w,h);
+    ctx.imageSmoothingEnabled=true;
+    ctx.imageSmoothingQuality="high";
+    ctx.drawImage(img,0,0,w,h);
+    const out=canvas.toDataURL("image/jpeg",0.88);
+    if(!isDisplayablePhotoSrc(out)) throw new Error("Could not convert image");
+    return out;
+  }catch(err){
+    // Canvas/decode failure (memory, tainted canvas, etc.) → safe FileReader fallback
+    try{
+      return await readAsDisplayableDataUrl();
+    }catch{
+      throw err instanceof Error ? err : new Error("Could not process image");
+    }
+  }
 }
 /**
  * One row per pupil when admission is missing or class_id strings differ across sync (e.g. operator devices).

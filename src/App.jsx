@@ -1459,7 +1459,7 @@ function App(){
   useEffect(()=>{ cloudReadyRef.current=cloudReady; },[cloudReady]);
 
   const flushModuleLocalsToCloud=useCallback(async(schoolList)=>{
-    if(!isSupabaseConfigured) return;
+    if(!getIsSupabaseConfigured()) return;
     if(typeof navigator!=="undefined" && navigator.onLine===false) return;
     const ids=(schoolList||schoolsRef.current||[]).map(s=>s?.id).filter(Boolean);
     for(const schoolId of ids){
@@ -1489,7 +1489,7 @@ function App(){
   },[]);
 
   const pushToCloud=useCallback(async(nextSchools, nextActiveId, { retryCount=0, quiet=false }={})=>{
-    if(!isSupabaseConfigured) return;
+    if(!getIsSupabaseConfigured()) return;
     if(typeof navigator!=="undefined" && navigator.onLine===false){
       cloudReadyRef.current=false;
       setCloudReady(false);

@@ -1446,7 +1446,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
 
       {tab === "record" && (
         <div style={{ ...panel, padding: 12 }}>
-          <StudentsPage settings={settings} students={students} setStudents={setStudents} embedded currentSession={currentSession} currentUser={currentUser} />
+          <StudentsPage settings={settings} students={students} setStudents={setStudents} embedded currentSession={currentSession} currentUser={currentUser} activeSchoolId={activeSchoolId} />
         </div>
       )}
 
@@ -2010,7 +2010,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
 }
 
 
-export function StudentsPage({settings:settingsProp,students:studentsProp,setStudents,embedded,currentSession,currentUser}){
+export function StudentsPage({settings:settingsProp,students:studentsProp,setStudents,embedded,currentSession,currentUser,activeSchoolId}){
   const settings=useMemo(()=>{
     const s=settingsProp||defaultSettings;
     return {
@@ -2022,6 +2022,8 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
     };
   },[settingsProp]);
   const students=Array.isArray(studentsProp)?studentsProp:defaultStudents;
+  const studentsRef=useRef(students);
+  useEffect(()=>{ studentsRef.current=students; },[students]);
   const [showAdd,setShowAdd]=useState(false);
   const [editingId,setEditingId]=useState(null);
   const [filterCls,setFilterCls]=useState(()=>settings.classes[0]?.id||"all");
@@ -2032,6 +2034,120 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
   const photoCameraRef=useRef();
   const photoFileRef=useRef(null);
   const [photoBusy,setPhotoBusy]=useState(false);
+  const [autoPhotoSyncStatus,setAutoPhotoSyncStatus]=useState("watching"); // watching | syncing | idle
+  const photoFileSigRef=useRef({});
+  const photosFolderSigRef=useRef("");
+  const photosSyncInFlight=useRef(false);
+  const toWorldwidePhoto=useCallback(async (dataUrl, studentId)=>{
+    if(!dataUrl||!isDisplayablePhotoSrc(dataUrl)) return dataUrl;
+    if(/^https?:\/\//i.test(dataUrl)) return dataUrl;
+    try{
+      const { uploadDataUrlPhoto }=await import("../../lib/photoStorage.js");
+      const prefix=`${activeSchoolId||"school"}/students/${studentId||"new"}`;
+      return await uploadDataUrlPhoto(dataUrl, prefix);
+    }catch(err){
+      console.warn("Photo cloud upload skipped", err);
+      return dataUrl;
+    }
+  },[activeSchoolId]);
+  const runPhotosFolderSync=useCallback(async ({ silent=true, scope="filtered" }={})=>{
+    if(photosSyncInFlight.current) return null;
+    const classes=settings.classes||[];
+    if(!classes.length) return null;
+    const allStudents=studentsRef.current||[];
+    const filterResolved=filterCls!=="all"?resolveClass(classes,filterCls):null;
+    const list=scope==="all"||!filterResolved
+      ? allStudents
+      : allStudents.filter(s=>resolveClass(classes,s.classId)?.id===filterResolved.id);
+    if(!list.length) return null;
+    photosSyncInFlight.current=true;
+    if(!silent) setAutoPhotoSyncStatus("syncing");
+    try{
+      const { syncStudentsFromPhotosFolder, uploadPendingPhotosWorldwide }=await import("../../lib/photosFolderSync.js");
+      const result=await syncStudentsFromPhotosFolder({
+        students:list,
+        classes,
+        schoolId:activeSchoolId,
+        yieldToMain,
+        fileSigByStudentRef:photoFileSigRef,
+      });
+      const { updates, pendingCloudUpload, folderSignature, stats }=result;
+      photosFolderSigRef.current=folderSignature||photosFolderSigRef.current;
+      const changed=Object.keys(updates).length>0;
+      if(changed){
+        setStudents(prev=>prev.map(s=>{
+          if(s.id in updates){
+            const next=updates[s.id];
+            return next?{...s,photo:next}:{...s,photo:null};
+          }
+          if(s.photo&&!isDisplayablePhotoSrc(s.photo)) return {...s,photo:null};
+          return s;
+        }));
+      }
+      if(pendingCloudUpload?.length){
+        void (async ()=>{
+          const cloudUpdates=await uploadPendingPhotosWorldwide(pendingCloudUpload,{ yieldToMain });
+          if(Object.keys(cloudUpdates).length){
+            setStudents(prev=>prev.map(s=>cloudUpdates[s.id]?{...s,photo:cloudUpdates[s.id]}:s));
+          }
+        })();
+      }
+      if(!silent){
+        alert(
+          `Synced photos from Photos folder.\n\n`+
+          `Updated: ${stats.applied}\n`+
+          `Removed (file deleted from folder): ${stats.removed}\n`+
+          `No file / already empty: ${stats.missing}\n`+
+          (stats.unchanged?`Unchanged: ${stats.unchanged}\n`:"")+
+          (stats.skippedNoFolder?`Skipped (no class folder): ${stats.skippedNoFolder}\n`:"")+
+          (stats.failed?`Failed: ${stats.failed}\n`:"")+
+          `\nAuto-sync stays ON — add/remove files under Photos/<Class>/ and they sync worldwide.`
+        );
+      }
+      return stats;
+    }catch(err){
+      console.warn("Photos folder sync failed", err);
+      if(!silent) alert("Photo sync failed: "+(err?.message||String(err)));
+      return null;
+    }finally{
+      photosSyncInFlight.current=false;
+      setAutoPhotoSyncStatus("watching");
+    }
+  },[settings.classes,filterCls,activeSchoolId,setStudents]);
+
+  // Automatic watch: poll Photos folders; sync add/remove → system + worldwide cloud
+  useEffect(()=>{
+    let cancelled=false;
+    const poll=async ()=>{
+      if(cancelled||photosSyncInFlight.current) return;
+      try{
+        const { folderNamesForClass, listPhotosFolder }=await import("../../lib/photosFolderSync.js");
+        const classes=settings.classes||[];
+        const names=new Set();
+        classes.forEach(c=>folderNamesForClass(c).forEach(n=>names.add(n)));
+        if(!names.size) return;
+        const parts=[];
+        for(const name of names){
+          const listed=await listPhotosFolder(name);
+          parts.push(`${name}=${listed.signature||""}`);
+        }
+        const sig=parts.sort().join("||");
+        if(!sig) return;
+        if(photosFolderSigRef.current&&photosFolderSigRef.current===sig) return;
+        // First run: record signature then sync once so existing folder files load
+        const first= !photosFolderSigRef.current;
+        photosFolderSigRef.current=sig;
+        if(first||sig){
+          await runPhotosFolderSync({ silent:true, scope:"all" });
+        }
+      }catch(err){
+        console.warn("Auto photo watch failed", err);
+      }
+    };
+    poll();
+    const id=setInterval(poll, 4000);
+    return ()=>{ cancelled=true; clearInterval(id); };
+  },[settings.classes,runPhotosFolderSync]);
   const suggestedFormAdm=useMemo(()=>nextAdmissionNo(students),[students]);
   const suggestedFormRoll=useMemo(()=>nextRollNoForClass(students,settings.classes,form.classId,settings.commonTeachers),[students,settings.classes,form.classId,settings.commonTeachers]);
   const classGradeNum=(classId)=>{
@@ -2396,30 +2512,23 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
           onClick={async ()=>{
             const classes=settings.classes||[];
             if(!classes.length){ alert("No classes found for this school login."); return; }
-            const folderNames=[...new Set(classes.map(c=>{
-              const label=String(formatClassDisplay(c)||c.name||c.grade||"").trim();
-              return label.replace(/[<>:"/\\|?*]/g,"-").replace(/\s+/g," ").trim();
-            }).filter(Boolean))];
-            if(!folderNames.length){ alert("Could not build class folder names."); return; }
-            // Prefer File System Access API so folders match this login's classes
-            if(typeof window.showDirectoryPicker==="function"){
-              try{
-                const root=await window.showDirectoryPicker({id:"psms-photos",mode:"readwrite",startIn:"documents"});
-                for(const name of folderNames){
-                  await root.getDirectoryHandle(name,{create:true});
-                }
-                alert(`Created/updated ${folderNames.length} class folder(s) in the selected Photos directory:\n\n`+folderNames.join("\n"));
+            try{
+              const { ensureClassPhotoFolders, preferredPhotoFolderName }=await import("../../lib/photosFolderSync.js");
+              const result=await ensureClassPhotoFolders(classes);
+              const names=classes.map(c=>preferredPhotoFolderName(c)).filter(Boolean);
+              if(result.ok||result.created?.length||result.existing?.length){
+                alert(
+                  `Photo folders ready under PSMS/Photos:\n\n`+
+                  names.join("\n")+
+                  (result.created?.length?`\n\nNewly created: ${result.created.join(", ")}`:"")+
+                  `\n\nPut photos as: Photos/<Class>/1.jpg or (1).jpeg — auto-sync will pick them up.`
+                );
                 return;
-              }catch(err){
-                if(err&&(err.name==="AbortError"||err.name==="NotAllowedError")) return;
-                console.warn(err);
               }
+            }catch(err){
+              console.warn(err);
             }
-            alert(
-              "Class folders for this login (create these under PSMS/Photos):\n\n"+
-              folderNames.join("\n")+
-              "\n\nThen put photos as: Photos/<Class>/<roll>.jpg  (or .png / .heic / any image; also (roll).jpg)"
-            );
+            alert("Could not create folders automatically. Use the project Photos/ directory on the main PC.");
           }}
           className="!h-9 !min-h-9 !px-3 !text-sm"
           style={{ height: 36, minHeight: 36 }}
@@ -2437,143 +2546,13 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
             if(filterCls==="all"){
               const ok=confirm(
                 "Sync all classes from Photos folder?\n\n"+
-                "• Files found → update student photo\n"+
-                "• File removed from class folder → remove photo from student record\n\n"+
-                "Tip: Filter by one class (e.g. ECE) for safer sync."
+                "• Files found → update student photo (worldwide)\n"+
+                "• File removed from class folder → remove photo worldwide\n\n"+
+                "Tip: Auto-sync already watches the folder every few seconds."
               );
               if(!ok) return;
             }
-            const folderNamesForClass=(c)=>{
-              const names=new Set();
-              [formatClassDisplay(c),c.name,c.id,c.grade,formatGradeLabel(c.grade),`${c.grade||""}${c.section?`-${c.section}`:""}`]
-                .map(v=>String(v||"").trim())
-                .filter(Boolean)
-                .forEach(v=>names.add(v));
-              return [...names];
-            };
-            const rollKeyFromName=(filename)=>{
-              const base=String(filename||"").replace(/\.[^.]+$/,"").trim();
-              if(!base) return "";
-              if(/^\d+$/.test(base)) return normalizeRollNo(base);
-              const paren=base.match(/^\(\s*(\d+)\s*\)$/);
-              if(paren) return normalizeRollNo(paren[1]);
-              const digits=base.match(/\d+/);
-              return digits?normalizeRollNo(digits[0]):"";
-            };
-            // One list-folder call per class (not dozens of 404 probes per student)
-            const folderFilesCache={};
-            const listFolderFiles=async (folder)=>{
-              if(folderFilesCache[folder]) return folderFilesCache[folder];
-              try{
-                const res=await fetch(`/Photos-api/list-folder?name=${encodeURIComponent(folder)}`,{cache:"no-store"});
-                const json=res.ok?await res.json():{files:[]};
-                const files=Array.isArray(json.files)?json.files:[];
-                folderFilesCache[folder]={ exists:!!json.exists||files.length>0, files };
-                return folderFilesCache[folder];
-              }catch{
-                folderFilesCache[folder]={ exists:false, files:[] };
-                return folderFilesCache[folder];
-              }
-            };
-            const findPhotoFile=async (folders,roll)=>{
-              const want=normalizeRollNo(roll);
-              if(!want) return null;
-              for(const folder of folders){
-                const listed=await listFolderFiles(folder);
-                if(!listed.exists) continue;
-                const match=listed.files.find(f=>rollKeyFromName(f)===want);
-                if(match) return { folder, fileName: match };
-              }
-              return null;
-            };
-            const tryFetchPhoto=async (folders,roll)=>{
-              const hit=await findPhotoFile(folders,roll);
-              if(!hit) return null;
-              const url=`/Photos/${encodeURIComponent(hit.folder)}/${encodeURIComponent(hit.fileName)}`;
-              try{
-                const res=await fetch(url,{cache:"no-store"});
-                if(!res.ok) return null;
-                const ctype=String(res.headers.get("content-type")||"").toLowerCase();
-                if(ctype.includes("text/html")||ctype.includes("application/json")) return null;
-                const blob=await res.blob();
-                if(!blob||!blob.size||blob.size<32) return null;
-                if(String(blob.type||"").includes("text/html")) return null;
-                const file=new File([blob],hit.fileName,{type:(blob.type||ctype||"image/jpeg")});
-                const data=await readStudentPhotoAsJpeg(file);
-                return isDisplayablePhotoSrc(data)?data:null;
-              }catch{
-                return null;
-              }
-            };
-            let applied=0, removed=0, missing=0, failed=0, skippedNoFolder=0;
-            const updates={}; // id -> photo data URL or null to clear
-            const pendingCloudUpload=[]; // upload after UI update so sync never hangs on Storage
-            for(const s of list){
-              const sc=resolveClass(classes,s.classId);
-              if(!sc){ missing++; continue; }
-              const roll=normalizeRollNo(s.rollNo);
-              if(!roll){ missing++; continue; }
-              const folders=folderNamesForClass(sc);
-              let folderOk=false;
-              for(const folder of folders){
-                const listed=await listFolderFiles(folder);
-                if(listed.exists){ folderOk=true; break; }
-              }
-              if(!folderOk){
-                skippedNoFolder++;
-                continue; // don't clear if class folder itself is missing
-              }
-              try{
-                const photo=await tryFetchPhoto(folders,roll);
-                if(photo){
-                  updates[s.id]=photo; // apply local JPEG immediately
-                  pendingCloudUpload.push({ id:s.id, photo });
-                  applied++;
-                }else if(s.photo){
-                  updates[s.id]=null; // file removed from folder → clear student photo
-                  removed++;
-                }else{
-                  missing++;
-                }
-              }catch{
-                failed++;
-              }
-              if((applied+removed+missing+failed)%10===0) await yieldToMain();
-            }
-            // Also clear previously saved broken photos (HTML/non-image data URLs)
-            setStudents(prev=>prev.map(s=>{
-              if(s.id in updates){
-                const next=updates[s.id];
-                return next?{...s,photo:next}:{...s,photo:null};
-              }
-              if(s.photo&&!isDisplayablePhotoSrc(s.photo)) return {...s,photo:null};
-              return s;
-            }));
-            // Background: push synced photos to public Storage (worldwide) without blocking Sync UI
-            if(pendingCloudUpload.length){
-              void (async ()=>{
-                const cloudUpdates={};
-                for(const item of pendingCloudUpload){
-                  try{
-                    const url=await toWorldwidePhoto(item.photo, item.id);
-                    if(url&&url!==item.photo&&/^https?:\/\//i.test(url)) cloudUpdates[item.id]=url;
-                  }catch{ /* keep local jpeg */ }
-                  await yieldToMain();
-                }
-                if(Object.keys(cloudUpdates).length){
-                  setStudents(prev=>prev.map(s=>cloudUpdates[s.id]?{...s,photo:cloudUpdates[s.id]}:s));
-                }
-              })();
-            }
-            alert(
-              `Synced photos from Photos folder.\n\n`+
-              `Updated: ${applied}\n`+
-              `Removed (file deleted from folder): ${removed}\n`+
-              `No file / already empty: ${missing}\n`+
-              (skippedNoFolder?`Skipped (no class folder): ${skippedNoFolder}\n`:"")+
-              (failed?`Failed: ${failed}\n`:"")+
-              `\nDelete the roll photo under Photos/<Class>/ then Sync again to clear it from Student Record.`
-            );
+            await runPhotosFolderSync({ silent:false, scope:filterCls==="all"?"all":"filtered" });
           }}
           className="!h-9 !min-h-9 !px-3 !text-sm"
           style={{ height: 36, minHeight: 36 }}
@@ -2581,6 +2560,9 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
         >
           🔄 Sync from Photos
         </Btn>
+        <span style={{fontSize:11,color:C.gray,whiteSpace:"nowrap"}} title="Watches Photos/<Class>/ and syncs add/remove worldwide">
+          {autoPhotoSyncStatus==="syncing"?"⟳ Auto-sync…":"● Auto-sync ON"}
+        </span>
         <input
           ref={photosDirRef}
           type="file"

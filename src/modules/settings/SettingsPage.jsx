@@ -166,6 +166,21 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
   const staffList=Array.isArray(staffProfiles)?staffProfiles:[];
   const teachingStaffCount=staffList.filter((p)=>normalizeStaffCategory(p?.staffCategory)==="Teaching").length;
   const nonTeachingStaffCount=staffList.filter((p)=>normalizeStaffCategory(p?.staffCategory)==="Non Teaching").length;
+  // Auto-create Photos/<Class>/ folders when classes change (Add Class or Excel import)
+  useEffect(()=>{
+    const classes=Array.isArray(settings?.classes)?settings.classes:[];
+    if(!classes.length) return;
+    let cancelled=false;
+    (async ()=>{
+      try{
+        const { ensureClassPhotoFolders }=await import("../../lib/photosFolderSync.js");
+        if(!cancelled) await ensureClassPhotoFolders(classes);
+      }catch(err){
+        console.warn("Auto-create photo folders failed", err);
+      }
+    })();
+    return ()=>{ cancelled=true; };
+  },[settings?.classes]);
   const [tab,setTab]=useState("general");
   const [schoolSection,setSchoolSection]=useState("basic");
   const [newCls,setNewCls]=useState({grade:"",section:""});
@@ -1408,17 +1423,22 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
     const id=`${newCls.grade}-${newCls.section||name}`;
     const existing=Array.isArray(settings.classes)?settings.classes:[];
     if(existing.find(c=>c.id===id)) return alert("Class already exists");
+    const newClass={id,name,grade:newCls.grade,section:newCls.section};
     setSettings(s=>{
       const prevClasses=Array.isArray(s?.classes)?s.classes:[];
       return {
         ...s,
-        classes:[...prevClasses,{id,name,grade:newCls.grade,section:newCls.section}],
+        classes:[...prevClasses,newClass],
         classSubjects:{...(s?.classSubjects||{}),[id]:[]},
         classSubjectsExam:{...(s?.classSubjectsExam||{}),[id]:[]},
         classSubjectsTimetable:{...(s?.classSubjectsTimetable||{}),[id]:[]}
       };
     });
     setNewCls({grade:"",section:""});
+    // Create Photos/<Class>/ immediately (useEffect also covers Excel imports)
+    void import("../../lib/photosFolderSync.js")
+      .then((m)=>m.ensureClassPhotoFolders([newClass]))
+      .catch(()=>{});
   };
   const removeClass=(id)=>setSettings(s=>{
     const prevClasses=Array.isArray(s?.classes)?s.classes:[];
