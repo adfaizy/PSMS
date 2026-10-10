@@ -8,6 +8,11 @@ export const attendanceService = {
   markAll: modules.markAllAttendance,
   summary: modules.getAttendanceSummary,
   monthlyRegister: modules.buildMonthlyRegister,
+  todaySnapshot: modules.summarizeTodayAttendanceLeave,
+  studentLeaveAdd: modules.addStudentLeaveRecord,
+  studentLeaveUpdate: modules.updateStudentLeaveStatus,
+  absenteeList: modules.buildAbsenteeList,
+  monthlyRates: modules.computeMonthlyStudentRates,
 }
 
 export const admissionService = {
@@ -16,6 +21,47 @@ export const admissionService = {
   nextRollNo: modules.nextRollNoForClass,
   findByAdmissionNo: modules.findStudentByAdmissionNo,
   findByRoll: modules.findStudentByRollInClass,
+}
+
+export const studentsService = {
+  search: modules.searchStudents,
+  filterByStatus: modules.filterStudentsByStatus,
+  summarize: modules.summarizeStudentDirectory,
+  getStatus: modules.getStudentStatus,
+  addHealthNote: modules.addHealthNote,
+  addDiscipline: modules.addDisciplineRecord,
+  addDocument: modules.addStudentDocument,
+  setLeaving: modules.setLeavingInfo,
+  setLifecycleStatus: modules.setStudentLifecycleStatus,
+  nextGradeOptions: modules.getNextGradeClassOptions,
+}
+
+export const staffService = {
+  search: modules.searchStaffProfiles,
+  summarize: modules.summarizeStaffDirectory,
+  loadAttendance: modules.loadStaffAttendanceFromLocal,
+  saveAttendance: modules.saveStaffAttendanceToLocal,
+  markAttendance: modules.markStaffAttendance,
+  markAllAttendance: modules.markAllStaffAttendance,
+  attendanceSummary: modules.summarizeStaffAttendanceDay,
+  addLeave: modules.addStaffLeaveRecord,
+  updateLeaveStatus: modules.updateStaffLeaveStatus,
+  addDocument: modules.addStaffDocument,
+  assignments: modules.buildStaffAssignments,
+  restoreRetired: modules.restoreRetiredStaff,
+}
+
+export const academicService = {
+  summarize: modules.summarizeAcademicStructure,
+  subjectMatrix: modules.buildClassSubjectMatrix,
+  addClass: modules.addAcademicClass,
+  removeClass: modules.removeAcademicClass,
+  addSubject: modules.addClassSubject,
+  removeSubject: modules.removeClassSubject,
+  validateSession: modules.validateSessionLabel,
+  addCalendarEvent: modules.addCalendarEvent,
+  upcomingEvents: modules.upcomingCalendarEvents,
+  addSchemeUnit: modules.addSchemeUnit,
 }
 
 export const examinationService = {
@@ -68,6 +114,13 @@ export const libraryService = {
   addBookToClass: modules.addBookToClass,
   removeBookFromClass: modules.removeBookFromClass,
   searchBooks: modules.searchLibraryBooks,
+  summarize: modules.summarizeLibrary,
+  overdue: modules.listOverdue,
+  members: modules.listMembers,
+  rules: modules.loadLibraryRules,
+  saveRules: modules.saveLibraryRules,
+  circulation: modules.buildCirculationReport,
+  finePayments: modules.loadFinePayments,
 }
 
 export const authService = {
@@ -86,6 +139,11 @@ export const dashboardService = {
   overallStat: modules.overallStatDash,
   classStats: modules.buildClassStats,
   feeStats: modules.computeFeeStats,
+  todayAttendance: modules.computeTodayAttendance,
+  upcomingExams: modules.buildUpcomingExams,
+  reminders: modules.buildDashboardReminders,
+  search: modules.searchSchoolRecords,
+  countSections: modules.countSections,
 }
 
 export const systemSettingsService = {
@@ -121,6 +179,15 @@ export const feeService = {
   summary: modules.getClassFeeSummary,
   months: modules.getMonthsList,
   formatCurrency: modules.formatCurrency,
+  effectiveAmount: modules.getEffectiveFeeAmount,
+  financeSummary: modules.summarizeFeeFinance,
+  dues: modules.buildDuesList,
+  receipts: modules.buildReceiptsList,
+  yearlyTrend: modules.buildYearlyFeeTrend,
+  loadConcessions: modules.loadConcessions,
+  saveConcessions: modules.saveConcessions,
+  loadExpenses: modules.loadExpenses,
+  saveExpenses: modules.saveExpenses,
 }
 
 export const constantsService = {

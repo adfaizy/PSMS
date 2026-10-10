@@ -27,7 +27,7 @@ import * as XLSX from "./xlsxClient.js";
 import { X, Plus, Edit2, Trash2, Upload, Download, Menu, Settings, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import { AboutUsPage } from "./AboutUsPage";
 import { BookBankPage } from "./BookBankPage";
-import { LibraryPage } from "./LibraryPage";
+import { LibraryModulePage } from "./modules/library/LibraryModulePage";
 import * as feeCore from "./modules/fee/feeCore";
 import { feeService, systemSettingsService, dashboardService } from "./services";
 import PWAInstallBanner from "./PWAInstallBanner";
@@ -52,20 +52,29 @@ import {
   parseMarksImportCell, parseWorkbook, getExportHeaderMeta, DASHBOARD_EXAM_LS,
 } from "./shared/helpers";
 import { DashboardPage } from "./modules/dashboard/DashboardPage";
+import { StudentsModulePage } from "./modules/students/StudentsModulePage";
+import { StaffModulePage } from "./modules/staff/StaffModulePage";
+import { AcademicModulePage } from "./modules/academic/AcademicModulePage";
+import { AppShellNavTools } from "./components/AppShellNavTools";
+import { setNavIntent } from "./lib/navIntent.js";
 import { TimetablePage } from "./modules/timetable/TimetablePage";
 import { ExaminationPage } from "./modules/examination/ExaminationPage";
 import { PaperGeneratorPage } from "./modules/paperGenerator/PaperGeneratorPage";
 import { CardGeneratorPage } from "./modules/cardGenerator/CardGeneratorPage";
-import { AttendancePage, loadAttendanceFromLocal, saveAttendanceToLocal, ATTENDANCE_DATA_KEY } from "./modules/attendance/AttendancePage";
-import { FeePage } from "./modules/fee/FeePage";
+import { loadAttendanceFromLocal, ATTENDANCE_DATA_KEY } from "./modules/attendance/AttendancePage";
+import { AttendanceLeaveModulePage } from "./modules/attendance/AttendanceLeaveModulePage";
+import { FeeFinanceModulePage } from "./modules/fee/FeeFinanceModulePage";
 import { SettingsPage } from "./modules/settings/SettingsPage";
 
 /** Main shell navigation (left sidebar). */
 const APP_MAIN_NAV = [
   { id: "dashboard", l: "Dashboard", i: "🏠" },
+  { id: "students", l: "Students", i: "👨‍🎓" },
+  { id: "staff", l: "Staff", i: "👩‍🏫" },
+  { id: "academic", l: "Academic", i: "🎓" },
   { id: "timetable", l: "Timetable", i: "📅" },
-  { id: "attendance", l: "Attendance", i: "📋" },
-  { id: "fees", l: "Fee Collection", i: "💳" },
+  { id: "attendance", l: "Attendance & Leave", i: "📋" },
+  { id: "fees", l: "Fees & Finance", i: "💳" },
   { id: "examination", l: "Examination", i: "📝" },
   { id: "paper", l: "Paper Generator", i: "📄" },
   { id: "card", l: "ID Cards", i: "🪪" },
@@ -1877,7 +1886,7 @@ function App(){
   }
   // Teachers cannot access Settings; principals and all others can
   const isTeacher = session?.userType === "teacher";
-  const nav = isTeacher ? APP_MAIN_NAV.filter(n => n.id !== "settings") : APP_MAIN_NAV;
+  const nav = isTeacher ? APP_MAIN_NAV.filter(n => n.id !== "settings" && n.id !== "staff" && n.id !== "academic") : APP_MAIN_NAV;
   if(session===null){
     return <AuthScreen onSignIn={(s)=>{ setSession(s); if(s.schoolId) setActiveSchoolId(s.schoolId); }} setActiveSchoolId={setActiveSchoolId}/>;
   }
@@ -1940,6 +1949,12 @@ function App(){
             </div>
           </div>
           <div className="app-topbar-right" style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:10,flexWrap:"wrap",minWidth:0}}>
+            <AppShellNavTools
+              students={students}
+              staffProfiles={staffProfiles}
+              classes={effectiveSettings.classes||[]}
+              onNavigate={(id)=>startTransition(()=>setPage(id))}
+            />
             {saveStatus!=="idle"&&(
               <span style={{fontSize:11,fontWeight:600,color:saveStatus==="saved"?C.green:saveStatus==="error"||saveStatus==="offline"?"#dc2626":C.gray,whiteSpace:"nowrap"}}>
                 {saveStatus==="saved"?"✓ Saved":saveStatus==="saving"?"Saving…":saveStatus==="error"?"☁ Sync failed":saveStatus==="offline"?"☁ Offline":""}
@@ -2093,6 +2108,34 @@ function App(){
                 </button>
               </div>
               <div className="mobile-menu-scroll">
+                <div style={{padding:"10px 12px 4px"}}>
+                  <div style={{fontSize:10,fontWeight:700,letterSpacing:0.06,textTransform:"uppercase",color:"#94a3b8",marginBottom:8,paddingLeft:4}}>Quick Actions</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    {[
+                      {l:"Admit Student",page:"students",tab:"admission"},
+                      {l:"Attendance",page:"attendance",tab:"students"},
+                      {l:"Fee Collection",page:"fees",tab:"collection"},
+                      {l:"Marks Entry",page:"examination",tab:"marks"},
+                    ].map(a=>(
+                      <button
+                        key={a.l}
+                        type="button"
+                        onClick={()=>{
+                          if(a.tab) setNavIntent({page:a.page,tab:a.tab});
+                          startTransition(()=>setPage(a.page));
+                          setMobileMenuOpen(false);
+                        }}
+                        style={{
+                          padding:"10px 8px",borderRadius:8,border:"1px solid rgba(148,163,184,0.35)",
+                          background:"rgba(248,250,252,0.08)",color:"#f1f5f9",fontSize:11,fontWeight:700,
+                          cursor:"pointer",textAlign:"left",lineHeight:1.3,
+                        }}
+                      >
+                        {a.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <nav>
                   {nav.map(item=>(
                     <button key={item.id} type="button" className={page===item.id?"active":""} onClick={()=>{ startTransition(()=>setPage(item.id)); setMobileMenuOpen(false); }}>
@@ -2125,15 +2168,93 @@ function App(){
           document.body
         )}
         <div id="print-section" style={{flex:1,minHeight:0,padding:UI.padMain,overflow:"auto",WebkitOverflowScrolling:"touch",background:UI.canvasBg,fontFamily:UI.fontApp}}>
-          {page==="dashboard"&&<DashboardPage settings={effectiveSettings} students={students} staffProfiles={staffProfiles} exam_tm={exam_tm} exam_om={exam_om} activeSchoolId={activeSchoolId}/>}
+          {page==="dashboard"&&(
+            <DashboardPage
+              settings={effectiveSettings}
+              students={students}
+              staffProfiles={staffProfiles}
+              exam_tm={exam_tm}
+              exam_om={exam_om}
+              exam_datesheet={exam_datesheet}
+              activeSchoolId={activeSchoolId}
+              currentSession={curSession}
+              onNavigate={(id)=>startTransition(()=>setPage(id))}
+              setBarSubtitle={setBarSubtitle}
+            />
+          )}
+          {page==="students"&&(
+            <StudentsModulePage
+              settings={effectiveSettings}
+              students={students}
+              setStudents={setStudentsForActive}
+              currentSession={curSession}
+              currentUser={currentUser}
+              activeSchoolId={activeSchoolId}
+              setBarSubtitle={setBarSubtitle}
+            />
+          )}
+          {page==="staff"&&(
+            <StaffModulePage
+              settings={effectiveSettings}
+              schools={schools}
+              setSchools={setSchools}
+              staffProfiles={staffProfiles}
+              staffTransferHistory={activeSchool.staffTransferHistory||[]}
+              retiredStaff={activeSchool.retiredStaff||[]}
+              activeSchoolId={activeSchoolId}
+              currentSession={curSession}
+              setBarSubtitle={setBarSubtitle}
+            />
+          )}
+          {page==="academic"&&!isTeacher&&(
+            <AcademicModulePage
+              settings={effectiveSettings}
+              setSettings={setSettingsForActive}
+              students={students}
+              sessions={activeSchool.sessions||[curSession]}
+              currentSession={curSession}
+              setCurrentSession={setCurrentSessionForActive}
+              addSession={addSessionForActive}
+              exam_datesheet={exam_datesheet}
+              onNavigate={(id)=>startTransition(()=>setPage(id))}
+              setBarSubtitle={setBarSubtitle}
+            />
+          )}
           {page==="timetable"&&<TimetablePage settings={effectiveSettings} staffProfiles={staffProfiles} timetable={timetable} setTimetable={setTimetable} currentSession={curSession} setBarSubtitle={setBarSubtitle}/>}
-          {page==="attendance"&&<AttendancePage settings={effectiveSettings} students={students} currentSession={curSession} activeSchoolId={activeSchoolId} setBarSubtitle={setBarSubtitle}/>}
-          {page==="fees"&&<FeePage settings={effectiveSettings} students={students} activeSchoolId={activeSchoolId} setBarSubtitle={setBarSubtitle}/>}
+          {page==="attendance"&&(
+            <AttendanceLeaveModulePage
+              settings={effectiveSettings}
+              students={students}
+              setStudents={setStudentsForActive}
+              staffProfiles={staffProfiles}
+              setSchools={setSchools}
+              activeSchoolId={activeSchoolId}
+              currentSession={curSession}
+              setBarSubtitle={setBarSubtitle}
+              canManageStaff={!isTeacher}
+            />
+          )}
+          {page==="fees"&&(
+            <FeeFinanceModulePage
+              settings={effectiveSettings}
+              setSettings={setSettingsForActive}
+              students={students}
+              activeSchoolId={activeSchoolId}
+              setBarSubtitle={setBarSubtitle}
+            />
+          )}
           {page==="examination"&&<ExaminationErrorBoundary><ExaminationPage settings={effectiveSettings} setSettings={setSettingsForActive} students={students} setStudents={setStudentsForActive} timetable={timetable} exam_tm={exam_tm} exam_om={exam_om} setExamMarks={setExamMarksForActive} exam_datesheet={exam_datesheet} setDatesheet={setDatesheetForActive} currentSession={curSession} currentUser={currentUser} activeSchoolId={activeSchoolId} setBarSubtitle={setBarSubtitle}/></ExaminationErrorBoundary>}
           {page==="paper"&&<PaperGeneratorPage settings={effectiveSettings} questionBank={activeSchool.questionBank||{}} setQuestionBank={updater=>setSchools(prev=>prev.map(s=>s.id===activeSchoolId?{...s,questionBank:typeof updater==="function"?updater(s.questionBank||{}):updater}:s))} setBarSubtitle={setBarSubtitle}/>}
           {page==="card"&&<CardGeneratorPage settings={effectiveSettings} students={students} currentSession={curSession} staffProfiles={staffProfiles} setBarSubtitle={setBarSubtitle}/>}
           {page==="book-bank"&&<BookBankPage setBarSubtitle={setBarSubtitle}/>}
-          {page==="library"&&<LibraryPage setBarSubtitle={setBarSubtitle} activeSchoolId={activeSchoolId} classes={effectiveSettings.classes} students={students}/>}
+          {page==="library"&&(
+            <LibraryModulePage
+              settings={effectiveSettings}
+              students={students}
+              activeSchoolId={activeSchoolId}
+              setBarSubtitle={setBarSubtitle}
+            />
+          )}
           {page==="about"&&<AboutUsPage />}
           {page==="settings"&&!isTeacher&&<SettingsPage settings={effectiveSettings} setSettings={setSettingsForActive} setSchools={setSchools} students={students} setStudents={setStudentsForActive} schools={schools} activeSchoolId={activeSchoolId} timetable={timetable} exam_tm={exam_tm} exam_om={exam_om} setExamMarks={setExamMarksForActive} currentSession={curSession} sessions={activeSchool.sessions||[curSession]} setCurrentSession={setCurrentSessionForActive} addSession={addSessionForActive} staffProfiles={staffProfiles} setBarSubtitle={setBarSubtitle} session={session}/>}
         </div>

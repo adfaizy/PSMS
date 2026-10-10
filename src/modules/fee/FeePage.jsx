@@ -49,6 +49,7 @@ const jsPDF =
 
 export function FeePage({ settings, students, activeSchoolId, setBarSubtitle }) {
   useEffect(() => {
+    if (!setBarSubtitle) return;
     setBarSubtitle(`${feeCore.FEE_AMOUNT} Rs per student per month`);
     return () => setBarSubtitle("");
   }, [setBarSubtitle]);

@@ -14,6 +14,7 @@ import signImg from "@/assets/sign.png";
 import { yieldToMain } from "@/yieldToMain.js";
 import { C, schoolOrBrandLogo, APP_BRAND_LOGO, genId } from "@/shared/theme";
 import { Btn, Sel, Inp, SchoolHeader } from "@/components/AppControls";
+import { consumeNavIntent } from "@/lib/navIntent.js";
 import * as H from "@/shared/helpers";
 
 const {
@@ -358,6 +359,12 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
   },[settingsProp]);
   const students=Array.isArray(studentsProp)?studentsProp:defaultStudents;
   const [tab,setTab]=useState("admission");
+  useEffect(()=>{
+    const intent=consumeNavIntent();
+    if(!intent||intent.page&&intent.page!=="examination") return;
+    const allowed=new Set(EXAM_TABS.map(t=>t.id));
+    if(intent.tab&&allowed.has(intent.tab)) setTab(intent.tab);
+  },[]);
   const admissionEmpty={admissionNo:"",rollNo:"",name:"",fatherName:"",classId:settings.classes[0]?.id||"",dob:"",bayForm:"",fatherCnic:"",whatsapp:"",photo:null};
   const [admissionForm,setAdmissionForm]=useState(admissionEmpty);
   const admissionPhotoGalleryRef=useRef(null);

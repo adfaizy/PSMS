@@ -112,9 +112,16 @@ function mergeBooksFromExcelRows(prevLibrary, matrix) {
   };
 }
 
-export function LibraryPage({ setBarSubtitle, activeSchoolId, classes: classesProp = [], students: studentsProp = [] }) {
+export function LibraryPage({
+  setBarSubtitle,
+  activeSchoolId,
+  classes: classesProp = [],
+  students: studentsProp = [],
+  initialTab = "books",
+  embedded = false,
+}) {
   const [library, setLibrary] = useState({ books: [], borrowings: [] });
-  const [activeTab, setActiveTab] = useState("books");
+  const [activeTab, setActiveTab] = useState(initialTab === "borrowings" ? "borrowings" : "books");
   const [query, setQuery] = useState("");
   const [savedHint, setSavedHint] = useState(false);
   const [bookForm, setBookForm] = useState({ title: "", author: "", publisher: "", isbn: "", coverUrl: "", copies: "1" });
@@ -144,9 +151,10 @@ export function LibraryPage({ setBarSubtitle, activeSchoolId, classes: classesPr
   });
 
   useEffect(() => {
+    if (!setBarSubtitle || embedded) return;
     setBarSubtitle("General school library management");
     return () => setBarSubtitle("");
-  }, [setBarSubtitle]);
+  }, [setBarSubtitle, embedded]);
 
   useEffect(() => {
     let cancelled = false;
@@ -533,15 +541,17 @@ export function LibraryPage({ setBarSubtitle, activeSchoolId, classes: classesPr
   const totalBorrowings = currentBorrowings.length;
 
   return (
-    <div className="library-page">
-      <section className="library-hero" aria-labelledby="library-heading">
-        <h1 id="library-heading" className="library-hero__title">
-          General school library management
-        </h1>
-        <p className="library-hero__intro">
-          Manage book inventory, track borrowings, and maintain records for students.
-        </p>
-      </section>
+    <div className={`library-page${embedded ? " library-page--embedded" : ""}`}>
+      {!embedded && (
+        <section className="library-hero" aria-labelledby="library-heading">
+          <h1 id="library-heading" className="library-hero__title">
+            General school library management
+          </h1>
+          <p className="library-hero__intro">
+            Manage book inventory, track borrowings, and maintain records for students.
+          </p>
+        </section>
+      )}
 
       <section className="library-controls">
         <div className="library-summary">

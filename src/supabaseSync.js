@@ -31,11 +31,23 @@ function studentToRow(schoolId, s) {
     whatsapp: s.whatsapp || '',
     // Only public HTTPS URLs — data URLs break worldwide upserts / other devices
     photo: cloudSafePhoto(s.photo),
-    meta: {},
+    meta: {
+      ...(s.meta && typeof s.meta === 'object' ? s.meta : {}),
+      studentStatus: s.studentStatus || undefined,
+      leaveRecords: Array.isArray(s.leaveRecords) ? s.leaveRecords : [],
+      healthNotes: Array.isArray(s.healthNotes) ? s.healthNotes : [],
+      disciplineRecords: Array.isArray(s.disciplineRecords) ? s.disciplineRecords : [],
+      documents: Array.isArray(s.documents) ? s.documents : [],
+      leavingInfo: s.leavingInfo || undefined,
+      promotionInfo: s.promotionInfo || undefined,
+      personalInfoLockSession: s.personalInfoLockSession || undefined,
+      personalInfoHistory: Array.isArray(s.personalInfoHistory) ? s.personalInfoHistory : undefined,
+    },
   }
 }
 
 function studentFromRow(row) {
+  const meta = row.meta && typeof row.meta === 'object' ? row.meta : {}
   return {
     id: row.id,
     classId: row.class_id || '',
@@ -48,6 +60,16 @@ function studentFromRow(row) {
     fatherCnic: row.father_cnic || '',
     whatsapp: row.whatsapp || '',
     photo: row.photo || null,
+    studentStatus: meta.studentStatus || undefined,
+    leaveRecords: Array.isArray(meta.leaveRecords) ? meta.leaveRecords : [],
+    healthNotes: Array.isArray(meta.healthNotes) ? meta.healthNotes : [],
+    disciplineRecords: Array.isArray(meta.disciplineRecords) ? meta.disciplineRecords : [],
+    documents: Array.isArray(meta.documents) ? meta.documents : [],
+    leavingInfo: meta.leavingInfo || undefined,
+    promotionInfo: meta.promotionInfo || undefined,
+    personalInfoLockSession: meta.personalInfoLockSession || undefined,
+    personalInfoHistory: Array.isArray(meta.personalInfoHistory) ? meta.personalInfoHistory : undefined,
+    meta,
   }
 }
 
@@ -83,11 +105,18 @@ function staffToRow(schoolId, p) {
     emergency_contact: p.emergencyContact || null,
     employee_status: p.employeeStatus || null,
     department: p.department || null,
-    meta: {},
+    meta: {
+      ...(p.meta && typeof p.meta === 'object' ? p.meta : {}),
+      photoPosition: p.photoPosition || undefined,
+      leaveRecords: Array.isArray(p.leaveRecords) ? p.leaveRecords : [],
+      documents: Array.isArray(p.documents) ? p.documents : [],
+      transferInfo: p.transferInfo || undefined,
+    },
   }
 }
 
 function staffFromRow(row) {
+  const meta = row.meta && typeof row.meta === 'object' ? row.meta : {}
   return {
     id: row.id,
     photo: row.photo || null,
@@ -118,6 +147,11 @@ function staffFromRow(row) {
     emergencyContact: row.emergency_contact || '',
     employeeStatus: row.employee_status || '',
     department: row.department || '',
+    photoPosition: meta.photoPosition || '50% 50%',
+    leaveRecords: Array.isArray(meta.leaveRecords) ? meta.leaveRecords : [],
+    documents: Array.isArray(meta.documents) ? meta.documents : [],
+    transferInfo: meta.transferInfo || undefined,
+    meta,
   }
 }
 
