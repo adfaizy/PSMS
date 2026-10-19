@@ -553,6 +553,7 @@ export async function clearAllCloudData() {
     'library_books',
     'attendance_records',
     'fee_records',
+    'school_module_data',
     'exam_sessions',
     'staff_transfer_history',
     'retired_staff',
@@ -798,6 +799,67 @@ export async function saveLibraryToCloud(schoolId, libraryData) {
     return { ok: true }
   } catch (err) {
     logSyncError('saveLibrary', err)
+    return { ok: false, error: err }
+  }
+}
+
+// ─── school module blobs (daily register, library extras, fee finance, …) ────
+
+export async function loadSchoolModuleDataFromCloud(schoolId, moduleKey) {
+  if (!getIsSupabaseConfigured() || !getSupabase() || !schoolId || !moduleKey) return null
+  const { data, error } = await getSupabase()
+    .from('school_module_data')
+    .select('payload, updated_at')
+    .eq('school_id', schoolId)
+    .eq('module_key', moduleKey)
+    .maybeSingle()
+  if (error) {
+    // Table may not exist until migration 004 is applied
+    if (error.code !== 'PGRST116') logSyncError(`loadModule:${moduleKey}`, error)
+    return null
+  }
+  if (!data) return null
+  return data.payload ?? null
+}
+
+export async function loadAllSchoolModuleDataFromCloud(schoolId) {
+  if (!getIsSupabaseConfigured() || !getSupabase() || !schoolId) return null
+  const { data, error } = await getSupabase()
+    .from('school_module_data')
+    .select('module_key, payload, updated_at')
+    .eq('school_id', schoolId)
+  if (error) {
+    logSyncError('loadAllModules', error)
+    return null
+  }
+  const out = {}
+  for (const row of data || []) {
+    if (row?.module_key) out[row.module_key] = row.payload ?? null
+  }
+  return out
+}
+
+export async function saveSchoolModuleDataToCloud(schoolId, moduleKey, payload) {
+  if (!getIsSupabaseConfigured() || !getSupabase() || !schoolId || !moduleKey) {
+    return { ok: false, skipped: true }
+  }
+  try {
+    const { error } = await getSupabase().from('school_module_data').upsert(
+      {
+        school_id: schoolId,
+        module_key: moduleKey,
+        payload: payload == null ? {} : payload,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'school_id,module_key' },
+    )
+    if (error) {
+      logSyncError(`saveModule:${moduleKey}`, error)
+      return { ok: false, error }
+    }
+    return { ok: true }
+  } catch (err) {
+    logSyncError(`saveModule:${moduleKey}`, err)
     return { ok: false, error: err }
   }
 }

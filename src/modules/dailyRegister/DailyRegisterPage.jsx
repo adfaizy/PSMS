@@ -21,9 +21,9 @@ import {
 import "./dailyRegister.css";
 
 const TABS = [
-  { id: "student", l: "Student Record", page: "Page 1 of 3", sub: "Student-wise Record" },
-  { id: "summary", l: "Summary", page: "Page 2 of 3", sub: "Day-wise Summary" },
-  { id: "report", l: "Report", page: "Page 3 of 3", sub: "Performance Report" },
+  { id: "student", l: "Student Record" },
+  { id: "summary", l: "Summary" },
+  { id: "report", l: "Report" },
 ];
 
 const MONTHS = listMonthOptions(18);
@@ -93,7 +93,6 @@ function DailyRegisterSheet({
   );
 
   const subjects = getClassSubjects(settings, classId, "exam") || [];
-  const tabMeta = TABS.find((t) => t.id === tab) || TABS[0];
   const classLabel = classId ? getClassLabel(settings, classId) : "—";
   const schoolName = settings?.schoolName || "School";
   const schoolCode = settings?.schoolCode || "—";
@@ -210,15 +209,11 @@ function DailyRegisterSheet({
             ))}
           </select>
         </div>
-        <div className="field">
-          <label>On Roll</label>
-          <div className="val">{sheet.students.length}</div>
-        </div>
-        <div className="badge">
-          <strong>{tabMeta.page}</strong>
-          <span>{tabMeta.sub}</span>
-        </div>
-      </div>
+            <div className="field">
+              <label>On Roll</label>
+              <div className="val">{sheet.students.length}</div>
+            </div>
+          </div>
 
       <div className="toolbar">
         <div className="tabs">
@@ -268,18 +263,16 @@ function DailyRegisterSheet({
                   <th className="th-roll">Roll</th>
                   <th className="th-name">Name</th>
                   <th className="th-father">Father</th>
-                  {Array.from({ length: DAY_SLOTS }, (_, i) => (
-                    <th key={i} className="th-date th-marks">
-                      <input
-                        className="day-num"
-                        type="text"
-                        inputMode="numeric"
-                        value={sheet.dayMeta[i]?.dayNum ?? i + 1}
-                        onChange={(e) => updateDayMeta(i, { dayNum: e.target.value })}
-                        aria-label={`Day ${i + 1} number`}
-                      />
-                    </th>
-                  ))}
+                  {Array.from({ length: DAY_SLOTS }, (_, i) => {
+                    const meta = sheet.dayMeta[i] || {};
+                    const dayLabel = String(meta.dayNum || "").padStart(2, "0").slice(-2);
+                    const show = meta.date || meta.dayNum ? (dayLabel === "00" ? "" : dayLabel) : "";
+                    return (
+                      <th key={i} className="th-date th-marks" title={meta.date || undefined}>
+                        <span className="day-num day-num--label">{show}</span>
+                      </th>
+                    );
+                  })}
                   <th className="th-total">Total</th>
                   <th className="th-avg">Avg</th>
                   <th className="th-sba">SBA</th>
@@ -342,7 +335,7 @@ function DailyRegisterSheet({
           <p className="note">
             Select <strong>Class</strong>, <strong>Section</strong> and <strong>Month</strong> above.
             Enter marks (0–{MARK_MAX}); Total / Average calculate automatically.
-            Set <strong>Date</strong>, <strong>Subject</strong> and <strong>Topic</strong> on the Summary page.
+            Headers show working days (Mon–Fri) as day-of-month for the selected month. Set Subject / Topic on Summary.
             Use <strong>Add Student</strong> or <strong>Drop</strong> for this month. Changes save in this browser.
           </p>
         </div>

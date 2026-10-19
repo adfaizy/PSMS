@@ -60,7 +60,7 @@ export function saveLibraryRules(schoolId, rules) {
     if (typeof window === 'undefined' || !schoolId) return
     const raw = window.localStorage.getItem(LIBRARY_RULES_KEY)
     const data = raw ? JSON.parse(raw) : {}
-    data[schoolId] = {
+    const next = {
       loanDays: Number(rules.loanDays) > 0 ? Number(rules.loanDays) : DEFAULT_LIBRARY_RULES.loanDays,
       finePerDay: Number(rules.finePerDay) >= 0 ? Number(rules.finePerDay) : DEFAULT_LIBRARY_RULES.finePerDay,
       maxBooksPerStudent:
@@ -68,7 +68,11 @@ export function saveLibraryRules(schoolId, rules) {
           ? Number(rules.maxBooksPerStudent)
           : DEFAULT_LIBRARY_RULES.maxBooksPerStudent,
     }
+    data[schoolId] = next
     window.localStorage.setItem(LIBRARY_RULES_KEY, JSON.stringify(data))
+    import('../../lib/moduleLocalsSync.js')
+      .then((m) => m.pushOneModuleLocal(schoolId, m.MODULE_KEYS.LIBRARY_RULES, next))
+      .catch(() => {})
   } catch {
     /* ignore */
   }
@@ -91,8 +95,12 @@ export function saveFinePayments(schoolId, list) {
     if (typeof window === 'undefined' || !schoolId) return
     const raw = window.localStorage.getItem(LIBRARY_FINES_KEY)
     const data = raw ? JSON.parse(raw) : {}
-    data[schoolId] = Array.isArray(list) ? list : []
+    const next = Array.isArray(list) ? list : []
+    data[schoolId] = next
     window.localStorage.setItem(LIBRARY_FINES_KEY, JSON.stringify(data))
+    import('../../lib/moduleLocalsSync.js')
+      .then((m) => m.pushOneModuleLocal(schoolId, m.MODULE_KEYS.LIBRARY_FINES, next))
+      .catch(() => {})
   } catch {
     /* ignore */
   }

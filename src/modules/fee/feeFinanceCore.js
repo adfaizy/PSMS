@@ -51,8 +51,12 @@ export function saveConcessions(schoolId, list) {
     if (typeof window === 'undefined' || !schoolId) return
     const raw = window.localStorage.getItem(FEE_CONCESSIONS_KEY)
     const data = raw ? JSON.parse(raw) : {}
-    data[schoolId] = Array.isArray(list) ? list : []
+    const next = Array.isArray(list) ? list : []
+    data[schoolId] = next
     window.localStorage.setItem(FEE_CONCESSIONS_KEY, JSON.stringify(data))
+    import('../../lib/moduleLocalsSync.js')
+      .then((m) => m.pushOneModuleLocal(schoolId, m.MODULE_KEYS.FEE_CONCESSIONS, next))
+      .catch(() => {})
   } catch {
     /* ignore */
   }
@@ -75,8 +79,12 @@ export function saveExpenses(schoolId, list) {
     if (typeof window === 'undefined' || !schoolId) return
     const raw = window.localStorage.getItem(FEE_EXPENSES_KEY)
     const data = raw ? JSON.parse(raw) : {}
-    data[schoolId] = Array.isArray(list) ? list : []
+    const next = Array.isArray(list) ? list : []
+    data[schoolId] = next
     window.localStorage.setItem(FEE_EXPENSES_KEY, JSON.stringify(data))
+    import('../../lib/moduleLocalsSync.js')
+      .then((m) => m.pushOneModuleLocal(schoolId, m.MODULE_KEYS.FEE_EXPENSES, next))
+      .catch(() => {})
   } catch {
     /* ignore */
   }

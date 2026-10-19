@@ -40,7 +40,7 @@
 }
 .daily-register .info {
   display: grid;
-  grid-template-columns: 2.1fr .9fr .85fr .75fr .7fr auto;
+  grid-template-columns: 2.1fr .9fr .85fr .75fr .7fr;
   gap: 8px; padding: 12px; background: var(--bar); border-top: 1px solid var(--line);
 }
 @media (max-width: 980px) {
@@ -119,9 +119,10 @@
   background: var(--green-soft); color: var(--green);
   width: auto; white-space: nowrap; line-height: 1.1; padding: 1px;
 }
-.daily-register .th-date input.day-num {
+.daily-register .th-date input.day-num,
+.daily-register .th-date .day-num--label {
   width: 100%;
-  max-width: 2em;
+  max-width: 2.2em;
   margin: 0 auto;
   display: block;
   border: 0;
@@ -132,7 +133,7 @@
   font-size: .72rem;
   text-align: center;
   outline: none;
-  padding: 1px 0;
+  padding: 2px 0;
 }
 .daily-register .th-date input.day-num:focus { background: #eef8f2; }
 .daily-register .th-total, .daily-register .th-avg, .daily-register .th-sba { white-space: nowrap; width: 4.2%; }

@@ -19,6 +19,7 @@ import {
   saveDiscussionToCloud,
 } from "./supabaseSync.js";
 import { supabase, initSupabaseCloud, ensureCloudReady, pingSupabaseCloud, getIsSupabaseConfigured, getSupabase } from "./lib/supabase.js";
+import { hydrateModuleLocalsFromCloud, pushModuleLocalsToCloud } from "./lib/moduleLocalsSync.js";
 import { mergeAuthUserLists } from "./modules/auth/authCore.js";
 import { loadLibraryFromLocal } from "./modules/library/libraryCore.js";
 import { loadDiscussionMessages } from "./modules/aboutSupport/aboutSupportCore.js";
@@ -1459,6 +1460,9 @@ function App(){
         const lib=loadLibraryFromLocal(schoolId);
         if(lib?.books?.length||lib?.borrowings?.length) await saveLibraryToCloud(schoolId, lib);
       }catch(e){ console.warn("Library cloud flush failed", e); }
+      try{
+        await pushModuleLocalsToCloud(schoolId);
+      }catch(e){ console.warn("Module locals cloud flush failed", e); }
     }
     try{
       const msgs=loadDiscussionMessages();
@@ -1689,10 +1693,20 @@ function App(){
             setSchools(cloudSchools.schools);
             if(cloudSchools.activeSchoolId) setActiveSchoolId(cloudSchools.activeSchoolId);
             saveToLocal(cloudSchools.schools, cloudSchools.activeSchoolId);
+            for(const s of cloudSchools.schools){
+              if(!s?.id) continue;
+              try{ await hydrateModuleLocalsFromCloud(s.id); }catch(e){ console.warn("Module locals hydrate failed", e); }
+            }
           }else{
             // Seed cloud from whatever is already on this device
             const local=loadFromLocal();
-            if(local?.schools?.length) await saveSchoolsToCloud(local.schools, local.activeSchoolId);
+            if(local?.schools?.length){
+              await saveSchoolsToCloud(local.schools, local.activeSchoolId);
+              for(const s of local.schools){
+                if(!s?.id) continue;
+                try{ await pushModuleLocalsToCloud(s.id); }catch(e){ console.warn("Module locals seed failed", e); }
+              }
+            }
           }
           if(!cancelled) setCloudReady(true);
         }

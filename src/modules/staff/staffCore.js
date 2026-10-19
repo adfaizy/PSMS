@@ -137,8 +137,12 @@ export function saveStaffAttendanceToLocal(schoolId, att) {
     if (typeof window === 'undefined' || !schoolId) return
     const raw = window.localStorage.getItem(STAFF_ATTENDANCE_KEY)
     const data = raw ? JSON.parse(raw) : {}
-    data[schoolId] = att && typeof att === 'object' ? att : {}
+    const next = att && typeof att === 'object' ? att : {}
+    data[schoolId] = next
     window.localStorage.setItem(STAFF_ATTENDANCE_KEY, JSON.stringify(data))
+    import('../../lib/moduleLocalsSync.js')
+      .then((m) => m.pushOneModuleLocal(schoolId, m.MODULE_KEYS.STAFF_ATTENDANCE, next))
+      .catch(() => {})
   } catch {
     /* ignore */
   }

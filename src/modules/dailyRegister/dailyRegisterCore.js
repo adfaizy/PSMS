@@ -37,28 +37,47 @@ export function listMonthOptions(count = 18) {
   return out;
 }
 
-export function defaultDayMeta(monthKey) {
+/** Mon–Fri calendar days for the month (ISO date + day-of-month label). */
+export function workingDaysForMonth(monthKey) {
   const [y, m] = String(monthKey || "").split("-").map(Number);
   const days = [];
-  let dayNum = 1;
-  if (y && m) {
-    const last = new Date(y, m, 0).getDate();
-    for (let d = 1; d <= last && days.length < DAY_SLOTS; d++) {
-      const dt = new Date(y, m - 1, d);
-      if (dt.getDay() === 0) continue; // skip Sundays
-      days.push({
-        dayNum,
-        date: `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`,
-        subject: "",
-        topic: "",
-      });
-      dayNum += 1;
-    }
-  }
-  while (days.length < DAY_SLOTS) {
-    days.push({ dayNum: days.length + 1, date: "", subject: "", topic: "" });
+  if (!y || !m) return days;
+  const last = new Date(y, m, 0).getDate();
+  for (let d = 1; d <= last; d++) {
+    const dt = new Date(y, m - 1, d);
+    const wd = dt.getDay(); // 0=Sun … 6=Sat
+    if (wd === 0 || wd === 6) continue; // weekends off
+    days.push({
+      dayNum: String(d).padStart(2, "0"),
+      date: `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`,
+    });
   }
   return days;
+}
+
+export function defaultDayMeta(monthKey) {
+  const working = workingDaysForMonth(monthKey);
+  const days = working.slice(0, DAY_SLOTS).map((w) => ({
+    dayNum: w.dayNum,
+    date: w.date,
+    subject: "",
+    topic: "",
+  }));
+  while (days.length < DAY_SLOTS) {
+    days.push({ dayNum: "", date: "", subject: "", topic: "" });
+  }
+  return days;
+}
+
+/** Refresh date / dayNum from month’s working days; keep subject & topic. */
+export function syncDayMetaToWorkingDays(monthKey, existing = []) {
+  const fresh = defaultDayMeta(monthKey);
+  const prev = Array.isArray(existing) ? existing : [];
+  return fresh.map((slot, i) => ({
+    ...slot,
+    subject: String(prev[i]?.subject || ""),
+    topic: String(prev[i]?.topic || ""),
+  }));
 }
 
 export function emptyStudentRow(partial = {}) {
@@ -139,16 +158,12 @@ export function loadSheet(schoolId, classId, monthKey, roster = []) {
   const id = sheetStorageId(schoolId, classId, monthKey);
   const saved = root[id];
   if (!saved || typeof saved !== "object") return blankSheet(monthKey, roster);
-  const dayMeta = Array.isArray(saved.dayMeta) ? saved.dayMeta.slice(0, DAY_SLOTS) : [];
-  while (dayMeta.length < DAY_SLOTS) {
-    dayMeta.push({ dayNum: dayMeta.length + 1, date: "", subject: "", topic: "" });
-  }
   const students = Array.isArray(saved.students)
     ? saved.students.map((s) => emptyStudentRow(s))
     : seedStudentsFromRoster(roster);
   return {
     monthKey,
-    dayMeta,
+    dayMeta: syncDayMetaToWorkingDays(monthKey, saved.dayMeta),
     students,
     updatedAt: saved.updatedAt || null,
   };
@@ -164,6 +179,16 @@ export function saveSheet(schoolId, classId, monthKey, sheet) {
     updatedAt: new Date().toISOString(),
   };
   writeStorageRoot(root);
+  if (schoolId) {
+    const prefix = `${schoolId}__`;
+    const schoolSheets = {};
+    for (const [k, v] of Object.entries(root)) {
+      if (k.startsWith(prefix)) schoolSheets[k] = v;
+    }
+    import("../../lib/moduleLocalsSync.js")
+      .then((m) => m.pushOneModuleLocal(schoolId, m.MODULE_KEYS.DAILY_REGISTER, schoolSheets))
+      .catch(() => {});
+  }
   return root[id].updatedAt;
 }
 
