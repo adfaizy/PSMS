@@ -28,6 +28,7 @@ import { X, Plus, Edit2, Trash2, Upload, Download, Menu, Settings, AlertTriangle
 import { AboutUsPage } from "./AboutUsPage";
 import { BookBankPage } from "./BookBankPage";
 import { LibraryModulePage } from "./modules/library/LibraryModulePage";
+import { DailyRegisterPage } from "./modules/dailyRegister/DailyRegisterPage";
 import * as feeCore from "./modules/fee/feeCore";
 import { feeService, systemSettingsService, dashboardService } from "./services";
 import PWAInstallBanner from "./PWAInstallBanner";
@@ -76,6 +77,7 @@ const APP_MAIN_NAV = [
   { id: "attendance", l: "Attendance & Leave", i: "📋" },
   { id: "fees", l: "Fees & Finance", i: "💳" },
   { id: "examination", l: "Examination", i: "📝" },
+  { id: "daily-register", l: "Daily Tests", i: "✏️" },
   { id: "paper", l: "Paper Generator", i: "📄" },
   { id: "card", l: "ID Cards", i: "🪪" },
   { id: "book-bank", l: "Book Bank", i: "📚" },
@@ -2244,6 +2246,14 @@ function App(){
             />
           )}
           {page==="examination"&&<ExaminationErrorBoundary><ExaminationPage settings={effectiveSettings} setSettings={setSettingsForActive} students={students} setStudents={setStudentsForActive} timetable={timetable} exam_tm={exam_tm} exam_om={exam_om} setExamMarks={setExamMarksForActive} exam_datesheet={exam_datesheet} setDatesheet={setDatesheetForActive} currentSession={curSession} currentUser={currentUser} activeSchoolId={activeSchoolId} setBarSubtitle={setBarSubtitle}/></ExaminationErrorBoundary>}
+          {page==="daily-register"&&(
+            <DailyRegisterPage
+              settings={effectiveSettings}
+              students={students}
+              activeSchoolId={activeSchoolId}
+              setBarSubtitle={setBarSubtitle}
+            />
+          )}
           {page==="paper"&&<PaperGeneratorPage settings={effectiveSettings} questionBank={activeSchool.questionBank||{}} setQuestionBank={updater=>setSchools(prev=>prev.map(s=>s.id===activeSchoolId?{...s,questionBank:typeof updater==="function"?updater(s.questionBank||{}):updater}:s))} setBarSubtitle={setBarSubtitle}/>}
           {page==="card"&&<CardGeneratorPage settings={effectiveSettings} students={students} currentSession={curSession} staffProfiles={staffProfiles} setBarSubtitle={setBarSubtitle}/>}
           {page==="book-bank"&&<BookBankPage setBarSubtitle={setBarSubtitle}/>}
