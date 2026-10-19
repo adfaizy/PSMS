@@ -37,7 +37,6 @@ import { yieldToMain } from "./yieldToMain.js";
 import { UI } from "./uiTokens.js";
 import { C, schoolOrBrandLogo, APP_BRAND_LOGO, genId } from "./shared/theme";
 import { Btn, Sel, Inp, SchoolHeader } from "./components/AppControls";
-import { AppZoomControls } from "./components/AppZoomControls";
 import { useAppZoom } from "./useAppZoom";
 import {
   formatGradeLabel, formatClassDisplay, resolveClass, getClassLabel, normKey,
@@ -56,7 +55,6 @@ import { DashboardPage } from "./modules/dashboard/DashboardPage";
 import { StudentsModulePage } from "./modules/students/StudentsModulePage";
 import { StaffModulePage } from "./modules/staff/StaffModulePage";
 import { AcademicModulePage } from "./modules/academic/AcademicModulePage";
-import { AppShellNavTools } from "./components/AppShellNavTools";
 import { setNavIntent } from "./lib/navIntent.js";
 import { TimetablePage } from "./modules/timetable/TimetablePage";
 import { ExaminationPage } from "./modules/examination/ExaminationPage";
@@ -307,8 +305,11 @@ const PRINT_CSS=[
 ].join("\n");
 
 const MOBILE_CSS = [
-  "/* Header hamburger: hide by default; never use inline display:none (breaks show rules in some engines). */",
-  ".mobile-menu-btn{display:none!important}",
+  ".app-header-slim{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:rgba(255,255,255,0.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 4px 18px rgba(15,23,42,0.06)}",
+  ".app-header-slim .app-header-school{min-width:0;flex:1;font-family:inherit;font-weight:800;font-size:15px;line-height:1.25;color:#0f3d14;letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+  ".app-header-slim .mobile-menu-btn{display:inline-flex!important;align-items:center;justify-content:center;width:42px;height:42px;min-width:42px;min-height:42px;padding:0;border:none;border-radius:11px;background:linear-gradient(180deg,#14532d 0%,#166534 100%);color:#fff;cursor:pointer;flex-shrink:0;box-shadow:0 2px 8px rgba(22,101,52,0.28);touch-action:manipulation;-webkit-tap-highlight-color:transparent}",
+  ".app-header-slim .mobile-menu-btn:hover{filter:brightness(1.06)}",
+  ".app-header-slim .mobile-menu-btn:active{transform:scale(0.96)}",
   ".app-page-timetable .timetable-print-area,.app-page-timetable .timetable-main-content{min-width:0;max-width:100%;box-sizing:border-box;}",
   ".app-page-timetable .timetable-main-content > div{max-width:100%;box-sizing:border-box;}",
   "@keyframes mobile-nav-drawer-in{from{transform:translateX(-100%);opacity:0.9}to{transform:translateX(0);opacity:1}}",
@@ -321,17 +322,9 @@ const MOBILE_CSS = [
   ".mobile-menu-panel nav button.active{background:rgba(248,250,252,0.1);border-left-color:#fbbf24;color:#fff;font-weight:600}",
   ".mobile-menu-panel .mobile-menu-footer{padding:12px 16px;border-top:1px solid rgba(148,163,184,0.35);font-size:11px;opacity:0.9;line-height:1.45;flex-shrink:0;background:rgba(15,23,42,0.5)}",
   "@media (max-width:768px){",
-  "  .app-topbar-grid{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto;align-items:center!important}",
-  "  .app-topbar-left{grid-column:1;grid-row:1;display:flex!important;align-items:center!important;gap:8px!important;width:100%!important}",
-  "  .app-topbar-right{display:none!important}",
-  "  .app-topbar-center{display:none!important}",
-  "  .app-topbar-brandtext{display:none!important}",
-  "  .app-zoom-mobile-only{display:flex!important;margin-left:auto!important}",
-  "  .app-topbar-logo{width:40px!important;height:40px!important}",
   "  .app-body-row{flex-direction:column!important}",
   "  .app-sidebar{display:none!important}",
   "  .app-main{flex:1 1 100%!important;min-width:0;width:100%!important}",
-  "  .mobile-menu-btn{display:flex!important;align-items:center!important;justify-content:center!important;width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;touch-action:manipulation!important;-webkit-tap-highlight-color:transparent!important}",
   "  .hide-on-mobile{display:none!important}",
   "}",
   "@media (max-width:1280px){",
@@ -339,7 +332,6 @@ const MOBILE_CSS = [
   "  .app-page-timetable .app-body-row{gap:4px!important}",
   "  .app-page-timetable .app-main{flex:1 1 auto!important;min-width:0!important;width:100%!important;max-width:100%!important}",
   "  .app-page-timetable #print-section{padding:8px max(4px, env(safe-area-inset-left)) 8px max(4px, env(safe-area-inset-right))!important;max-width:100%!important;box-sizing:border-box!important}",
-  "  .app-page-timetable .mobile-menu-btn{display:flex!important;align-items:center!important;justify-content:center!important;width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;touch-action:manipulation!important}",
   "}"
 ].join("\n");
 
@@ -1349,25 +1341,6 @@ function defaultSession(){
   const m=new Date().getMonth();
   return m>=6 ? (y + "-" + (y+1)) : ((y-1) + "-" + y);
 }
-function useNowEverySecond(){
-  const [now,setNow]=useState(()=>new Date());
-  useEffect(()=>{
-    const id=window.setInterval(()=>setNow(new Date()),1000);
-    return ()=>window.clearInterval(id);
-  },[]);
-  return now;
-}
-
-function HeaderNow(){
-  const now=useNowEverySecond();
-  return (
-    <div className="hide-on-mobile" style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:1,lineHeight:1.2}}>
-      <span style={{fontSize:11,fontWeight:600,color:"#111827"}}>{now.toLocaleDateString("en-PK",{weekday:"short",day:"numeric",month:"short",year:"numeric"})}</span>
-      <span style={{fontSize:13,fontWeight:700,color:C.navy,fontVariantNumeric:"tabular-nums"}}>{now.toLocaleTimeString("en-PK",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</span>
-    </div>
-  );
-}
-
 function schoolShape(id,name){
   const session=defaultSession();
   return {
@@ -1462,8 +1435,6 @@ function App(){
   const [cloudSyncing,setCloudSyncing]=useState(false);
   const [isOnline,setIsOnline]=useState(()=>typeof navigator==="undefined"?true:navigator.onLine!==false);
   const [lastSyncedAt,setLastSyncedAt]=useState(null);
-  // Keep badge on Cloud once connected — only show Syncing while a push is in flight and not yet ready
-  const _dbStatus=!isSupabaseConfigured?"local":!isOnline?"offline":cloudReady?"cloud":cloudSyncing?"syncing":"connecting";
 
   useEffect(()=>{ schoolsRef.current=schools; },[schools]);
   useEffect(()=>{ activeSchoolIdRef.current=activeSchoolId; },[activeSchoolId]);
@@ -1915,86 +1886,24 @@ function App(){
         ["--psms-zoom"]:String(appZoom.zoom),
       }}
     >
-      <header className="app-header no-print" style={{flexShrink:0,zIndex:20,margin:"8px 0 0",background:"#ffffff",borderBottom:"1px solid #e5e7eb",boxShadow:"0 1px 4px rgba(15,23,42,0.06)",borderRadius:12}}>
-        <div className="app-topbar-grid" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,auto) minmax(0,1fr)",alignItems:"center",gap:12,padding:"10px 16px",maxWidth:"100%"}}>
-          <div className="app-topbar-left" style={{display:"flex",alignItems:"center",gap:12,minWidth:0}}>
-            <button type="button" className="mobile-menu-btn" aria-label="Open menu" aria-expanded={mobileMenuOpen} style={{alignItems:"center",justifyContent:"center",width:UI.mobileMenuBtn,height:UI.mobileMenuBtn,minWidth:UI.mobileMenuBtn,minHeight:UI.mobileMenuBtn,padding:0,border:"none",background:C.navy,color:"#fff",borderRadius:UI.radiusControl,cursor:"pointer",flexShrink:0,touchAction:"manipulation",WebkitTapHighlightColor:"transparent",position:"relative",zIndex:30,pointerEvents:"auto"}} onClick={()=>setMobileMenuOpen(true)}>
-              <Menu size={UI.iconMenu} strokeWidth={2} aria-hidden />
-            </button>
-            <div className="app-zoom-mobile-only" style={{display:"none"}}>
-              <AppZoomControls
-                compact
-                percent={appZoom.percent}
-                zoomIn={appZoom.zoomIn}
-                zoomOut={appZoom.zoomOut}
-                resetZoom={appZoom.resetZoom}
-                canZoomIn={appZoom.canZoomIn}
-                canZoomOut={appZoom.canZoomOut}
-              />
-            </div>
-            <img src={APP_BRAND_LOGO} alt="" className="app-topbar-logo" style={{width:UI.logoApp/2,height:UI.logoApp/2,objectFit:"contain",flexShrink:0}} />
-            <div className="app-topbar-brandtext" style={{display:"flex",flexDirection:"column",minWidth:0,justifyContent:"center"}}>
-              <div style={{fontFamily:UI.fontHeading,fontWeight:800,fontSize:13,color:C.navy,lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Punjab School Management System</div>
-              {(effectiveSettings.schoolName||"").trim()?(
-                <div style={{fontSize:11,fontWeight:600,color:C.gray,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={(effectiveSettings.schoolName||"").trim()}>{(effectiveSettings.schoolName||"").trim()}</div>
-              ):(
-                <div style={{fontSize:11,color:C.gray,marginTop:2}}>Your school workspace</div>
-              )}
-            </div>
-          </div>
-          <div className="app-topbar-center" style={{textAlign:"center",justifySelf:"center",padding:"0 8px",maxWidth:"min(52vw, 480px)",minWidth:0}} title={barSubtitle?`${nav.find(n=>n.id===page)?.l} · ${barSubtitle}`:(nav.find(n=>n.id===page)?.l||"")}>
-            <div style={{fontFamily:UI.fontHeading,fontWeight:700,fontSize:16,color:C.navy,lineHeight:1.25,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-              <span>{nav.find(n=>n.id===page)?.i} {nav.find(n=>n.id===page)?.l}</span>
-            </div>
-            <div style={{fontSize:12,fontWeight:600,color:C.gray,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-              {barSubtitle?<span>{barSubtitle}</span>:<span style={{opacity:0.85}}>Main workspace</span>}
-            </div>
-          </div>
-          <div className="app-topbar-right" style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:10,flexWrap:"wrap",minWidth:0}}>
-            <AppShellNavTools
-              students={students}
-              staffProfiles={staffProfiles}
-              classes={effectiveSettings.classes||[]}
-              onNavigate={(id)=>startTransition(()=>setPage(id))}
-            />
-            {saveStatus!=="idle"&&(
-              <span style={{fontSize:11,fontWeight:600,color:saveStatus==="saved"?C.green:saveStatus==="error"||saveStatus==="offline"?"#dc2626":C.gray,whiteSpace:"nowrap"}}>
-                {saveStatus==="saved"?"✓ Saved":saveStatus==="saving"?"Saving…":saveStatus==="error"?"☁ Sync failed":saveStatus==="offline"?"☁ Offline":""}
-              </span>
-            )}
-            {isSupabaseConfigured&&(
-              <button
-                type="button"
-                onClick={()=>pushToCloud(schools,activeSchoolId,{quiet:false})}
-                disabled={cloudSyncing||!isOnline}
-                title={lastSyncedAt?`Last synced ${new Date(lastSyncedAt).toLocaleTimeString()}`:"Push data to Supabase now"}
-                style={{
-                  fontSize:10,fontWeight:700,padding:"4px 8px",borderRadius:6,
-                  cursor:(cloudSyncing||!isOnline)?"not-allowed":"pointer",
-                  border:"1px solid #cbd5e1",
-                  background:_dbStatus==="cloud"?"#ecfdf5":_dbStatus==="offline"?"#fef2f2":"#f8fafc",
-                  color:_dbStatus==="cloud"?C.green:_dbStatus==="offline"?"#dc2626":C.gray,
-                  whiteSpace:"nowrap",
-                }}
-              >
-                {_dbStatus==="cloud"?"☁ Cloud":_dbStatus==="offline"?"☁ Offline":_dbStatus==="syncing"?"☁ Syncing…":"☁ Connecting…"}
-                {isOnline&&_dbStatus==="cloud"?" · Sync now":""}
-                {lastSyncedAt&&isOnline&&_dbStatus==="cloud"?` · ${new Date(lastSyncedAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`:""}
-              </button>
-            )}
-            <AppZoomControls
-              percent={appZoom.percent}
-              zoomIn={appZoom.zoomIn}
-              zoomOut={appZoom.zoomOut}
-              resetZoom={appZoom.resetZoom}
-              canZoomIn={appZoom.canZoomIn}
-              canZoomOut={appZoom.canZoomOut}
-            />
-            <HeaderNow />
-          </div>
+      <header className="app-header app-header-slim no-print" style={{flexShrink:0,zIndex:20,margin:"8px 0 0"}}>
+        <div
+          className="app-header-school"
+          title={(effectiveSettings.schoolName||"").trim()||"School"}
+        >
+          {(effectiveSettings.schoolName||"").trim()||"School"}
         </div>
+        <button
+          type="button"
+          className="mobile-menu-btn"
+          aria-label="Open menu"
+          aria-expanded={mobileMenuOpen}
+          onClick={()=>setMobileMenuOpen(true)}
+        >
+          <Menu size={UI.iconMenu} strokeWidth={2.25} aria-hidden />
+        </button>
       </header>
-      <div className="app-body-row" style={{display:"flex",flex:1,minHeight:0,overflow:"hidden",gap:10,marginTop:10}}>
+      <div className="app-body-row" style={{display:"flex",flex:1,minHeight:0,overflow:"hidden",gap:10,marginTop:8}}>
       <div
         className="app-sidebar no-print"
         style={{
