@@ -7,11 +7,10 @@ import {
   blankSheet,
   buildReport,
   daySummary,
-  emptyStudentRow,
+  defaultSessionMonthKey,
   formatMonthLabel,
-  listMonthOptions,
+  listSessionMonthOptions,
   loadSheet,
-  monthKeyFromDate,
   resolveClassId,
   saveSheet,
   sectionsForGrade,
@@ -25,8 +24,6 @@ const TABS = [
   { id: "summary", l: "Summary" },
   { id: "report", l: "Report" },
 ];
-
-const MONTHS = listMonthOptions(18);
 
 function BandTable({ bands }) {
   return (
@@ -75,6 +72,7 @@ function DailyRegisterSheet({
   activeSchoolId,
   classId,
   monthKey,
+  monthOptions,
   grade,
   grades,
   sectionOptions,
@@ -143,30 +141,9 @@ function DailyRegisterSheet({
     persist({ ...sheet, dayMeta }, "Day updated");
   };
 
-  const addStudent = () => {
-    persist(
-      { ...sheet, students: [...sheet.students, emptyStudentRow({ roll: String(sheet.students.length + 1) })] },
-      "Student added",
-    );
-  };
-
-  const dropStudent = (id) => {
-    if (!window.confirm("Drop this student from this month’s register?")) return;
-    persist({ ...sheet, students: sheet.students.filter((s) => s.id !== id) }, "Student dropped");
-  };
-
   const resetMonth = () => {
     if (!window.confirm("Reset this month? Marks and day details will be cleared and roster reloaded.")) return;
     persist(blankSheet(monthKey, roster), "Month reset");
-  };
-
-  const importRoster = () => {
-    if (!roster.length) {
-      alert("No students found for this class in PSMS.");
-      return;
-    }
-    if (sheet.students.length && !window.confirm("Replace current rows with the class roster?")) return;
-    persist({ ...sheet, students: blankSheet(monthKey, roster).students }, "Roster loaded");
   };
 
   const printReport = () => {
@@ -213,6 +190,20 @@ function DailyRegisterSheet({
               <label>On Roll</label>
               <div className="val">{sheet.students.length}</div>
             </div>
+            <div className="field field-month">
+              <label htmlFor="dr-month">Month</label>
+              <select
+                id="dr-month"
+                className="month-select"
+                aria-label="Month"
+                value={monthKey}
+                onChange={(e) => onMonthChange(e.target.value)}
+              >
+                {monthOptions.map((m) => (
+                  <option key={m} value={m}>{formatMonthLabel(m)}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
       <div className="toolbar">
@@ -229,29 +220,13 @@ function DailyRegisterSheet({
           ))}
         </div>
         <div className="actions">
-          <button className="btn" type="button" onClick={importRoster}>Load roster</button>
-          <button className="btn" type="button" onClick={addStudent}>+ Add Student</button>
+          <span id="status">{status}</span>
           <button className="btn primary" type="button" onClick={() => persist(sheet, "Saved")}>Save</button>
           <button className="btn" type="button" onClick={resetMonth}>Reset month</button>
           {tab === "report" && (
             <button className="btn primary" type="button" onClick={printReport}>Print report</button>
           )}
         </div>
-      </div>
-
-      <div className="month-bar">
-        <label htmlFor="dr-month">Month</label>
-        <select
-          id="dr-month"
-          aria-label="Month"
-          value={monthKey}
-          onChange={(e) => onMonthChange(e.target.value)}
-        >
-          {MONTHS.map((m) => (
-            <option key={m} value={m}>{formatMonthLabel(m)}</option>
-          ))}
-        </select>
-        <span id="status">{status}</span>
       </div>
 
       {tab === "student" && (
@@ -277,14 +252,13 @@ function DailyRegisterSheet({
                   <th className="th-avg">Avg</th>
                   <th className="th-sba">SBA</th>
                   <th className="th-remarks">Remarks</th>
-                  <th className="th-marks"> </th>
                 </tr>
               </thead>
               <tbody>
                 {sheet.students.length === 0 ? (
                   <tr>
-                    <td colSpan={DAY_SLOTS + 7} className="empty">
-                      No students. Use Load roster or Add Student.
+                    <td colSpan={DAY_SLOTS + 6} className="empty">
+                      No students in this class. Add them under Students first.
                     </td>
                   </tr>
                 ) : (
@@ -296,10 +270,20 @@ function DailyRegisterSheet({
                           <input className="roll" value={s.roll} onChange={(e) => updateStudent(s.id, { roll: e.target.value })} />
                         </td>
                         <td className="name-cell">
-                          <input className="name" value={s.name} onChange={(e) => updateStudent(s.id, { name: e.target.value })} />
+                          <input
+                            className="name"
+                            type="text"
+                            value={s.name}
+                            onChange={(e) => updateStudent(s.id, { name: e.target.value })}
+                          />
                         </td>
                         <td className="father-cell">
-                          <input className="father" value={s.father} onChange={(e) => updateStudent(s.id, { father: e.target.value })} />
+                          <input
+                            className="father"
+                            type="text"
+                            value={s.father}
+                            onChange={(e) => updateStudent(s.id, { father: e.target.value })}
+                          />
                         </td>
                         {Array.from({ length: DAY_SLOTS }, (_, i) => (
                           <td key={i} className="mark-cell">
@@ -322,9 +306,6 @@ function DailyRegisterSheet({
                         <td className="remarks-cell">
                           <input className="remarks" value={s.remarks} onChange={(e) => updateStudent(s.id, { remarks: e.target.value })} />
                         </td>
-                        <td className="c">
-                          <button type="button" className="danger" onClick={() => dropStudent(s.id)}>Drop</button>
-                        </td>
                       </tr>
                     );
                   })
@@ -336,7 +317,7 @@ function DailyRegisterSheet({
             Select <strong>Class</strong>, <strong>Section</strong> and <strong>Month</strong> above.
             Enter marks (0–{MARK_MAX}); Total / Average calculate automatically.
             Headers show working days (Mon–Fri) as day-of-month for the selected month. Set Subject / Topic on Summary.
-            Use <strong>Add Student</strong> or <strong>Drop</strong> for this month. Changes save in this browser.
+            Students come from the Students module for this class.
           </p>
         </div>
       )}
@@ -481,13 +462,18 @@ export function DailyRegisterPage({
   settings,
   students = [],
   activeSchoolId,
+  currentSession,
   setBarSubtitle,
 }) {
   const classes = settings?.classes || [];
   const grades = uniqueGrades(classes);
   const [gradePick, setGradePick] = useState("");
   const [classPick, setClassPick] = useState("");
-  const [monthKey, setMonthKey] = useState(() => monthKeyFromDate());
+  const monthOptions = listSessionMonthOptions(currentSession);
+  const [monthPick, setMonthPick] = useState("");
+  const monthKey = monthOptions.includes(monthPick)
+    ? monthPick
+    : defaultSessionMonthKey(currentSession);
 
   const grade = grades.includes(gradePick) ? gradePick : (grades[0] || "");
   const sectionOptions = sectionsForGrade(classes, grade);
@@ -511,6 +497,7 @@ export function DailyRegisterPage({
           activeSchoolId={activeSchoolId}
           classId={classId}
           monthKey={monthKey}
+          monthOptions={monthOptions}
           grade={grade}
           grades={grades}
           sectionOptions={sectionOptions}
@@ -519,7 +506,7 @@ export function DailyRegisterPage({
             setClassPick(resolveClassId(classes, g, ""));
           }}
           onClassChange={setClassPick}
-          onMonthChange={setMonthKey}
+          onMonthChange={setMonthPick}
         />
       </div>
     </div>

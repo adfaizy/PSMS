@@ -2174,6 +2174,7 @@ function App(){
               settings={effectiveSettings}
               students={students}
               activeSchoolId={activeSchoolId}
+              currentSession={curSession}
               setBarSubtitle={setBarSubtitle}
             />
           )}

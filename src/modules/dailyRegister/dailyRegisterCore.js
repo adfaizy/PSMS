@@ -27,14 +27,34 @@ export function formatMonthLabel(monthKey) {
   return d.toLocaleString("en-GB", { month: "long", year: "numeric" });
 }
 
-export function listMonthOptions(count = 18) {
-  const out = [];
-  const now = new Date();
-  for (let i = 0; i < count; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    out.push(monthKeyFromDate(d));
-  }
-  return out;
+/** Academic months Apr→Mar excluding Jun, Jul, Aug (summer break). */
+export const SESSION_MONTH_ORDER = [4, 5, 9, 10, 11, 12, 1, 2, 3]
+
+export function parseSessionYears(session) {
+  const m = String(session || '').trim().match(/^(\d{4})\s*[-/]\s*(\d{4})$/)
+  if (m) return { startYear: Number(m[1]), endYear: Number(m[2]) }
+  const y = new Date().getFullYear()
+  const mo = new Date().getMonth() // 0-based
+  // Apr–Dec → session y-(y+1); Jan–Mar → (y-1)-y
+  if (mo >= 3) return { startYear: y, endYear: y + 1 }
+  return { startYear: y - 1, endYear: y }
+}
+
+/** Month keys for one academic session (April–March, no Jun/Jul/Aug). */
+export function listSessionMonthOptions(session) {
+  const { startYear, endYear } = parseSessionYears(session)
+  return SESSION_MONTH_ORDER.map((month) => {
+    const year = month >= 4 ? startYear : endYear
+    return `${year}-${String(month).padStart(2, '0')}`
+  })
+}
+
+/** Prefer current calendar month if it is a session teaching month; else first session month. */
+export function defaultSessionMonthKey(session) {
+  const options = listSessionMonthOptions(session)
+  const now = monthKeyFromDate()
+  if (options.includes(now)) return now
+  return options[0] || now
 }
 
 /** Mon–Fri calendar days for the month (ISO date + day-of-month label). */
@@ -158,9 +178,10 @@ export function loadSheet(schoolId, classId, monthKey, roster = []) {
   const id = sheetStorageId(schoolId, classId, monthKey);
   const saved = root[id];
   if (!saved || typeof saved !== "object") return blankSheet(monthKey, roster);
-  const students = Array.isArray(saved.students)
+  const savedStudents = Array.isArray(saved.students)
     ? saved.students.map((s) => emptyStudentRow(s))
-    : seedStudentsFromRoster(roster);
+    : [];
+  const students = savedStudents.length ? savedStudents : seedStudentsFromRoster(roster);
   return {
     monthKey,
     dayMeta: syncDayMetaToWorkingDays(monthKey, saved.dayMeta),
