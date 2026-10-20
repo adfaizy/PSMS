@@ -69,13 +69,14 @@ function KpiCard({ icon: IconCmp, label, value, hint, onClick }) {
   );
   if (!onClick) return inner;
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       onClick={onClick}
-      className="m-0 block h-full min-w-0 w-full cursor-pointer border-0 bg-transparent p-0 text-left"
+      className="block h-full min-w-0 w-full p-0 text-left hover:bg-transparent"
     >
       {inner}
-    </button>
+    </Button>
   );
 }
 

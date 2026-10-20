@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Camera, ImagePlus, Trash2, UserPlus } from "lucide-react";
 import { SchoolHeader } from "@/components/AppControls";
 import { genId } from "@/shared/theme";
 import * as H from "@/shared/helpers";
@@ -7,7 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 const {
@@ -27,11 +31,12 @@ const {
   readStudentPhotoAsJpeg,
 } = H;
 
-function FieldWrap({ label, children, className }) {
+function FieldWrap({ label, children, className, hint }) {
   return (
-    <div className={cn("flex flex-col gap-1", className)}>
-      <Label>{label}</Label>
+    <div className={cn("flex flex-col gap-1.5", className)}>
+      <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
       {children}
+      {hint ? <p className="text-[11px] text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }
@@ -70,7 +75,7 @@ export function AdmissionPanel({ settings, students, setStudents, activeSchoolId
   const galleryRef = useRef(null);
   const cameraRef = useRef(null);
   const photoFileRef = useRef(null);
-  const photoDataRef = useRef(null); // always keep latest processed JPEG data URL
+  const photoDataRef = useRef(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoStatus, setPhotoStatus] = useState("");
   const [saving, setSaving] = useState(false);
@@ -148,7 +153,6 @@ export function AdmissionPanel({ settings, students, setStudents, activeSchoolId
         alert("Could not process this camera photo. Try Select Image, or retake as JPG.");
         return;
       }
-      // Keep data URL for save reliability; upload to cloud on Admit
       setPhotoOnForm(data);
     } catch (err) {
       alert("Photo failed: " + (err?.message || String(err)));
@@ -176,7 +180,6 @@ export function AdmissionPanel({ settings, students, setStudents, activeSchoolId
     if (!isDisplayablePhotoSrc(photo) && !/^https?:\/\//i.test(String(photo || ""))) {
       return null;
     }
-    // Prefer HTTPS for directory + cloud (data URLs get stripped on cloud sync)
     if (String(photo).startsWith("data:image")) {
       const uploaded = await uploadPhotoOrKeep(photo, activeSchoolId, studentId);
       return uploaded || photo;
@@ -271,47 +274,66 @@ export function AdmissionPanel({ settings, students, setStudents, activeSchoolId
     }
   };
 
+  const selectedClass = classes.find((c) => c.id === form.classId);
+
   return (
-    <div className="mx-auto w-full max-w-[720px]">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <SchoolHeader settings={settings} subtitle="STUDENT ADMISSION" />
-      <Card size="sm" className="mt-3 shadow-none">
-        <CardContent className="pt-4">
-          <p className="mb-3.5 text-sm text-muted-foreground">
-            Select class first — admission and roll numbers are assigned automatically.
-          </p>
-          <div className="mb-3.5 flex flex-wrap items-start gap-4">
-            <div className="flex shrink-0 flex-col items-center gap-1.5">
-              <div className="flex h-[100px] w-20 items-center justify-center overflow-hidden rounded border-2 border-dashed bg-muted/20">
+
+      <Card className="border-border/70 shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <CardTitle className="text-base">New admission</CardTitle>
+              <CardDescription className="mt-1">
+                Choose class first. Admission and roll numbers are assigned automatically.
+              </CardDescription>
+            </div>
+            {selectedClass ? (
+              <Badge variant="secondary">{formatClassDisplay(selectedClass)}</Badge>
+            ) : null}
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-5">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+            <div className="mx-auto flex w-[7.5rem] shrink-0 flex-col items-stretch gap-2 sm:mx-0">
+              <div className="relative flex aspect-[3/4] w-full items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-muted/30">
                 {photoBusy ? (
-                  <span className="px-1 text-center text-[10px] text-muted-foreground">{photoStatus || "AI processing…"}</span>
+                  <div className="flex flex-col items-center gap-2 px-2 text-center">
+                    <Spinner className="size-5" />
+                    <span className="text-[10px] text-muted-foreground">{photoStatus || "Processing…"}</span>
+                  </div>
                 ) : isDisplayablePhotoSrc(form.photo) ? (
                   <img src={form.photo} alt="" className="h-full w-full object-cover" />
                 ) : (
-                  <span className="text-[10px] text-muted-foreground">Photo</span>
+                  <span className="px-2 text-center text-[11px] text-muted-foreground">Student photo</span>
                 )}
               </div>
-              <div className="flex flex-wrap justify-center gap-1">
-                <Button type="button" size="xs" variant="outline" disabled={photoBusy} onClick={() => galleryRef.current?.click()}>
-                  Select Image
+              <Button type="button" size="sm" variant="outline" disabled={photoBusy} onClick={() => galleryRef.current?.click()}>
+                <ImagePlus className="size-3.5" />
+                Select Image
+              </Button>
+              <Button type="button" size="sm" variant="outline" disabled={photoBusy} onClick={() => cameraRef.current?.click()}>
+                <Camera className="size-3.5" />
+                Capture Photo
+              </Button>
+              {form.photo && !photoBusy ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => {
+                    photoFileRef.current = null;
+                    photoDataRef.current = null;
+                    setForm((x) => ({ ...x, photo: null }));
+                  }}
+                >
+                  <Trash2 className="size-3.5" />
+                  Clear
                 </Button>
-                <Button type="button" size="xs" variant="outline" disabled={photoBusy} onClick={() => cameraRef.current?.click()}>
-                  Capture Photo
-                </Button>
-                {form.photo && !photoBusy && (
-                  <Button
-                    type="button"
-                    size="xs"
-                    variant="destructive"
-                    onClick={() => {
-                      photoFileRef.current = null;
-                      photoDataRef.current = null;
-                      setForm((x) => ({ ...x, photo: null }));
-                    }}
-                  >
-                    Clear Photo
-                  </Button>
-                )}
-              </div>
+              ) : null}
               <input
                 ref={galleryRef}
                 type="file"
@@ -329,44 +351,93 @@ export function AdmissionPanel({ settings, students, setStudents, activeSchoolId
               />
             </div>
 
-            <div className="grid min-w-0 flex-1 grid-cols-1 gap-2.5 sm:grid-cols-2">
-              <FieldWrap label="Class" className="sm:col-span-2">
-                <NativeSelect value={form.classId} onChange={(e) => onClassChange(e.target.value)} className="w-full">
+            <div className="min-w-0 flex-1 space-y-4">
+              <FieldWrap label="Class" hint={classes.length === 0 ? "Add classes in Settings first." : undefined}>
+                <NativeSelect
+                  value={form.classId}
+                  onChange={(e) => onClassChange(e.target.value)}
+                  className="w-full"
+                  disabled={!classes.length}
+                >
                   {classes.length === 0 && <NativeSelectOption value="">No classes</NativeSelectOption>}
                   {classes.map((c) => (
                     <NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>
                   ))}
                 </NativeSelect>
               </FieldWrap>
-              <FieldWrap label="Admission No (auto)">
-                <Input value={form.admissionNo || suggestedNextAdm} readOnly className="w-full bg-muted/40" />
-              </FieldWrap>
-              <FieldWrap label="Roll No (auto)">
-                <Input value={form.rollNo || suggestedNextRoll} readOnly className="w-full bg-muted/40" />
-              </FieldWrap>
-              <FieldWrap label="Student Name">
-                <Input value={form.name} onChange={(e) => setForm((x) => ({ ...x, name: toProperCaseNameInput(e.target.value) }))} className="w-full" />
-              </FieldWrap>
-              <FieldWrap label="Father's Name">
-                <Input value={form.fatherName} onChange={(e) => setForm((x) => ({ ...x, fatherName: toProperCaseNameInput(e.target.value) }))} className="w-full" />
-              </FieldWrap>
-              <FieldWrap label="Form B / Bay Form">
-                <Input value={form.bayForm} onChange={(e) => setForm((x) => ({ ...x, bayForm: formatCnic(e.target.value) }))} placeholder="00000-0000000-0" className="w-full" />
-              </FieldWrap>
-              <FieldWrap label="Date of Birth">
-                <Input value={form.dob} onChange={(e) => setForm((x) => ({ ...x, dob: formatDob(e.target.value) }))} placeholder="dd/mm/yyyy" className="w-full" />
-              </FieldWrap>
-              <FieldWrap label="WhatsApp No" className="sm:col-span-2">
-                <Input value={form.whatsapp} onChange={(e) => setForm((x) => ({ ...x, whatsapp: formatWhatsapp(e.target.value) }))} placeholder="0000-0000000" className="w-full" />
-              </FieldWrap>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <FieldWrap label="Admission No">
+                  <Input value={form.admissionNo || suggestedNextAdm} readOnly className="bg-muted/40 font-medium tabular-nums" />
+                </FieldWrap>
+                <FieldWrap label="Roll No">
+                  <Input value={form.rollNo || suggestedNextRoll} readOnly className="bg-muted/40 font-medium tabular-nums" />
+                </FieldWrap>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <FieldWrap label="Student Name" className="sm:col-span-2">
+                  <Input
+                    value={form.name}
+                    onChange={(e) => setForm((x) => ({ ...x, name: toProperCaseNameInput(e.target.value) }))}
+                    placeholder="Full name"
+                    autoComplete="name"
+                  />
+                </FieldWrap>
+                <FieldWrap label="Father's Name" className="sm:col-span-2">
+                  <Input
+                    value={form.fatherName}
+                    onChange={(e) => setForm((x) => ({ ...x, fatherName: toProperCaseNameInput(e.target.value) }))}
+                    placeholder="Father's full name"
+                  />
+                </FieldWrap>
+                <FieldWrap label="Form B / Bay Form">
+                  <Input
+                    value={form.bayForm}
+                    onChange={(e) => setForm((x) => ({ ...x, bayForm: formatCnic(e.target.value) }))}
+                    placeholder="00000-0000000-0"
+                    inputMode="numeric"
+                  />
+                </FieldWrap>
+                <FieldWrap label="Date of Birth">
+                  <Input
+                    value={form.dob}
+                    onChange={(e) => setForm((x) => ({ ...x, dob: formatDob(e.target.value) }))}
+                    placeholder="dd/mm/yyyy"
+                    inputMode="numeric"
+                  />
+                </FieldWrap>
+                <FieldWrap label="WhatsApp No" className="sm:col-span-2">
+                  <Input
+                    value={form.whatsapp}
+                    onChange={(e) => setForm((x) => ({ ...x, whatsapp: formatWhatsapp(e.target.value) }))}
+                    placeholder="0000-0000000"
+                    inputMode="tel"
+                  />
+                </FieldWrap>
+              </div>
             </div>
           </div>
-          <div className="flex justify-end">
-            <Button onClick={() => void saveAdmission()} disabled={saving || photoBusy || !form.classId}>
-              {saving ? "Processing…" : "Admit Student"}
-            </Button>
-          </div>
         </CardContent>
+
+        <CardFooter className="flex flex-wrap items-center justify-between gap-2 border-t bg-muted/20 py-3">
+          <p className="text-xs text-muted-foreground">Required: class and student name.</p>
+          <Button onClick={() => void saveAdmission()} disabled={saving || photoBusy || !form.classId || !classes.length}>
+            {saving ? (
+              <>
+                <Spinner className="size-3.5" />
+                Saving…
+              </>
+            ) : (
+              <>
+                <UserPlus className="size-3.5" />
+                Admit Student
+              </>
+            )}
+          </Button>
+        </CardFooter>
       </Card>
     </div>
   );

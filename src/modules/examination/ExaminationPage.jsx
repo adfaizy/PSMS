@@ -18,6 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { consumeNavIntent } from "@/lib/navIntent.js";
 import { ModulePageShell } from "@/components/ModulePageShell";
@@ -55,7 +57,6 @@ const jsPDF =
     : jsPDFModule?.jsPDF ?? jsPDFModule?.default;
 
 const EXAM_TABS = [
-  { id: "record", l: "Student Records" },
   { id: "marks", l: "Marks Entry" },
   { id: "consolidated", l: "Consolidated Sheet" },
   { id: "card", l: "Result Cards" },
@@ -334,23 +335,51 @@ export function MarksInput({initialValue,onSave,rowIdx,colIdx,totalRows,totalCol
     prevInitial.current=initialValue;
     queueMicrotask(()=>setLocal(String(initialValue||"")));
   },[initialValue]);
-  return <input type="number" min="0" data-mark-row={rowIdx} data-mark-col={colIdx}
-    value={local}
-    onChange={e=>{dirty.current=true;setLocal(e.target.value);}}
-    onBlur={()=>{dirty.current=false;onSave(local);}}
-    onKeyDown={e=>{
-      if(e.key==="Tab"||e.key==="Enter"){
-        e.preventDefault();
-        dirty.current=false;
+  return (
+    <Input
+      type="number"
+      min={0}
+      data-mark-row={rowIdx}
+      data-mark-col={colIdx}
+      value={local}
+      onChange={(e) => {
+        dirty.current = true;
+        setLocal(e.target.value);
+      }}
+      onBlur={() => {
+        dirty.current = false;
         onSave(local);
-        let nr=rowIdx,nc=colIdx;
-        if(e.shiftKey){nr--;if(nr<0){nr=totalRows-1;nc--;}if(nc<0)return;}
-        else{nr++;if(nr>=totalRows){nr=0;nc++;}if(nc>=totalCols)return;}
-        const next=document.querySelector('[data-mark-row="'+nr+'"][data-mark-col="'+nc+'"]');
-        if(next)next.focus();
-      }
-    }}
-    style={{width:58,padding:"4px",border:"1.5px solid #d1d5db",borderRadius:4,fontSize:12,textAlign:"center",...(inputStyle||{})}}/>;
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Tab" || e.key === "Enter") {
+          e.preventDefault();
+          dirty.current = false;
+          onSave(local);
+          let nr = rowIdx;
+          let nc = colIdx;
+          if (e.shiftKey) {
+            nr--;
+            if (nr < 0) {
+              nr = totalRows - 1;
+              nc--;
+            }
+            if (nc < 0) return;
+          } else {
+            nr++;
+            if (nr >= totalRows) {
+              nr = 0;
+              nc++;
+            }
+            if (nc >= totalCols) return;
+          }
+          const next = document.querySelector('[data-mark-row="' + nr + '"][data-mark-col="' + nc + '"]');
+          if (next) next.focus();
+        }
+      }}
+      className="h-auto w-[58px] px-1 py-1 text-xs text-center"
+      style={{ ...(inputStyle || {}) }}
+    />
+  );
 }
 export function ExaminationPage({settings:settingsProp,setSettings,students:studentsProp,setStudents,timetable,exam_tm:exam_tmProp,exam_om:exam_omProp,setExamMarks,exam_datesheet:exam_datesheetProp,setDatesheet,currentSession,currentUser,activeSchoolId,setBarSubtitle}){
   const settings=useMemo(()=>{
@@ -369,8 +398,8 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
     const intent=consumeNavIntent();
     if(!intent||intent.page&&intent.page!=="examination") return;
     const allowed=new Set(EXAM_TABS.map(t=>t.id));
-    // Admission moved to Students module
-    if(intent.tab==="admission"){ setTab("record"); return; }
+    // Student Records / Admission live under Students module
+    if(intent.tab==="admission"||intent.tab==="record"){ setTab("marks"); return; }
     if(intent.tab&&allowed.has(intent.tab)) setTab(intent.tab);
   },[]);
   const [selCls,setSelCls]=useState(settings.classes[0]?.id||"");
@@ -1237,12 +1266,6 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
       bareContent
       maxWidthClassName="max-w-[1400px]"
     >
-      {tab === "record" && (
-        <div className={panelCls} style={{ padding: 12 }}>
-          <StudentsPage settings={settings} students={students} setStudents={setStudents} embedded currentSession={currentSession} currentUser={currentUser} activeSchoolId={activeSchoolId} />
-        </div>
-      )}
-
       {tab === "marks" && (
         <div>
           <div className={toolbarCls}>
@@ -1442,18 +1465,19 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                                   const selected = promotionTargetByStudent[s.id] || "";
                                   if (options.length > 1) {
                                     return (
-                                      <select
+                                      <NativeSelect
+                                        size="sm"
                                         value={selected}
                                         onChange={(e) => setPromotionTargetByStudent((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                                        style={{ padding: "2px 4px", fontSize: 11, border: "1px solid #cbd5e1", borderRadius: 4, background: "#fff", minWidth: 120 }}
+                                        className="min-w-[120px]"
                                       >
-                                        <option value="">Select section</option>
+                                        <NativeSelectOption value="">Select section</NativeSelectOption>
                                         {options.map((c) => (
-                                          <option key={c.id} value={c.id}>
+                                          <NativeSelectOption key={c.id} value={c.id}>
                                             {formatClassDisplay(c)}
-                                          </option>
+                                          </NativeSelectOption>
                                         ))}
-                                      </select>
+                                      </NativeSelect>
                                     );
                                   }
                                   return null;
@@ -1631,21 +1655,22 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                       const usedIds = dsCols.filter((c) => c.id !== col.id).map((c) => c.classId).filter(Boolean);
                       return (
                         <th key={col.id} className={thCls("center")} style={{ minWidth: 110 }}>
-                          <select
+                          <NativeSelect
+                            size="sm"
                             value={col.classId}
                             onChange={(e) => {
                               const v = e.target.value;
                               setDsCols((cols) => cols.map((c) => (c.id === col.id ? { ...c, classId: v } : c)));
                             }}
-                            style={{ width: "100%", padding: "4px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 11, textAlign: "center", background: "transparent", color: "inherit" }}
+                            className="w-full [&_[data-slot=native-select]]:bg-transparent [&_[data-slot=native-select]]:text-center [&_[data-slot=native-select]]:text-[11px]"
                           >
-                            <option value="">— Select class —</option>
+                            <NativeSelectOption value="">— Select class —</NativeSelectOption>
                             {settings.classes
                               .filter((cls) => !usedIds.includes(cls.id) || cls.id === col.classId)
                               .map((cls) => (
-                                <option key={cls.id} value={cls.id}>{formatClassDisplay(cls)}</option>
+                                <NativeSelectOption key={cls.id} value={cls.id}>{formatClassDisplay(cls)}</NativeSelectOption>
                               ))}
-                          </select>
+                          </NativeSelect>
                         </th>
                       );
                     })}
@@ -1658,11 +1683,11 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                     return (
                       <tr key={row.id} style={{ background: ri % 2 === 0 ? "#f8fafc" : "#fff" }}>
                         <td style={{ padding: "6px 8px", border: "1px solid #e2e8f0", textAlign: "center" }}>
-                          <input
+                          <Input
                             type="date"
                             value={row.date}
                             onChange={(e) => setDsDates((rs) => rs.map((r) => (r.id === row.id ? { ...r, date: e.target.value } : r)))}
-                            style={{ width: "100%", padding: "4px 3px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 11, boxSizing: "border-box", textAlign: "center" }}
+                            className="h-auto w-full px-1 py-1 text-[11px] text-center"
                           />
                         </td>
                         <td style={{ padding: "6px 8px", border: "1px solid #e2e8f0", fontWeight: 700, textAlign: "center" }}>{dayName}</td>
@@ -1675,20 +1700,22 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                           const options = allSubs.filter((s) => !usedSubs.includes(s));
                           return (
                             <td key={key} style={{ padding: "6px 8px", border: "1px solid #e2e8f0", textAlign: "center" }}>
-                              <select
+                              <NativeSelect
+                                size="sm"
                                 value={current}
                                 onChange={(e) => {
                                   const v = e.target.value;
                                   setDsSubs((prev) => ({ ...prev, [key]: v }));
                                 }}
                                 disabled={!cid}
-                                style={{ width: "100%", padding: "4px 3px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 11, background: cid ? "#fff" : "#f3f4f6", opacity: cid ? 1 : 0.7, textAlign: "center" }}
+                                className="w-full [&_[data-slot=native-select]]:text-center [&_[data-slot=native-select]]:text-[11px] [&_[data-slot=native-select]]:disabled:opacity-70"
+                                style={{ opacity: cid ? 1 : 0.7 }}
                               >
-                                <option value="">---</option>
+                                <NativeSelectOption value="">---</NativeSelectOption>
                                 {options.map((s) => (
-                                  <option key={s} value={s}>{s}</option>
+                                  <NativeSelectOption key={s} value={s}>{s}</NativeSelectOption>
                                 ))}
-                              </select>
+                              </NativeSelect>
                             </td>
                           );
                         })}
@@ -1700,11 +1727,11 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
             </div>
             <div className="p-4 border-t">
               <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground block mb-1.5">Note / Instructions</Label>
-              <textarea
+              <Textarea
                 value={dsNote}
                 onChange={(e) => setDsNote(e.target.value)}
                 rows={3}
-                className="w-full px-3 py-2 border rounded-lg text-sm resize-y bg-background border-input outline-none focus:ring-2 focus:ring-ring/50 box-border"
+                className="resize-y"
                 placeholder="Write important instructions for students (e.g. reporting time, allowed materials, etc.)"
               />
             </div>
@@ -1940,7 +1967,6 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
       return st;
     }));
   };
-  const arrowBtnStyle={padding:"2px 6px",fontSize:11,border:"1px solid #cbd5e1",borderRadius:4,background:"#fff",cursor:"pointer",lineHeight:1.2,minWidth:22};
   const photosDirRef=useRef(null);
   const photosFilesRef=useRef(null);
   const isMobilePhotoDevice=()=>{
@@ -2573,8 +2599,8 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
           <td style={{padding:"5px 10px"}}>
             <div style={{fontWeight:700}}>{s.rollNo}</div>
             <div style={{display:"flex",gap:4,marginTop:4,alignItems:"center"}}>
-              <button type="button" onClick={()=>swapStudentRoll(s,"up")} title="Move roll up (swap with previous)" style={arrowBtnStyle}>↑</button>
-              <button type="button" onClick={()=>swapStudentRoll(s,"down")} title="Move roll down (swap with next)" style={arrowBtnStyle}>↓</button>
+              <Button type="button" variant="outline" size="icon-sm" className="min-w-[22px] h-auto px-1.5 py-0.5 text-[11px]" onClick={()=>swapStudentRoll(s,"up")} title="Move roll up (swap with previous)">↑</Button>
+              <Button type="button" variant="outline" size="icon-sm" className="min-w-[22px] h-auto px-1.5 py-0.5 text-[11px]" onClick={()=>swapStudentRoll(s,"down")} title="Move roll down (swap with next)">↓</Button>
             </div>
           </td>
           <td style={{padding:"5px 10px"}}>{s.name}</td><td style={{padding:"5px 10px"}}>{s.fatherName}</td>
@@ -2584,17 +2610,18 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
           <td style={{padding:"5px 10px"}}>
             <div>{getClassLabel(settings,s.classId)}</div>
             <div style={{display:"flex",gap:4,marginTop:4,alignItems:"center",flexWrap:"wrap"}}>
-              <button type="button" onClick={()=>moveStudentClass(s,"down")} title="Move to lower class" style={arrowBtnStyle}>←</button>
-              <button type="button" onClick={()=>moveStudentClass(s,"up")} title="Move to upper class" style={arrowBtnStyle}>→</button>
+              <Button type="button" variant="outline" size="icon-sm" className="min-w-[22px] h-auto px-1.5 py-0.5 text-[11px]" onClick={()=>moveStudentClass(s,"down")} title="Move to lower class">←</Button>
+              <Button type="button" variant="outline" size="icon-sm" className="min-w-[22px] h-auto px-1.5 py-0.5 text-[11px]" onClick={()=>moveStudentClass(s,"up")} title="Move to upper class">→</Button>
             </div>
             {sectionClassOptions(s.classId).length>1&&(
-              <select
+              <NativeSelect
+                size="sm"
                 value={resolveClass(settings.classes,s.classId)?.id||s.classId}
                 onChange={e=>changeStudentSection(s,e.target.value)}
-                style={{marginTop:4,padding:"2px 6px",fontSize:11,border:"1px solid #cbd5e1",borderRadius:4,background:"#fff",maxWidth:160}}
+                className="mt-1 max-w-[160px]"
               >
-                {sectionClassOptions(s.classId).map(c=><option key={c.id} value={c.id}>{formatClassDisplay(c)}</option>)}
-              </select>
+                {sectionClassOptions(s.classId).map(c=><NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>)}
+              </NativeSelect>
             )}
           </td>
           <td style={{padding:"5px 10px"}}><div style={{display:"flex",flexDirection:"column",gap:4}}><Button variant="outline" size="sm" onClick={()=>openEdit(s)}>Edit</Button><Button variant="destructive" size="sm" disabled={isPromotedStudent(s)} onClick={()=>{if(isPromotedStudent(s)) return; if(!confirm("Delete this student record?")) return; setStudents(x=>x.filter(st=>st.id!==s.id));}}>{isPromotedStudent(s)?"Promoted":"Delete"}</Button></div></td>
@@ -2603,13 +2630,12 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
         </tbody>
       </table>
     </div>
-    {showAdd&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <div style={{background:"#fff",borderRadius:10,width:"100%",maxWidth:560,maxHeight:"90vh",overflow:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
-        <div style={{background:C.navy,color:"#fff",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{fontWeight:700}}>{editingId?"Edit Student":"Add New Student"}</span>
-          <button onClick={closeModal} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>×</button>
-        </div>
-        <div style={{padding:20}}>
+    <Dialog open={showAdd} onOpenChange={(open)=>{ if(!open) closeModal(); }}>
+      <DialogContent className="max-w-[560px] max-h-[90vh] overflow-y-auto p-0 gap-0">
+        <DialogHeader className="text-white px-[18px] py-3 rounded-t-lg space-y-0" style={{ background: C.navy }}>
+          <DialogTitle className="text-white">{editingId?"Edit Student":"Add New Student"}</DialogTitle>
+        </DialogHeader>
+        <div className="p-5">
           <div style={{display:"flex",gap:16,alignItems:"flex-start",marginBottom:14,flexWrap:"wrap"}} className="psms-photo-form-row">
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,flexShrink:0}}>
               <div style={{width:80,height:100,border:"2px dashed #d1d5db",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",background:"#fafafa"}}>
@@ -2687,8 +2713,8 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
           )}
           <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Button variant="outline" onClick={closeModal}>Cancel</Button><Button onClick={save}>{editingId?"Update Student":"Save Student"}</Button></div>
         </div>
-      </div>
-    </div>}
+      </DialogContent>
+    </Dialog>
   </div>;
 }
 

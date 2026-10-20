@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
 import { ClassSubjCard, CommonTeachersEditor } from "@/modules/settings/SettingsPage";
@@ -60,19 +61,20 @@ export function AcademicOverviewPanel({
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
         {cards.map((c) => (
-          <button
+          <Button
             key={c.label}
             type="button"
+            variant="outline"
             onClick={() => {
               if (c.page) navigate(onNavigate, c.page, c.pageTab);
               else onGoTab?.(c.tab);
             }}
-            className="rounded-xl border bg-card p-3.5 text-left cursor-pointer shadow-none hover:bg-accent/50 transition-colors"
+            className="h-auto w-full flex-col items-start gap-0.5 rounded-xl p-3.5 text-left font-normal shadow-none hover:bg-accent/50"
           >
             <div className="text-[22px] font-extrabold text-primary">{c.value}</div>
             <div className="text-xs font-bold mt-1">{c.label}</div>
             <div className="text-[11px] text-muted-foreground mt-0.5">{c.hint}</div>
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -338,19 +340,19 @@ export function AcademicSessionsPanel({
         </div>
         <div className="flex flex-wrap gap-2">
           {list.map((s) => (
-            <button
+            <Button
               key={s}
               type="button"
-              onClick={() => setCurrentSession?.(s)}
+              size="sm"
+              variant={s === currentSession ? "secondary" : "outline"}
               className={cn(
-                "px-3 py-2 rounded-lg text-xs font-bold cursor-pointer transition-colors",
-                s === currentSession
-                  ? "border-2 border-primary bg-primary/10 text-primary"
-                  : "border border-border bg-card text-foreground hover:bg-accent/50",
+                "text-xs font-bold",
+                s === currentSession && "border-2 border-primary bg-primary/10 text-primary",
               )}
+              onClick={() => setCurrentSession?.(s)}
             >
               {s}{s === currentSession ? " · Active" : ""}
-            </button>
+            </Button>
           ))}
         </div>
       </CardContent>
@@ -540,10 +542,9 @@ export function AcademicPeriodsPanel({ settings, setSettings }) {
         <CardContent className="p-4">
           <CardTitle className="mb-3">Breaks</CardTitle>
           <label className="flex items-center gap-2 text-sm font-semibold mb-2.5 cursor-pointer">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={!!settings.breakRequired}
-              onChange={(e) => setSettings((s) => ({ ...s, breakRequired: e.target.checked }))}
+              onCheckedChange={(v) => setSettings((s) => ({ ...s, breakRequired: !!v }))}
             />
             Break required (Mon–Thu / Sat)
           </label>
@@ -568,10 +569,9 @@ export function AcademicPeriodsPanel({ settings, setSettings }) {
             </div>
           )}
           <label className="flex items-center gap-2 text-sm font-semibold mb-2.5 cursor-pointer">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={!!settings.fridayBreak}
-              onChange={(e) => setSettings((s) => ({ ...s, fridayBreak: e.target.checked }))}
+              onCheckedChange={(v) => setSettings((s) => ({ ...s, fridayBreak: !!v }))}
             />
             Friday break required
           </label>

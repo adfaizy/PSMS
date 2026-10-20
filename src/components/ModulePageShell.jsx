@@ -2,7 +2,6 @@ import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 /**
@@ -54,13 +53,13 @@ export function ModulePageShell({
 
       {hasTabs ? (
         <Tabs value={tab} onValueChange={onTabChange} className="no-print w-full min-w-0">
-          <ScrollArea className="w-full whitespace-nowrap">
-            <TabsList className="inline-flex h-auto min-h-9 w-max max-w-none flex-wrap justify-start gap-1 bg-muted p-1">
+          <div className="w-full overflow-x-auto">
+            <TabsList className="inline-flex h-9 w-max max-w-none justify-start gap-1 bg-muted p-1">
               {tabs.map((t) => (
                 <TabsTrigger
                   key={t.id}
                   value={t.id}
-                  className="shrink-0 px-3 py-1.5 text-xs sm:text-sm"
+                  className="shrink-0 px-3 text-xs sm:text-sm"
                 >
                   {t.l}
                   {t.badge != null ? (
@@ -71,8 +70,7 @@ export function ModulePageShell({
                 </TabsTrigger>
               ))}
             </TabsList>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+          </div>
         </Tabs>
       ) : null}
 

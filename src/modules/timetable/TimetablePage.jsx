@@ -20,6 +20,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Separator } from "@/components/ui/separator";
 import * as H from "@/shared/helpers";
 
@@ -196,20 +197,20 @@ export function AllClassesView({settings,staffProfiles,timetable,setTimetable,da
             <div className="grid gap-2">
               <div className="grid gap-1.5">
                 <Label className="text-xs font-bold">Subject</Label>
-                <select value={editSubject} onChange={e=>setEditSubject(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-                  <option value="">— Select subject —</option>
+                <NativeSelect value={editSubject} onChange={e=>setEditSubject(e.target.value)} className="w-full">
+                  <NativeSelectOption value="">— Select subject —</NativeSelectOption>
                   {subjectOptions.map(s=>{
                     const isCommon=!!gradeCommon[(s||"").trim()];
-                    return <option key={s} value={s}>{isCommon?"★ ":""}{s}</option>;
+                    return <NativeSelectOption key={s} value={s}>{isCommon?"★ ":""}{s}</NativeSelectOption>;
                   })}
-                </select>
+                </NativeSelect>
               </div>
               <div className="grid gap-1.5">
                 <Label className="text-xs font-bold">Teacher</Label>
-                <select value={editTeacher} onChange={e=>setEditTeacher(e.target.value)} disabled={!editSubject} className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-muted">
-                  <option value="">— Select teacher —</option>
-                  {teacherOptions.map(st=><option key={st.id} value={st.name}>{st.name}</option>)}
-                </select>
+                <NativeSelect value={editTeacher} onChange={e=>setEditTeacher(e.target.value)} disabled={!editSubject} className="w-full">
+                  <NativeSelectOption value="">— Select teacher —</NativeSelectOption>
+                  {teacherOptions.map(st=><NativeSelectOption key={st.id} value={st.name}>{st.name}</NativeSelectOption>)}
+                </NativeSelect>
               </div>
             </div>
           </div>
@@ -525,20 +526,20 @@ export function ByClassView({settings,staffProfiles,timetable,setTimetable,selCl
             <div className="grid gap-2">
               <div className="grid gap-1.5">
                 <Label className="text-xs font-bold">Subject</Label>
-                <select value={editSubject} onChange={e=>setEditSubject(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-                  <option value="">— Select subject —</option>
+                <NativeSelect value={editSubject} onChange={e=>setEditSubject(e.target.value)} className="w-full">
+                  <NativeSelectOption value="">— Select subject —</NativeSelectOption>
                   {subjectOptions.map(s=>{
                     const isCommon=!!gradeCommon[(s||"").trim()];
-                    return <option key={s} value={s}>{isCommon?"★ ":""}{s}</option>;
+                    return <NativeSelectOption key={s} value={s}>{isCommon?"★ ":""}{s}</NativeSelectOption>;
                   })}
-                </select>
+                </NativeSelect>
               </div>
               <div className="grid gap-1.5">
                 <Label className="text-xs font-bold">Teacher</Label>
-                <select value={editTeacher} onChange={e=>setEditTeacher(e.target.value)} disabled={!editSubject} className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-muted">
-                  <option value="">— Select teacher —</option>
-                  {teacherOptions.map(st=><option key={st.id} value={st.name}>{st.name}</option>)}
-                </select>
+                <NativeSelect value={editTeacher} onChange={e=>setEditTeacher(e.target.value)} disabled={!editSubject} className="w-full">
+                  <NativeSelectOption value="">— Select teacher —</NativeSelectOption>
+                  {teacherOptions.map(st=><NativeSelectOption key={st.id} value={st.name}>{st.name}</NativeSelectOption>)}
+                </NativeSelect>
               </div>
             </div>
           </div>
@@ -932,14 +933,14 @@ export function TimetablePage({settings,staffProfiles,timetable,setTimetable,cur
                 </label>
               ))}
               {portionFilterActive&&(
-                <button type="button" className="no-print text-[11px] font-semibold text-primary underline" onClick={()=>setPrintPortionMask({...DEFAULT_PRINT_PORTION_MASK})}>
+                <Button type="button" variant="link" className="no-print h-auto p-0 text-[11px] font-semibold" onClick={()=>setPrintPortionMask({...DEFAULT_PRINT_PORTION_MASK})}>
                   All portions
-                </button>
+                </Button>
               )}
             </div>
           )}
-          {view==="byClass"&&<select value={byClassCls} onChange={e=>setByClassCls(e.target.value)} className="h-8 rounded-md border border-input bg-background px-2 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">{[{value:"__all_classes__",label:"All classes"},...settings.classes.map(c=>({value:c.id,label:formatClassDisplay(c)}))].map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select>}
-          {view==="byTeacher"&&<select value={byTeacherName} onChange={e=>setByTeacherName(e.target.value)} className="h-8 rounded-md border border-input bg-background px-2 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">{[{value:"__all_staff__",label:"All staff"},...teachingStaff.map(st=>({value:st.name,label:st.name}))].map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select>}
+          {view==="byClass"&&<NativeSelect size="sm" value={byClassCls} onChange={e=>setByClassCls(e.target.value)}>{[{value:"__all_classes__",label:"All classes"},...settings.classes.map(c=>({value:c.id,label:formatClassDisplay(c)}))].map(o=><NativeSelectOption key={o.value} value={o.value}>{o.label}</NativeSelectOption>)}</NativeSelect>}
+          {view==="byTeacher"&&<NativeSelect size="sm" value={byTeacherName} onChange={e=>setByTeacherName(e.target.value)}>{[{value:"__all_staff__",label:"All staff"},...teachingStaff.map(st=>({value:st.name,label:st.name}))].map(o=><NativeSelectOption key={o.value} value={o.value}>{o.label}</NativeSelectOption>)}</NativeSelect>}
           <Separator orientation="vertical" className="hidden h-6 sm:block" />
           <Button size="sm" onClick={autoGenerateTimetable}>Generate Timetable</Button>
           <Button size="sm" variant="outline" onClick={handleTimetablePdf}>Export PDF</Button>

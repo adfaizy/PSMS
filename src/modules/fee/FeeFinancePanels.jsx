@@ -120,19 +120,20 @@ export function FeeOverviewPanel({ settings, students, activeSchoolId, onGoTab }
 
       <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
         {cards.map((c) => (
-          <button
+          <Button
             key={c.label}
             type="button"
+            variant="outline"
             onClick={() => onGoTab?.(c.tab)}
             className={cn(
-              "rounded-xl border bg-card p-3.5 text-left cursor-pointer shadow-none hover:bg-accent/50 transition-colors border-t-4",
+              "h-auto w-full flex-col items-start gap-0.5 rounded-xl border-t-4 p-3.5 text-left font-normal shadow-none hover:bg-accent/50",
               c.accentClass,
             )}
           >
             <div className="text-xl font-extrabold">{c.value}</div>
             <div className="text-xs font-bold mt-1">{c.label}</div>
             <div className="text-xs text-muted-foreground mt-0.5">{c.hint}</div>
-          </button>
+          </Button>
         ))}
       </div>
 

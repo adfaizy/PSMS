@@ -3,6 +3,8 @@ import { Search, Zap, UserPlus, ClipboardList, Wallet, GraduationCap, Briefcase,
 import { dashboardService } from "@/services";
 import { setNavIntent } from "@/lib/navIntent.js";
 import { C } from "@/shared/theme";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const QUICK_ACTIONS = [
   { id: "admit", label: "Admit Student", page: "students", tab: "admission", icon: UserPlus },
@@ -60,21 +62,10 @@ export function AppShellNavTools({
 
   return (
     <div ref={rootRef} className="app-shell-nav-tools no-print" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-      <div style={{ position: "relative", minWidth: compact ? 0 : 180, flex: compact ? "0 1 160px" : "0 1 240px" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            height: 34,
-            padding: "0 10px",
-            border: "1px solid #d1d5db",
-            borderRadius: 8,
-            background: "#f8fafc",
-          }}
-        >
-          <Search size={14} color={C.gray} aria-hidden />
-          <input
+      <div className={compact ? "relative min-w-0 flex-[0_1_160px]" : "relative min-w-[180px] flex-[0_1_240px]"}>
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Input
             type="search"
             value={query}
             onChange={(e) => {
@@ -85,16 +76,7 @@ export function AppShellNavTools({
             onFocus={() => setOpen(true)}
             placeholder="Search students, staff…"
             aria-label="Global search"
-            style={{
-              border: "none",
-              outline: "none",
-              background: "transparent",
-              width: "100%",
-              minWidth: 0,
-              fontSize: 12,
-              fontWeight: 600,
-              color: C.navy,
-            }}
+            className="h-9 pl-8 text-xs font-semibold"
           />
         </div>
         {open && query.trim() && (
@@ -117,26 +99,18 @@ export function AppShellNavTools({
               <div style={{ padding: 12, fontSize: 12, color: C.gray }}>No matching records</div>
             ) : (
               results.map((hit) => (
-                <button
+                <Button
                   key={`${hit.type}-${hit.id}`}
                   type="button"
+                  variant="ghost"
                   onClick={() => go(hit.page, hit.tab)}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    textAlign: "left",
-                    border: "none",
-                    borderBottom: "1px solid #f1f5f9",
-                    background: "#fff",
-                    padding: "10px 12px",
-                    cursor: "pointer",
-                  }}
+                  className="h-auto w-full flex-col items-start justify-start rounded-none border-0 border-b border-slate-100 bg-white px-3 py-2.5 font-normal hover:bg-slate-50"
                 >
                   <div style={{ fontSize: 12, fontWeight: 700, color: C.navy }}>{hit.title}</div>
                   <div style={{ fontSize: 11, color: C.gray, marginTop: 2 }}>
                     {hit.type === "student" ? "Student" : "Staff"} · {hit.subtitle}
                   </div>
-                </button>
+                </Button>
               ))
             )}
           </div>
@@ -144,32 +118,20 @@ export function AppShellNavTools({
       </div>
 
       <div style={{ position: "relative" }}>
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={() => {
             setQuickOpen((v) => !v);
             setOpen(false);
           }}
           title="Quick actions"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            height: 34,
-            padding: "0 10px",
-            borderRadius: 8,
-            border: "1px solid #cbd5e1",
-            background: "#fff",
-            color: C.navy,
-            fontSize: 12,
-            fontWeight: 700,
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-          }}
+          className="h-[34px] shrink-0 gap-1.5 whitespace-nowrap px-2.5 text-xs font-bold"
+          style={{ color: C.navy }}
         >
           <Zap size={14} aria-hidden />
           {compact ? "Actions" : "Quick Actions"}
-        </button>
+        </Button>
         {quickOpen && (
           <div
             style={{
@@ -188,26 +150,16 @@ export function AppShellNavTools({
             {QUICK_ACTIONS.map((action) => {
               const Icon = action.icon;
               return (
-                <button
+                <Button
                   key={action.id}
                   type="button"
+                  variant="ghost"
                   onClick={() => go(action.page, action.tab)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    width: "100%",
-                    border: "none",
-                    borderBottom: "1px solid #f1f5f9",
-                    background: "#fff",
-                    padding: "10px 12px",
-                    cursor: "pointer",
-                    textAlign: "left",
-                  }}
+                  className="h-auto w-full justify-start gap-2.5 rounded-none border-0 border-b border-slate-100 bg-white px-3 py-2.5 font-normal hover:bg-slate-50"
                 >
                   <Icon size={15} color={C.navy} aria-hidden />
                   <span style={{ fontSize: 12, fontWeight: 700, color: C.navy }}>{action.label}</span>
-                </button>
+                </Button>
               );
             })}
           </div>

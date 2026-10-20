@@ -19,6 +19,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import * as H from "@/shared/helpers";
 
 const {
@@ -365,15 +368,15 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:12,marginBottom:20,padding:16,background:"#fff",borderRadius:8,boxShadow:"0 1px 3px rgba(0,0,0,0.05)"}}>
           <div className="flex flex-col gap-1">
             <Label className="text-xs font-semibold text-muted-foreground">Class</Label>
-            <select value={selCls} onChange={e=>setSelCls(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-              {settings.classes.map(c=><option key={c.id} value={c.id}>{formatClassDisplay(c)}</option>)}
-            </select>
+            <NativeSelect size="sm" className="w-full" value={selCls} onChange={e=>setSelCls(e.target.value)}>
+              {settings.classes.map(c=><NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>)}
+            </NativeSelect>
           </div>
           <div className="flex flex-col gap-1">
             <Label className="text-xs font-semibold text-muted-foreground">Subject</Label>
-            <select value={subj} onChange={e=>setSubj(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-              {subs.map(s=><option key={s} value={s}>{s}</option>)}
-            </select>
+            <NativeSelect size="sm" className="w-full" value={subj} onChange={e=>setSubj(e.target.value)}>
+              {subs.map(s=><NativeSelectOption key={s} value={s}>{s}</NativeSelectOption>)}
+            </NativeSelect>
           </div>
         </div>
 
@@ -418,24 +421,24 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:16,marginBottom:20}}>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs font-semibold text-muted-foreground">Chapter</Label>
-                <select value={genChapter} onChange={e=>setGenChapter(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-                  <option value="all">All Chapters</option>
-                  {chapters.map(c=><option key={c} value={c}>{c}</option>)}
-                </select>
+                <NativeSelect size="sm" className="w-full" value={genChapter} onChange={e=>setGenChapter(e.target.value)}>
+                  <NativeSelectOption value="all">All Chapters</NativeSelectOption>
+                  {chapters.map(c=><NativeSelectOption key={c} value={c}>{c}</NativeSelectOption>)}
+                </NativeSelect>
               </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs font-semibold text-muted-foreground">Topic</Label>
-                <select value={genTopic} onChange={e=>setGenTopic(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-                  <option value="all">All Topics</option>
-                  {genTopics.map(t=><option key={t} value={t}>{t}</option>)}
-                </select>
+                <NativeSelect size="sm" className="w-full" value={genTopic} onChange={e=>setGenTopic(e.target.value)}>
+                  <NativeSelectOption value="all">All Topics</NativeSelectOption>
+                  {genTopics.map(t=><NativeSelectOption key={t} value={t}>{t}</NativeSelectOption>)}
+                </NativeSelect>
               </div>
             </div>
-            <div style={{display:"flex",gap:16,alignItems:"center",padding:20,background:"#f1f5f9",borderRadius:12,marginBottom:24,flexWrap:"wrap"}}>
-              <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:11,fontWeight:700,color:C.gray}}>MCQs (%)</label><input type="number" value={genPercentMcq} onChange={e=>setGenPercentMcq(e.target.value)} placeholder="All" style={{padding:8,border:"1px solid #cbd5e1",borderRadius:6,width:70}}/></div>
-              <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:11,fontWeight:700,color:C.gray}}>Short (%)</label><input type="number" value={genPercentShort} onChange={e=>setGenPercentShort(e.target.value)} placeholder="All" style={{padding:8,border:"1px solid #cbd5e1",borderRadius:6,width:70}}/></div>
-              <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:11,fontWeight:700,color:C.gray}}>Long (%)</label><input type="number" value={genPercentLong} onChange={e=>setGenPercentLong(e.target.value)} placeholder="All" style={{padding:8,border:"1px solid #cbd5e1",borderRadius:6,width:70}}/></div>
-              <Button className="mt-[18px]" onClick={advancedGenerateFromBank}>Generate Random Paper</Button>
+              <div style={{display:"flex",gap:16,alignItems:"flex-end",padding:20,background:"#f1f5f9",borderRadius:12,marginBottom:24,flexWrap:"wrap"}}>
+              <div className="flex flex-col gap-1"><Label className="text-xs font-semibold text-muted-foreground">MCQs (%)</Label><Input type="number" className="w-[70px]" value={genPercentMcq} onChange={e=>setGenPercentMcq(e.target.value)} placeholder="All"/></div>
+              <div className="flex flex-col gap-1"><Label className="text-xs font-semibold text-muted-foreground">Short (%)</Label><Input type="number" className="w-[70px]" value={genPercentShort} onChange={e=>setGenPercentShort(e.target.value)} placeholder="All"/></div>
+              <div className="flex flex-col gap-1"><Label className="text-xs font-semibold text-muted-foreground">Long (%)</Label><Input type="number" className="w-[70px]" value={genPercentLong} onChange={e=>setGenPercentLong(e.target.value)} placeholder="All"/></div>
+              <Button onClick={advancedGenerateFromBank}>Generate Random Paper</Button>
             </div>
             {preview && <div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><h5 style={{margin:0}}>Preview</h5><Button variant="outline" onClick={()=>{setPrintPaperMode(true); setTimeout(()=>window.print(),50);}}>Print Paper</Button></div><div className="font-heading" style={{padding:24,background:"#fff",border:"2px solid #e2e8f0",borderRadius:8}}>{paperContent}</div></div>}
           </div>
@@ -448,35 +451,35 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
               </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs font-semibold text-muted-foreground">Type</Label>
-                <select value={qbFilterType} onChange={e=>{setQbFilterType(e.target.value); setQbPage(1);}} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-                  <option value="all">All Types</option>
-                  <option value="MCQs">MCQs</option>
-                  <option value="Short">Short</option>
-                  <option value="Long">Long</option>
-                </select>
+                <NativeSelect size="sm" className="w-full" value={qbFilterType} onChange={e=>{setQbFilterType(e.target.value); setQbPage(1);}}>
+                  <NativeSelectOption value="all">All Types</NativeSelectOption>
+                  <NativeSelectOption value="MCQs">MCQs</NativeSelectOption>
+                  <NativeSelectOption value="Short">Short</NativeSelectOption>
+                  <NativeSelectOption value="Long">Long</NativeSelectOption>
+                </NativeSelect>
               </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs font-semibold text-muted-foreground">Difficulty</Label>
-                <select value={qbFilterDifficulty} onChange={e=>{setQbFilterDifficulty(e.target.value); setQbPage(1);}} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-                  <option value="all">All</option>
-                  <option value="Easy">Easy</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Hard">Hard</option>
-                </select>
+                <NativeSelect size="sm" className="w-full" value={qbFilterDifficulty} onChange={e=>{setQbFilterDifficulty(e.target.value); setQbPage(1);}}>
+                  <NativeSelectOption value="all">All</NativeSelectOption>
+                  <NativeSelectOption value="Easy">Easy</NativeSelectOption>
+                  <NativeSelectOption value="Medium">Medium</NativeSelectOption>
+                  <NativeSelectOption value="Hard">Hard</NativeSelectOption>
+                </NativeSelect>
               </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs font-semibold text-muted-foreground">Chapter</Label>
-                <select value={qbFilterChapter} onChange={e=>{setQbFilterChapter(e.target.value); setQbPage(1);}} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-                  <option value="all">All Chapters</option>
-                  {chapters.map(c=><option key={c} value={c}>{c}</option>)}
-                </select>
+                <NativeSelect size="sm" className="w-full" value={qbFilterChapter} onChange={e=>{setQbFilterChapter(e.target.value); setQbPage(1);}}>
+                  <NativeSelectOption value="all">All Chapters</NativeSelectOption>
+                  {chapters.map(c=><NativeSelectOption key={c} value={c}>{c}</NativeSelectOption>)}
+                </NativeSelect>
               </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs font-semibold text-muted-foreground">Topic</Label>
-                <select value={qbFilterTopic} onChange={e=>{setQbFilterTopic(e.target.value); setQbPage(1);}} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-                  <option value="all">All Topics</option>
-                  {topics.map(t=><option key={t} value={t}>{t}</option>)}
-                </select>
+                <NativeSelect size="sm" className="w-full" value={qbFilterTopic} onChange={e=>{setQbFilterTopic(e.target.value); setQbPage(1);}}>
+                  <NativeSelectOption value="all">All Topics</NativeSelectOption>
+                  {topics.map(t=><NativeSelectOption key={t} value={t}>{t}</NativeSelectOption>)}
+                </NativeSelect>
               </div>
             </div>
             <div style={{marginBottom:16,display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -493,10 +496,10 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
                       <span style={{fontSize:10,fontWeight:700,background:C.navy,color:"#fff",padding:"2px 6px",borderRadius:4}}>{q.type}</span>
                       <span style={{fontSize:10,fontWeight:700,background:q.difficulty==="Hard"?"#ef4444":q.difficulty==="Medium"?"#f59e0b":"#10b981",color:"#fff",padding:"2px 6px",borderRadius:4}}>{q.difficulty || "Medium"}</span>
                     </div>
-                    <button onClick={()=>setBankForCurrent(bankForCurrent.filter(x=>x.id!==q.id))} style={{color:C.red,background:"none",border:"none",cursor:"pointer",fontSize:11}}>Delete</button>
+                    <Button type="button" variant="link" className="h-auto p-0 text-[11px] text-destructive" onClick={()=>setBankForCurrent(bankForCurrent.filter(x=>x.id!==q.id))}>Delete</Button>
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:8}}>
-                    <textarea value={q.text} onChange={e=>setBankForCurrent(bankForCurrent.map(x=>x.id===q.id?{...x,text:e.target.value}:x))} placeholder="Question text..." style={{padding:6,fontSize:12,border:"1px solid #cbd5e1",borderRadius:4,height:60}}/>
+                    <Textarea value={q.text} onChange={e=>setBankForCurrent(bankForCurrent.map(x=>x.id===q.id?{...x,text:e.target.value}:x))} placeholder="Question text..." className="min-h-[60px] text-xs"/>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
                       <div className="grid gap-1.5">
                         <div className="flex flex-col gap-1">
@@ -510,19 +513,19 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
                       </div>
                       <div className="flex flex-col gap-1">
                         <Label className="text-xs font-semibold text-muted-foreground">Difficulty</Label>
-                        <select value={q.difficulty||"Medium"} onChange={e=>setBankForCurrent(bankForCurrent.map(x=>x.id===q.id?{...x,difficulty:e.target.value}:x))} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-                          <option value="Easy">Easy</option>
-                          <option value="Medium">Medium</option>
-                          <option value="Hard">Hard</option>
-                        </select>
+                        <NativeSelect size="sm" className="w-full" value={q.difficulty||"Medium"} onChange={e=>setBankForCurrent(bankForCurrent.map(x=>x.id===q.id?{...x,difficulty:e.target.value}:x))}>
+                          <NativeSelectOption value="Easy">Easy</NativeSelectOption>
+                          <NativeSelectOption value="Medium">Medium</NativeSelectOption>
+                          <NativeSelectOption value="Hard">Hard</NativeSelectOption>
+                        </NativeSelect>
                       </div>
                     </div>
                   </div>
-                  {q.type==="MCQs"&&<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>{(q.options||["","","",""]).map((o,oi)=><input key={oi} value={o} onChange={e=>{const op=[...(q.options||["","","",""])];op[oi]=e.target.value;setBankForCurrent(bankForCurrent.map(x=>x.id===q.id?{...x,options:op}:x));}} placeholder={`Opt ${String.fromCharCode(65+oi)}`} style={{padding:4,fontSize:11,border:"1px solid #cbd5e1",borderRadius:4}}/>)}</div>}
+                  {q.type==="MCQs"&&<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>{(q.options||["","","",""]).map((o,oi)=><Input key={oi} className="h-8 text-[11px]" value={o} onChange={e=>{const op=[...(q.options||["","","",""])];op[oi]=e.target.value;setBankForCurrent(bankForCurrent.map(x=>x.id===q.id?{...x,options:op}:x));}} placeholder={`Opt ${String.fromCharCode(65+oi)}`}/>)}</div>}
                 </div>
               ))}
             </div>
-            {totalQbPages > 1 && <div style={{marginTop:20,display:"flex",justifyContent:"center",gap:8}}>{Array.from({length:totalQbPages},(_,i)=>i+1).map(p=><button key={p} onClick={()=>setQbPage(p)} style={{padding:"4px 10px",borderRadius:4,border:"1px solid #cbd5e1",background:qbPage===p?C.navy:"#fff",color:qbPage===p?"#fff":"#374151",cursor:"pointer"}}>{p}</button>)}</div>}
+            {totalQbPages > 1 && <div className="mt-5 flex justify-center gap-2">{Array.from({length:totalQbPages},(_,i)=>i+1).map(p=><Button key={p} type="button" size="sm" variant={qbPage===p?"default":"outline"} onClick={()=>setQbPage(p)}>{p}</Button>)}</div>}
           </div>
         )}
         </CardContent>
@@ -532,21 +535,21 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:10,marginBottom:12}}>
       <div className="flex flex-col gap-1">
         <Label className="text-xs font-semibold text-muted-foreground">Class</Label>
-        <select value={selCls} onChange={e=>setSelCls(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-          {settings.classes.map(c=><option key={c.id} value={c.id}>{formatClassDisplay(c)}</option>)}
-        </select>
+        <NativeSelect size="sm" className="w-full" value={selCls} onChange={e=>setSelCls(e.target.value)}>
+          {settings.classes.map(c=><NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>)}
+        </NativeSelect>
       </div>
       <div className="flex flex-col gap-1">
         <Label className="text-xs font-semibold text-muted-foreground">Subject</Label>
-        <select value={subj} onChange={e=>setSubj(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-          {subs.map(s=><option key={s} value={s}>{s}</option>)}
-        </select>
+        <NativeSelect size="sm" className="w-full" value={subj} onChange={e=>setSubj(e.target.value)}>
+          {subs.map(s=><NativeSelectOption key={s} value={s}>{s}</NativeSelectOption>)}
+        </NativeSelect>
       </div>
       <div className="flex flex-col gap-1">
         <Label className="text-xs font-semibold text-muted-foreground">Exam</Label>
-        <select value={exam} onChange={e=>setExam(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-          {["1st Term","Mid Term","Final Term","Annual"].map(o=><option key={o} value={o}>{o}</option>)}
-        </select>
+        <NativeSelect size="sm" className="w-full" value={exam} onChange={e=>setExam(e.target.value)}>
+          {["1st Term","Mid Term","Final Term","Annual"].map(o=><NativeSelectOption key={o} value={o}>{o}</NativeSelectOption>)}
+        </NativeSelect>
       </div>
       <div className="flex flex-col gap-1">
         <Label className="text-xs font-semibold text-muted-foreground">Time (min)</Label>
@@ -556,24 +559,32 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
     <div style={{padding:"6px 12px",background:"#fef3c7",borderRadius:5,fontSize:12,color:"#92400e",fontWeight:700,marginBottom:12,marginTop:6}}>Total Marks: {total}</div>
     {sections.map(sec=><div key={sec.id} style={{border:"1.5px solid #e5e7eb",borderRadius:8,marginBottom:14,overflow:"hidden"}}>
       <div style={{background:C.navy,color:"#fff",padding:"8px 12px",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-        <input value={sec.title} onChange={e=>setSections(s=>s.map(x=>x.id===sec.id?{...x,title:e.target.value}:x))} style={{background:"transparent",border:"none",color:"#fff",fontSize:13,fontWeight:700,flex:1,outline:"none"}}/>
-        <input type="number" value={sec.marks} onChange={e=>setSections(s=>s.map(x=>x.id===sec.id?{...x,marks:+e.target.value}:x))} style={{width:55,padding:"3px 6px",borderRadius:4,border:"none",fontSize:12,textAlign:"center"}}/>
+        <Input value={sec.title} onChange={e=>setSections(s=>s.map(x=>x.id===sec.id?{...x,title:e.target.value}:x))} className="h-auto flex-1 border-none bg-transparent px-0 py-0 text-[13px] font-bold text-white shadow-none focus-visible:ring-0"/>
+        <Input type="number" value={sec.marks} onChange={e=>setSections(s=>s.map(x=>x.id===sec.id?{...x,marks:+e.target.value}:x))} className="h-7 w-14 border-none bg-white/95 text-center text-xs shadow-none"/>
         <span style={{fontSize:11}}>marks</span>
       </div>
       <div style={{padding:10}}>
-        <input value={sec.instructions} onChange={e=>setSections(s=>s.map(x=>x.id===sec.id?{...x,instructions:e.target.value}:x))} placeholder="Instructions…" style={{width:"100%",padding:"5px 8px",border:"1px solid #d1d5db",borderRadius:5,fontSize:12,marginBottom:8,boxSizing:"border-box"}}/>
+        <Input value={sec.instructions} onChange={e=>setSections(s=>s.map(x=>x.id===sec.id?{...x,instructions:e.target.value}:x))} placeholder="Instructions…" className="mb-2 text-xs"/>
         {sec.questions.map((q,qi)=><div key={q.id} style={{background:"#f9fafb",borderRadius:6,padding:8,marginBottom:6}}>
           <div style={{display:"flex",gap:6,alignItems:"flex-start"}}>
             <span style={{fontWeight:700,color:C.navy,minWidth:22,paddingTop:6,fontSize:12}}>Q{qi+1}.</span>
-            <textarea value={q.text} onChange={e=>upQ(sec.id,q.id,"text",e.target.value)} placeholder="Question…" style={{flex:1,padding:"5px 8px",border:"1px solid #d1d5db",borderRadius:5,fontSize:12,resize:"vertical",minHeight:44}}/>
+            <Textarea value={q.text} onChange={e=>upQ(sec.id,q.id,"text",e.target.value)} placeholder="Question…" className="min-h-11 flex-1 text-xs"/>
             <Button size="sm" variant="destructive" onClick={()=>rmQ(sec.id,q.id)}>×</Button>
           </div>
-          {sec.type==="MCQs"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,marginTop:4,marginLeft:28}}>
-            {q.options.map((opt,oi)=><div key={oi} style={{display:"flex",alignItems:"center",gap:4}}>
-              <input type="radio" name={`cr_${q.id}`} checked={q.correct===oi} onChange={()=>upQ(sec.id,q.id,"correct",oi)}/>
-              <input value={opt} onChange={e=>{const opts=[...q.options];opts[oi]=e.target.value;upQ(sec.id,q.id,"options",opts);}} placeholder={`Opt ${String.fromCharCode(65+oi)}`} style={{flex:1,padding:"3px 6px",border:"1px solid #d1d5db",borderRadius:4,fontSize:11}}/>
-            </div>)}
-          </div>}
+          {sec.type==="MCQs"&&(
+            <RadioGroup
+              value={String(q.correct ?? 0)}
+              onValueChange={(v)=>upQ(sec.id,q.id,"correct",Number(v))}
+              className="mt-1 ml-7 grid grid-cols-2 gap-1"
+            >
+              {q.options.map((opt,oi)=>(
+                <div key={oi} className="flex items-center gap-1">
+                  <RadioGroupItem value={String(oi)} id={`cr_${q.id}_${oi}`} />
+                  <Input className="h-8 flex-1 text-[11px]" value={opt} onChange={e=>{const opts=[...q.options];opts[oi]=e.target.value;upQ(sec.id,q.id,"options",opts);}} placeholder={`Opt ${String.fromCharCode(65+oi)}`}/>
+                </div>
+              ))}
+            </RadioGroup>
+          )}
         </div>)}
         <Button size="sm" variant="outline" onClick={()=>addQ(sec.id)}>Add Question</Button>
       </div>

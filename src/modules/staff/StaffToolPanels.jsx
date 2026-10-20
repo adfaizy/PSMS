@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   STAFF_ATTENDANCE_LABELS,
@@ -507,6 +507,7 @@ export function StaffDocumentsPanel({ staffProfiles, setSchools, activeSchoolId 
   const [staffId, setStaffId] = useState("");
   const [docName, setDocName] = useState("");
   const [docType, setDocType] = useState("Appointment Letter");
+  const docFileRef = useRef(null);
   const profile = staffProfiles.find((p) => p.id === staffId) || null;
   const docs = Array.isArray(profile?.documents) ? profile.documents : [];
 
@@ -547,7 +548,10 @@ export function StaffDocumentsPanel({ staffProfiles, setSchools, activeSchoolId 
                 </NativeSelect>
               </FieldWrap>
               <FieldWrap label="Upload file">
-                <input type="file" accept="image/*,.pdf,.doc,.docx" onChange={onFile} className="text-sm" />
+                <input ref={docFileRef} type="file" accept="image/*,.pdf,.doc,.docx" className="hidden" onChange={onFile} />
+                <Button type="button" size="sm" variant="outline" onClick={() => docFileRef.current?.click()}>
+                  Choose file
+                </Button>
               </FieldWrap>
             </div>
             {docs.length === 0 ? (
@@ -562,7 +566,9 @@ export function StaffDocumentsPanel({ staffProfiles, setSchools, activeSchoolId 
                     </div>
                     <div className="flex gap-1.5 items-center">
                       {d.dataUrl ? (
-                        <a href={d.dataUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-primary hover:underline">Open</a>
+                        <Button asChild size="xs" variant="link" className="h-auto px-0 text-xs">
+                          <a href={d.dataUrl} target="_blank" rel="noreferrer">Open</a>
+                        </Button>
                       ) : null}
                       <Button size="xs" variant="destructive" onClick={() => updateProfile(setSchools, activeSchoolId, profile.id, (p) => removeStaffDocument(p, d.id))}>Remove</Button>
                     </div>

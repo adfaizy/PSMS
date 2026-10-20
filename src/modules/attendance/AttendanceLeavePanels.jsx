@@ -116,19 +116,20 @@ export function AttendanceOverviewPanel({
         </CardContent>
       </Card>
 
-      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
         {cards.map((c) => (
-          <button
+          <Button
             key={c.label}
             type="button"
+            variant="outline"
             onClick={() => onGoTab?.(c.tab)}
-            className="text-left cursor-pointer rounded-xl bg-card p-3.5 ring-1 ring-foreground/10 hover:bg-muted/30 transition-colors"
-            style={{ borderTop: `3px solid ${c.accent}` }}
+            className="h-auto w-full flex-col items-start gap-0.5 rounded-xl border-t-[3px] p-3.5 text-left font-normal shadow-none ring-1 ring-foreground/10 hover:bg-muted/30"
+            style={{ borderTopColor: c.accent }}
           >
             <div className="text-2xl font-extrabold" style={{ color: c.accent }}>{c.value}</div>
             <div className="text-xs font-bold mt-1">{c.label}</div>
             <div className="text-[11px] text-muted-foreground mt-0.5">{c.hint}</div>
-          </button>
+          </Button>
         ))}
       </div>
 

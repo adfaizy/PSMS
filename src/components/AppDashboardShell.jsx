@@ -50,6 +50,8 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const NAV_ICONS = {
   dashboard: LayoutDashboard,
@@ -130,19 +132,21 @@ function ShellNav({ nav, page, onNavigate }) {
 
 function MenuRow({ icon, label, onClick, destructive = false }) {
   return (
-    <button
+    <Button
       type="button"
       role="menuitem"
-      className={
+      variant="ghost"
+      className={cn(
+        "h-auto w-full justify-start gap-2 px-2 py-1.5 text-sm font-normal",
         destructive
-          ? "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-destructive outline-none hover:bg-destructive/10"
-          : "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm outline-none hover:bg-accent hover:text-accent-foreground"
-      }
+          ? "text-destructive hover:bg-destructive/10 hover:text-destructive"
+          : "hover:bg-accent hover:text-accent-foreground"
+      )}
       onClick={onClick}
     >
       {React.createElement(icon, { className: "size-4 shrink-0", "aria-hidden": true })}
       <span>{label}</span>
-    </button>
+    </Button>
   );
 }
 

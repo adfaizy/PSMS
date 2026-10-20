@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
 import "./dailyRegister.css";
@@ -31,6 +32,10 @@ const TABS = [
   { id: "summary", l: "Summary" },
   { id: "report", l: "Report" },
 ];
+
+/** Flat grid cell inputs — shadcn defaults overridden to match .daily-register table CSS */
+const GRID_INPUT =
+  "h-auto min-h-[1.7em] rounded-none border-0 bg-transparent shadow-none focus-visible:border-0 focus-visible:ring-0 px-1 py-1 text-[0.68rem] leading-snug";
 
 function BandTable({ bands }) {
   return (
@@ -285,19 +290,19 @@ function DailyRegisterSheet({
                     return (
                       <tr key={s.id}>
                         <td className="roll-cell">
-                          <input className="roll" value={s.roll} onChange={(e) => updateStudent(s.id, { roll: e.target.value })} />
+                          <Input className={cn("roll", GRID_INPUT, "text-left")} value={s.roll} onChange={(e) => updateStudent(s.id, { roll: e.target.value })} />
                         </td>
                         <td className="name-cell">
-                          <input
-                            className="name"
+                          <Input
+                            className={cn("name", GRID_INPUT, "text-left")}
                             type="text"
                             value={s.name}
                             onChange={(e) => updateStudent(s.id, { name: e.target.value })}
                           />
                         </td>
                         <td className="father-cell">
-                          <input
-                            className="father"
+                          <Input
+                            className={cn("father", GRID_INPUT, "text-left")}
                             type="text"
                             value={s.father}
                             onChange={(e) => updateStudent(s.id, { father: e.target.value })}
@@ -305,8 +310,8 @@ function DailyRegisterSheet({
                         </td>
                         {Array.from({ length: DAY_SLOTS }, (_, i) => (
                           <td key={i} className="mark-cell">
-                            <input
-                              className="mark"
+                            <Input
+                              className={cn("mark", GRID_INPUT, "text-center")}
                               type="number"
                               min={0}
                               max={MARK_MAX}
@@ -319,10 +324,10 @@ function DailyRegisterSheet({
                         <td className="total c">{t.totalDisplay}</td>
                         <td className="avg c">{t.avgDisplay}</td>
                         <td className="sba-cell">
-                          <input className="sba" value={s.sba} onChange={(e) => updateStudent(s.id, { sba: e.target.value })} />
+                          <Input className={cn("sba", GRID_INPUT, "text-center")} value={s.sba} onChange={(e) => updateStudent(s.id, { sba: e.target.value })} />
                         </td>
                         <td className="remarks-cell">
-                          <input className="remarks" value={s.remarks} onChange={(e) => updateStudent(s.id, { remarks: e.target.value })} />
+                          <Input className={cn("remarks", GRID_INPUT, "text-left")} value={s.remarks} onChange={(e) => updateStudent(s.id, { remarks: e.target.value })} />
                         </td>
                       </tr>
                     );
@@ -363,16 +368,16 @@ function DailyRegisterSheet({
                     <tr key={i}>
                       <td className="c">{i + 1}</td>
                       <td className="date-cell">
-                        <input
-                          className="day-date"
+                        <Input
+                          className={cn("day-date", GRID_INPUT, "max-w-[8.6rem] font-bold text-center mx-auto")}
                           type="date"
                           value={d.date || ""}
                           onChange={(e) => updateDayMeta(i, { date: e.target.value })}
                         />
                       </td>
                       <td className="subject-cell">
-                        <select
-                          className="day-subject"
+                        <NativeSelect
+                          className="day-subject w-full max-w-[7.5rem] h-auto min-w-0 [&_[data-slot=native-select]]:h-auto [&_[data-slot=native-select]]:border-0 [&_[data-slot=native-select]]:bg-transparent [&_[data-slot=native-select]]:py-0.5 [&_[data-slot=native-select]]:pl-0 [&_[data-slot=native-select]]:pr-6 [&_[data-slot=native-select]]:font-bold [&_[data-slot=native-select]]:shadow-none [&_[data-slot=native-select]]:focus-visible:ring-0"
                           value={d.subject || ""}
                           onChange={(e) => updateDayMeta(i, { subject: e.target.value })}
                         >
@@ -383,11 +388,11 @@ function DailyRegisterSheet({
                           {d.subject && !subjects.includes(d.subject) && (
                             <option value={d.subject}>{d.subject}</option>
                           )}
-                        </select>
+                        </NativeSelect>
                       </td>
                       <td className="topic-cell">
-                        <input
-                          className="day-topic"
+                        <Input
+                          className={cn("day-topic", GRID_INPUT, "min-w-[9rem] text-left w-full")}
                           value={d.topic || ""}
                           onChange={(e) => updateDayMeta(i, { topic: e.target.value })}
                           placeholder="Topic"

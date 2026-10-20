@@ -25,10 +25,10 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ModulePageShell } from "@/components/ModulePageShell";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
 import * as H from "@/shared/helpers";
 
-const selectClassName = "flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm";
 
 const {
   formatGradeLabel, formatClassDisplay, resolveClass, getClassLabel, normKey,
@@ -72,7 +72,7 @@ export function ClassSubjCard({cls,examSubjects,timetableSubjects,onAddExam,onRe
             {examSubjects.map(s=>(
               <Badge key={`exam_${s}`} variant="secondary" className="gap-1 bg-blue-100 text-blue-800 hover:bg-blue-100">
                 {s}
-                <button type="button" onClick={()=>onRemoveExam(s)} className="ml-0.5 font-bold leading-none">×</button>
+                <Button type="button" variant="ghost" size="icon-xs" className="ml-0.5 size-4 text-xs" onClick={()=>onRemoveExam(s)}>×</Button>
               </Badge>
             ))}
           </div>
@@ -94,7 +94,7 @@ export function ClassSubjCard({cls,examSubjects,timetableSubjects,onAddExam,onRe
             {timetableSubjects.map(s=>(
               <Badge key={`tt_${s}`} className="gap-1 bg-green-100 text-green-800 hover:bg-green-100">
                 {s}
-                <button type="button" onClick={()=>onRemoveTimetable(s)} className="ml-0.5 font-bold leading-none">×</button>
+                <Button type="button" variant="ghost" size="icon-xs" className="ml-0.5 size-4 text-xs" onClick={()=>onRemoveTimetable(s)}>×</Button>
               </Badge>
             ))}
           </div>
@@ -1513,9 +1513,9 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1.5">
                 <Label>Current session</Label>
-                <select value={currentSession||""} onChange={e=>setCurrentSession(e.target.value)} className={cn(selectClassName,"w-[180px]")}>
-                  {(sessions||[]).map(ses=><option key={ses} value={ses}>{ses}</option>)}
-                </select>
+                <NativeSelect value={currentSession||""} onChange={e=>setCurrentSession(e.target.value)} className="w-[180px]">
+                  {(sessions||[]).map(ses=><NativeSelectOption key={ses} value={ses}>{ses}</NativeSelectOption>)}
+                </NativeSelect>
               </div>
               <div className="space-y-1.5">
                 <Label>Add session</Label>
@@ -1675,16 +1675,16 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
               <Label>Select Staff Member</Label>
               {(staffProfiles||[]).length===0
                 ? <p className="m-0 text-xs text-muted-foreground">No staff profiles found. Add staff in the <strong>Staff Profiles</strong> tab first.</p>
-                : <select value={tcStaffId} onChange={e=>{
+                : <NativeSelect value={tcStaffId} onChange={e=>{
                     const id=e.target.value;
                     setTcStaffId(id);
                     const sp=(staffProfiles||[]).find(p=>p.id===id);
                     if(sp){setTcName(sp.name||"");setTcEmail(sp.email||"");}
                     else{setTcName("");setTcEmail("");}
-                  }} className={selectClassName}>
-                  <option value="">— Select staff member —</option>
-                  {(staffProfiles||[]).filter(p=>p.name).map(p=><option key={p.id} value={p.id}>{p.name}{p.designation?` (${p.designation})`:""}</option>)}
-                </select>
+                  }} className="w-full">
+                  <NativeSelectOption value="">— Select staff member —</NativeSelectOption>
+                  {(staffProfiles||[]).filter(p=>p.name).map(p=><NativeSelectOption key={p.id} value={p.id}>{p.name}{p.designation?` (${p.designation})`:""}</NativeSelectOption>)}
+                </NativeSelect>
               }
             </div>
             <div className="space-y-1.5">
@@ -1867,43 +1867,43 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
                   </div>
                   <div className="space-y-1.5">
                     <Label>School Type</Label>
-                    <select value={settings.schoolType||""} onChange={e=>setSettings(s=>({...s,schoolType:e.target.value}))} className={selectClassName}>
-                      <option value="">Select type</option>
-                      <option value="Government">Government</option>
-                      <option value="Semi-Government">Semi-Government</option>
-                      <option value="Private">Private</option>
-                      <option value="Model School">Model School</option>
-                      <option value="Special Education">Special Education</option>
-                    </select>
+                    <NativeSelect value={settings.schoolType||""} onChange={e=>setSettings(s=>({...s,schoolType:e.target.value}))} className="w-full">
+                      <NativeSelectOption value="">Select type</NativeSelectOption>
+                      <NativeSelectOption value="Government">Government</NativeSelectOption>
+                      <NativeSelectOption value="Semi-Government">Semi-Government</NativeSelectOption>
+                      <NativeSelectOption value="Private">Private</NativeSelectOption>
+                      <NativeSelectOption value="Model School">Model School</NativeSelectOption>
+                      <NativeSelectOption value="Special Education">Special Education</NativeSelectOption>
+                    </NativeSelect>
                   </div>
                   <div className="space-y-1.5">
                     <Label>School Level</Label>
-                    <select value={settings.schoolLevel||""} onChange={e=>setSettings(s=>({...s,schoolLevel:e.target.value}))} className={selectClassName}>
-                      <option value="">Select level</option>
-                      <option value="Primary (I–V)">Primary (I–V)</option>
-                      <option value="Middle (I–VIII)">Middle (I–VIII)</option>
-                      <option value="High (I–X)">High (I–X)</option>
-                      <option value="Higher Secondary (I–XII)">Higher Secondary (I–XII)</option>
-                      <option value="Elementary">Elementary</option>
-                    </select>
+                    <NativeSelect value={settings.schoolLevel||""} onChange={e=>setSettings(s=>({...s,schoolLevel:e.target.value}))} className="w-full">
+                      <NativeSelectOption value="">Select level</NativeSelectOption>
+                      <NativeSelectOption value="Primary (I–V)">Primary (I–V)</NativeSelectOption>
+                      <NativeSelectOption value="Middle (I–VIII)">Middle (I–VIII)</NativeSelectOption>
+                      <NativeSelectOption value="High (I–X)">High (I–X)</NativeSelectOption>
+                      <NativeSelectOption value="Higher Secondary (I–XII)">Higher Secondary (I–XII)</NativeSelectOption>
+                      <NativeSelectOption value="Elementary">Elementary</NativeSelectOption>
+                    </NativeSelect>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Gender Category</Label>
-                    <select value={settings.genderCategory||""} onChange={e=>setSettings(s=>({...s,genderCategory:e.target.value}))} className={selectClassName}>
-                      <option value="">Select</option>
-                      <option value="Boys">Boys</option>
-                      <option value="Girls">Girls</option>
-                      <option value="Co-Education">Co-Education</option>
-                    </select>
+                    <NativeSelect value={settings.genderCategory||""} onChange={e=>setSettings(s=>({...s,genderCategory:e.target.value}))} className="w-full">
+                      <NativeSelectOption value="">Select</NativeSelectOption>
+                      <NativeSelectOption value="Boys">Boys</NativeSelectOption>
+                      <NativeSelectOption value="Girls">Girls</NativeSelectOption>
+                      <NativeSelectOption value="Co-Education">Co-Education</NativeSelectOption>
+                    </NativeSelect>
                   </div>
                   <div className="space-y-1.5">
                     <Label>School Shift</Label>
-                    <select value={settings.schoolShift||""} onChange={e=>setSettings(s=>({...s,schoolShift:e.target.value}))} className={selectClassName}>
-                      <option value="">Select shift</option>
-                      <option value="Morning">Morning</option>
-                      <option value="Evening">Evening</option>
-                      <option value="Both">Both</option>
-                    </select>
+                    <NativeSelect value={settings.schoolShift||""} onChange={e=>setSettings(s=>({...s,schoolShift:e.target.value}))} className="w-full">
+                      <NativeSelectOption value="">Select shift</NativeSelectOption>
+                      <NativeSelectOption value="Morning">Morning</NativeSelectOption>
+                      <NativeSelectOption value="Evening">Evening</NativeSelectOption>
+                      <NativeSelectOption value="Both">Both</NativeSelectOption>
+                    </NativeSelect>
                   </div>
                   <div className="space-y-1.5">
                     <Label>School Phone No</Label>
@@ -1936,16 +1936,16 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
                   </div>
                   <div className="space-y-1.5">
                     <Label>Province</Label>
-                    <select value={settings.province||""} onChange={e=>setSettings(s=>({...s,province:e.target.value}))} className={selectClassName}>
-                      <option value="">Select province</option>
-                      <option value="Punjab">Punjab</option>
-                      <option value="Sindh">Sindh</option>
-                      <option value="KPK">KPK</option>
-                      <option value="Balochistan">Balochistan</option>
-                      <option value="AJK">AJK</option>
-                      <option value="GB">GB</option>
-                      <option value="ICT">ICT</option>
-                    </select>
+                    <NativeSelect value={settings.province||""} onChange={e=>setSettings(s=>({...s,province:e.target.value}))} className="w-full">
+                      <NativeSelectOption value="">Select province</NativeSelectOption>
+                      <NativeSelectOption value="Punjab">Punjab</NativeSelectOption>
+                      <NativeSelectOption value="Sindh">Sindh</NativeSelectOption>
+                      <NativeSelectOption value="KPK">KPK</NativeSelectOption>
+                      <NativeSelectOption value="Balochistan">Balochistan</NativeSelectOption>
+                      <NativeSelectOption value="AJK">AJK</NativeSelectOption>
+                      <NativeSelectOption value="GB">GB</NativeSelectOption>
+                      <NativeSelectOption value="ICT">ICT</NativeSelectOption>
+                    </NativeSelect>
                   </div>
                   <div className="space-y-1.5">
                     <Label>District</Label>
@@ -1985,12 +1985,12 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
                   </div>
                   <div className="space-y-1.5">
                     <Label>Rural / Urban</Label>
-                    <select value={settings.ruralUrban||""} onChange={e=>setSettings(s=>({...s,ruralUrban:e.target.value}))} className={selectClassName}>
-                      <option value="">Select</option>
-                      <option value="Urban">Urban</option>
-                      <option value="Rural">Rural</option>
-                      <option value="Peri-Urban">Peri-Urban</option>
-                    </select>
+                    <NativeSelect value={settings.ruralUrban||""} onChange={e=>setSettings(s=>({...s,ruralUrban:e.target.value}))} className="w-full">
+                      <NativeSelectOption value="">Select</NativeSelectOption>
+                      <NativeSelectOption value="Urban">Urban</NativeSelectOption>
+                      <NativeSelectOption value="Rural">Rural</NativeSelectOption>
+                      <NativeSelectOption value="Peri-Urban">Peri-Urban</NativeSelectOption>
+                    </NativeSelect>
                   </div>
                 </div>
               </TabsContent>
@@ -2007,13 +2007,13 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
                   </div>
                   <div className="space-y-1.5">
                     <Label>Designation</Label>
-                    <select value={settings.principalDesignation||""} onChange={e=>setSettings(s=>({...s,principalDesignation:e.target.value}))} className={selectClassName}>
-                      <option value="">Select</option>
-                      <option value="Principal">Principal</option>
-                      <option value="Headmaster">Headmaster</option>
-                      <option value="Headmistress">Headmistress</option>
-                      <option value="In-Charge">In-Charge</option>
-                    </select>
+                    <NativeSelect value={settings.principalDesignation||""} onChange={e=>setSettings(s=>({...s,principalDesignation:e.target.value}))} className="w-full">
+                      <NativeSelectOption value="">Select</NativeSelectOption>
+                      <NativeSelectOption value="Principal">Principal</NativeSelectOption>
+                      <NativeSelectOption value="Headmaster">Headmaster</NativeSelectOption>
+                      <NativeSelectOption value="Headmistress">Headmistress</NativeSelectOption>
+                      <NativeSelectOption value="In-Charge">In-Charge</NativeSelectOption>
+                    </NativeSelect>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Mobile No.</Label>
@@ -2172,21 +2172,21 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label>Exam</Label>
-              <select value={awardListExam} onChange={e=>setAwardListExam(e.target.value)} className={selectClassName}>
-                {AWARD_LIST_EXAMS.map(ex=><option key={ex} value={ex}>{ex}</option>)}
-              </select>
+              <NativeSelect value={awardListExam} onChange={e=>setAwardListExam(e.target.value)} className="w-full">
+                {AWARD_LIST_EXAMS.map(ex=><NativeSelectOption key={ex} value={ex}>{ex}</NativeSelectOption>)}
+              </NativeSelect>
             </div>
             <div className="space-y-1.5">
               <Label>Teacher name</Label>
-              <select value={awardListTeacher} onChange={e=>setAwardListTeacher(e.target.value)} className={selectClassName}>
-                <option value="">— Select teacher —</option>
+              <NativeSelect value={awardListTeacher} onChange={e=>setAwardListTeacher(e.target.value)} className="w-full">
+                <NativeSelectOption value="">— Select teacher —</NativeSelectOption>
                 {teachersWithAssignments.map(t=>{
                   const distinctCount=new Set((t.classes||[]).map(c=>{
                     return `${c.classId}|${awardListBaseSubject(c.subject||"")}`;
                   })).size;
-                  return <option key={t.teacherName} value={t.teacherName}>{t.teacherName} ({distinctCount} {distinctCount===1?"subject":"subjects"})</option>;
+                  return <NativeSelectOption key={t.teacherName} value={t.teacherName}>{t.teacherName} ({distinctCount} {distinctCount===1?"subject":"subjects"})</NativeSelectOption>;
                 })}
-              </select>
+              </NativeSelect>
             </div>
           </div>
           {teachersWithAssignments.length===0&&(

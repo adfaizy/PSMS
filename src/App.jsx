@@ -601,21 +601,31 @@ function AuthScreen({ onSignIn, setActiveSchoolId }) {
                 ? "☁ Worldwide cloud — school logins created by admin work on any device with internet."
                 : "⚠ Cloud OFF — open this app from the main server URL (or deploy with Supabase keys) so logins work worldwide."}
             </div>
-            <div className="mt-3 text-center">
-              <button type="button" onClick={() => { setPanel("admin"); setError(""); }}
-                className="text-slate-400 hover:text-slate-600 text-xs bg-transparent border-none cursor-pointer px-2 py-1.5 rounded-md">
+            <div className="mt-3 flex justify-center">
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto px-2 py-1.5 text-xs text-muted-foreground"
+                onClick={() => { setPanel("admin"); setError(""); }}
+              >
                 🔐 Administrator Login
-              </button>
+              </Button>
             </div>
           </CardContent>
         </Card>
       ) : (
         <Card className="w-full max-w-[400px] overflow-hidden shadow-2xl rounded-2xl">
           <div className="bg-slate-800 text-white px-6 py-5">
-            <button type="button" onClick={() => { setPanel("user"); setError(""); }}
-              className="flex items-center gap-1 text-slate-400 hover:text-slate-200 text-[13px] mb-3 bg-transparent border-none cursor-pointer">
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="mb-3 h-auto justify-start gap-1 p-0 text-[13px] text-slate-400 hover:text-slate-200"
+              onClick={() => { setPanel("user"); setError(""); }}
+            >
               ← Back to User Login
-            </button>
+            </Button>
             <div className="font-bold text-[17px]">Administrator Login</div>
             <div className="text-xs opacity-70 mt-1">Restricted access — authorised personnel only</div>
           </div>

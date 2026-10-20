@@ -16,6 +16,7 @@ import { ModulePageShell } from "@/components/ModulePageShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import * as H from "@/shared/helpers";
 
 const {
@@ -537,13 +538,9 @@ export function StudentCardGeneratorPage({ settings, students, currentSession })
       <div className="no-print" style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap", alignItems: "flex-end" }}>
         <div className="flex flex-col gap-1">
           <Label className="text-xs font-semibold text-muted-foreground">Class</Label>
-          <select
-            value={selCls}
-            onChange={e => setSelCls(e.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          >
-            {settings.classes.map((c) => <option key={c.id} value={c.id}>{formatClassDisplay(c)}</option>)}
-          </select>
+          <NativeSelect size="sm" className="w-full min-w-[140px]" value={selCls} onChange={e => setSelCls(e.target.value)}>
+            {settings.classes.map((c) => <NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>)}
+          </NativeSelect>
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs font-semibold text-muted-foreground">Roll No(s)</Label>

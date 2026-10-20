@@ -223,7 +223,7 @@ export function buildDashboardReminders({
       id: 'admit-students',
       level: 'info',
       title: 'No students enrolled',
-      detail: 'Start admissions to populate Student Records.',
+      detail: 'Start admissions from Students → Admit Student.',
       action: { page: 'students', tab: 'admission', label: 'Open Admission' },
     })
   }

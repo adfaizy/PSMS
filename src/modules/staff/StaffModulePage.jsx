@@ -49,6 +49,7 @@ export function StaffModulePage({
       tabs={STAFF_TABS}
       tab={tab}
       onTabChange={setTab}
+      bareContent
     >
       {tab === "directory" && (
         <StaffProfilesPage

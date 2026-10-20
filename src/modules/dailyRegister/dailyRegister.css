@@ -319,7 +319,8 @@ td.roll-cell input.roll::-webkit-outer-spin-button,
 }
 .daily-register #summaryTable input.day-date,
 .daily-register #summaryTable input.day-topic,
-.daily-register #summaryTable select.day-subject {
+.daily-register #summaryTable select.day-subject,
+.daily-register #summaryTable .day-subject [data-slot="native-select"] {
   border: 0;
   background: transparent;
   font: inherit;
@@ -334,11 +335,17 @@ td.roll-cell input.roll::-webkit-outer-spin-button,
   font-weight: 700;
   text-align: center;
 }
-.daily-register #summaryTable select.day-subject {
+.daily-register #summaryTable select.day-subject,
+.daily-register #summaryTable .day-subject [data-slot="native-select"] {
   width: 7.5rem;
   max-width: 7.5rem;
   font-weight: 700;
   cursor: pointer;
+}
+.daily-register #summaryTable .day-subject [data-slot="native-select-icon"] {
+  right: 0;
+  width: 0.875rem;
+  height: 0.875rem;
 }
 .daily-register #summaryTable input.day-topic {
   width: 100%;

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import * as H from "@/shared/helpers";
 import {
@@ -254,6 +254,7 @@ export function DocumentsPanel({ settings, students, setStudents }) {
   const [studentId, setStudentId] = useState("");
   const [docName, setDocName] = useState("");
   const [docType, setDocType] = useState("Birth Certificate");
+  const docFileRef = useRef(null);
   const student = students.find((s) => s.id === studentId) || null;
   const docs = Array.isArray(student?.documents) ? student.documents : [];
 
@@ -304,7 +305,10 @@ export function DocumentsPanel({ settings, students, setStudents }) {
                 </NativeSelect>
               </FieldWrap>
               <FieldWrap label="Upload file">
-                <input type="file" accept="image/*,.pdf,.doc,.docx" onChange={(e) => void onFile(e)} className="text-sm" />
+                <input ref={docFileRef} type="file" accept="image/*,.pdf,.doc,.docx" className="hidden" onChange={(e) => void onFile(e)} />
+                <Button type="button" size="sm" variant="outline" onClick={() => docFileRef.current?.click()}>
+                  Choose file
+                </Button>
               </FieldWrap>
             </div>
             {docs.length === 0 ? (
@@ -319,7 +323,9 @@ export function DocumentsPanel({ settings, students, setStudents }) {
                     </div>
                     <div className="flex gap-1.5 items-center">
                       {d.dataUrl ? (
-                        <a href={d.dataUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-primary hover:underline">Open</a>
+                        <Button asChild size="xs" variant="link" className="h-auto px-0 text-xs">
+                          <a href={d.dataUrl} target="_blank" rel="noreferrer">Open</a>
+                        </Button>
                       ) : null}
                       <Button size="xs" variant="destructive" onClick={() => setStudents((prev) => prev.map((st) => (st.id === student.id ? removeStudentDocument(st, d.id) : st)))}>
                         Remove

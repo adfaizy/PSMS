@@ -1,22 +1,63 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, startTransition } from "react";
-import { createPortal } from "react-dom";
-import * as XLSX from "@/xlsxClient.js";
-import JSZip from "@/jszipClient.js";
 import jsPDFModule from "jspdf";
 import autoTable from "jspdf-autotable";
-import html2canvas from "html2canvas";
-import QRCode from "qrcode";
 import { X, Plus, Edit2, Trash2, Upload, Download, Menu, Settings, AlertTriangle, Eye, EyeOff } from "lucide-react";
-import * as feeCore from "@/modules/fee/feeCore";
-import { feeService, systemSettingsService, dashboardService } from "@/services";
-import { UI } from "@/uiTokens.js";
-import signImg from "@/assets/sign.png";
 import { yieldToMain } from "@/yieldToMain.js";
-import { C, schoolOrBrandLogo, APP_BRAND_LOGO, genId } from "@/shared/theme";
+import { genId } from "@/shared/theme";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import * as H from "@/shared/helpers";
+
+function FieldWrap({ label, htmlFor, required, children, className }) {
+  return (
+    <div className={cn("flex flex-col gap-1.5", className)}>
+      <Label htmlFor={htmlFor}>
+        {label}
+        {required ? <span className="text-destructive"> *</span> : null}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
+const STAFF_FORM_TABS = ["Personal", "Employment", "Qualifications", "Banking", "System"];
+
+function staffFieldsForFormTab(tab) {
+  const personalFields = ["name", "fname", "cnic", "dob", "domicile", "contact", "email", "address", "emergencyContact"];
+  const employmentFields = ["staffCategory", "cpn", "designation", "bps", "doe", "dprs", "dppp", "daps"];
+  const qualFields = ["aq", "subj", "pq"];
+  const bankingFields = ["bankName", "accNo", "iban", "bankCode", "branch"];
+  const systemFields = ["employeeStatus", "department"];
+  if (tab === "Personal") return personalFields;
+  if (tab === "Employment") return employmentFields;
+  if (tab === "Qualifications") return qualFields;
+  if (tab === "Banking") return bankingFields;
+  if (tab === "System") return systemFields;
+  return null;
+}
 
 const {
   formatGradeLabel, formatClassDisplay, resolveClass, getClassLabel, normKey,
@@ -111,11 +152,11 @@ export const STAFF_PROFILE_TABLE_HEADERS = [
 ];
 
 export const STAFF_TABLE_GROUPS = [
-  { title: "Personal Information", count: 10, fields: ["photo", "name", "fname", "cnic", "dob", "domicile", "contact", "email", "address", "emergencyContact"] },
-  { title: "Employment & Service Details", count: 8, fields: ["cpn", "staffCategory", "designation", "bps", "doe", "dprs", "dppp", "daps"] },
-  { title: "Qualifications", count: 3, fields: ["aq", "subj", "pq"] },
-  { title: "Banking & Financial Information", count: 5, fields: ["bankName", "accNo", "iban", "bankCode", "branch"] },
-  { title: "System & Action Fields", count: 2, fields: ["employeeStatus", "department"] },
+  { title: "Personal Information", short: "Personal", count: 10, fields: ["photo", "name", "fname", "cnic", "dob", "domicile", "contact", "email", "address", "emergencyContact"] },
+  { title: "Employment & Service Details", short: "Employment", count: 8, fields: ["cpn", "staffCategory", "designation", "bps", "doe", "dprs", "dppp", "daps"] },
+  { title: "Qualifications", short: "Qualifications", count: 3, fields: ["aq", "subj", "pq"] },
+  { title: "Banking & Financial Information", short: "Banking", count: 5, fields: ["bankName", "accNo", "iban", "bankCode", "branch"] },
+  { title: "System & Action Fields", short: "System", count: 2, fields: ["employeeStatus", "department"] },
 ];
 
 export const STAFF_PROFILE_HEADING_FIELDS = [
@@ -327,377 +368,438 @@ export function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, 
   ];
   const photoPosition = formData.photoPosition || "50% 50%";
 
+  const activeFormFieldIds = staffFieldsForFormTab(formTab);
+
   if (isFormOpen) {
     return (
-      <>
-        <div style={{ background: "#fff", padding: 24, borderRadius: 8, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <h2 style={{ margin: 0, color: C.navy, fontSize: 20 }}>{editingId ? "Edit Staff Profile" : "Add Staff Profile"}</h2>
-          <Button variant="outline" onClick={() => setIsFormOpen(false)}><X size={16} className="mr-1" /> Cancel</Button>
-        </div>
-
-        <form onSubmit={handleSave} style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 32 }}>
-          {/* Photo Section */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 160, height: 160, borderRadius: 8, border: "2px dashed #d1d5db", background: "#f9fafb", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative" }}>
-              {formData.photo ? (
-                <img
-                  src={formData.photo}
-                  alt="Staff"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    objectPosition: photoPosition,
-                  }}
-                />
-              ) : (
-                <div style={{ textAlign: "center", color: C.gray }}>
-                  <Upload size={32} style={{ marginBottom: 8, opacity: 0.5 }} />
-                  <div style={{ fontSize: 12 }}>Upload Photo</div>
-                </div>
-              )}
-            </div>
-            {formData.photo && (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: C.gray }}>Adjust position</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4 }}>
-                  {PHOTO_POSITIONS.map((pos) => (
-                    <button
-                      key={pos.value}
-                      type="button"
-                      onClick={() => setFormData((prev) => ({ ...prev, photoPosition: pos.value }))}
-                      title={pos.value}
-                      style={{
-                        width: 28,
-                        height: 28,
-                        padding: 0,
-                        border: photoPosition === pos.value ? "2px solid " + C.navy : "1px solid #d1d5db",
-                        borderRadius: 4,
-                        background: photoPosition === pos.value ? C.navyL : "#fff",
-                        color: photoPosition === pos.value ? C.navy : C.gray,
-                        cursor: "pointer",
-                        fontSize: 12,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {pos.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            <input type="file" ref={fileInputRef} accept="image/*" style={{ display: "none" }} onChange={handlePhotoUpload} />
-            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>Select Image</Button>
-            {formData.photo && <Button variant="destructive" size="sm" className="-mt-1" onClick={() => setFormData({ ...formData, photo: null })}>Clear Photo</Button>}
-          </div>
-
-          {/* Fields */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {/* Tabs for fields */}
-            <div style={{ display: "flex", gap: 8, borderBottom: "1px solid #e5e7eb", paddingBottom: 8, overflowX: "auto" }}>
-              {["Personal", "Employment", "Qualifications", "Banking", "System"].map(tab => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={(e) => { e.preventDefault(); setFormTab(tab); }}
-                  style={{ padding: "6px 12px", borderRadius: 4, border: "none", background: formTab === tab ? C.navy : "#f3f4f6", color: formTab === tab ? "#fff" : C.gray, cursor: "pointer", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 20px" }}>
-            {STAFF_PROFILE_FIELDS.filter(field => {
-              const personalFields = ["name", "fname", "cnic", "dob", "domicile", "contact", "email", "address", "emergencyContact"];
-              const employmentFields = ["staffCategory", "cpn", "designation", "bps", "doe", "dprs", "dppp", "daps"];
-              const qualFields = ["aq", "subj", "pq"];
-              const bankingFields = ["bankName", "accNo", "iban", "bankCode", "branch"];
-              const systemFields = ["employeeStatus", "department"];
-
-              if (formTab === "Personal") return personalFields.includes(field.id);
-              if (formTab === "Employment") return employmentFields.includes(field.id);
-              if (formTab === "Qualifications") return qualFields.includes(field.id);
-              if (formTab === "Banking") return bankingFields.includes(field.id);
-              if (formTab === "System") return systemFields.includes(field.id);
-              return true;
-            }).map((field) => {
-              const isDate = field.type === "date";
-              const isTextProper = ["name", "fname", "designation", "domicile", "aq", "subj", "pq", "bankName", "branch", "address"].includes(field.id);
-              const value = formData[field.id] || "";
-              const handleChange = (e) => {
-                let v = e.target.value;
-                if (field.id === "iban") v = v.replace(/[\W_]+/g,"").toUpperCase().slice(0, 24); // IBAN structure formatting
-                setFormData({ ...formData, [field.id]: v });
-              };
-              const handleBlur = (e) => {
-                const v = e.target.value;
-                if (field.id === "cnic") setFormData((prev) => ({ ...prev, [field.id]: staffFormatCNIC(v) }));
-                else if (field.id === "contact") setFormData((prev) => ({ ...prev, [field.id]: staffFormatPhone(v) }));
-                else if (isDate) setFormData((prev) => ({ ...prev, [field.id]: staffFormatDateInput(v) }));
-                else if (isTextProper && field.type !== "email") setFormData((prev) => ({ ...prev, [field.id]: toProperCase(v) }));
-              };
-              const onChange = (e) => {
-                let v = e.target.value;
-                if (field.id === "cnic") setFormData({ ...formData, [field.id]: staffFormatCNIC(v) });
-                else if (field.id === "contact") setFormData({ ...formData, [field.id]: staffFormatPhone(v) });
-                else if (field.id === "iban") setFormData({ ...formData, [field.id]: v.replace(/[\W_]+/g,"").toUpperCase().slice(0, 24) });
-                else if (isDate) setFormData({ ...formData, [field.id]: staffFormatDateInput(v) });
-                else setFormData({ ...formData, [field.id]: v });
-              };
-              return (
-              <div key={field.id} style={{ gridColumn: field.type === "textarea" ? "1 / span 2" : "auto" }}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.gray, marginBottom: 4 }}>
-                  {field.label} {field.id === "name" && <span style={{ color: C.red }}>*</span>}
-                </label>
-                {field.type === "textarea" ? (
-                  <textarea
-                    value={value}
-                    onChange={handleChange}
-                    onBlur={(e) => isTextProper && setFormData((prev) => ({ ...prev, [field.id]: toProperCase(e.target.value) }))}
-                    placeholder={`Enter ${field.label}`}
-                    style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #d1d5db", borderRadius: 6, fontSize: 13, minHeight: 80, boxSizing: "border-box", fontFamily: "inherit" }}
+      <Card className="min-h-full border-border/70 shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-lg text-primary">{editingId ? "Edit Staff Profile" : "Add Staff Profile"}</CardTitle>
+          <Button type="button" variant="outline" size="sm" onClick={() => setIsFormOpen(false)}>
+            <X className="mr-1" />
+            Cancel
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSave} className="grid gap-8 lg:grid-cols-[200px_1fr]">
+            <div className="flex flex-col items-center gap-3">
+              <div className="relative flex h-40 w-40 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-border bg-muted/20">
+                {formData.photo ? (
+                  <img
+                    src={formData.photo}
+                    alt="Staff"
+                    className="h-full w-full object-cover"
+                    style={{ objectPosition: photoPosition }}
                   />
-                ) : field.type === "select" ? (
-                  <select
-                    value={value || (field.options && field.options[0]) || ""}
-                    onChange={handleChange}
-                    style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #d1d5db", borderRadius: 6, fontSize: 13, boxSizing: "border-box", background: "#fff" }}
-                  >
-                    {(field.options || []).map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                  </select>
                 ) : (
-                  <input
-                    type={isDate ? "text" : field.type}
-                    value={value}
-                    onChange={onChange}
-                    onBlur={handleBlur}
-                    placeholder={isDate ? "dd/mm/yyyy" : field.type === "email" ? "" : undefined}
-                    maxLength={field.id === "iban" ? 24 : isDate ? 10 : field.id === "cnic" ? 15 : field.id === "contact" ? 12 : undefined}
-                    style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #d1d5db", borderRadius: 6, fontSize: 13, boxSizing: "border-box" }}
-                  />
+                  <div className="text-center text-muted-foreground">
+                    <Upload className="mx-auto mb-2 opacity-50" size={32} />
+                    <div className="text-xs">Upload Photo</div>
+                  </div>
                 )}
               </div>
-            );})}
+              {formData.photo && (
+                <div className="flex flex-col items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-muted-foreground">Adjust position</span>
+                  <div className="grid grid-cols-3 gap-1">
+                    {PHOTO_POSITIONS.map((pos) => (
+                      <Button
+                        key={pos.value}
+                        type="button"
+                        variant={photoPosition === pos.value ? "default" : "outline"}
+                        size="icon-xs"
+                        onClick={() => setFormData((prev) => ({ ...prev, photoPosition: pos.value }))}
+                        title={pos.value}
+                        className="text-xs"
+                      >
+                        {pos.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <input type="file" ref={fileInputRef} accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+              <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                Select Image
+              </Button>
+              {formData.photo && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setFormData({ ...formData, photo: null })}
+                >
+                  Clear Photo
+                </Button>
+              )}
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 12, borderTop: "1px solid #e5e7eb", paddingTop: 20 }}>
-              <Button variant="outline" onClick={() => setIsFormOpen(false)}>Cancel</Button>
-              <Button type="submit">Save Profile</Button>
+
+            <div className="flex min-w-0 flex-col gap-4">
+              <Tabs value={formTab} onValueChange={setFormTab}>
+                <TabsList className="h-auto w-full flex-wrap justify-start">
+                  {STAFF_FORM_TABS.map((tab) => (
+                    <TabsTrigger key={tab} value={tab}>
+                      {tab}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {STAFF_PROFILE_FIELDS.filter((field) => activeFormFieldIds?.includes(field.id)).map((field) => {
+                  const isDate = field.type === "date";
+                  const isTextProper = ["name", "fname", "designation", "domicile", "aq", "subj", "pq", "bankName", "branch", "address"].includes(field.id);
+                  const value = formData[field.id] || "";
+                  const inputId = `staff-field-${field.id}`;
+                  const handleChange = (e) => {
+                    let v = e.target.value;
+                    if (field.id === "iban") v = v.replace(/[\W_]+/g, "").toUpperCase().slice(0, 24);
+                    setFormData({ ...formData, [field.id]: v });
+                  };
+                  const handleBlur = (e) => {
+                    const v = e.target.value;
+                    if (field.id === "cnic") setFormData((prev) => ({ ...prev, [field.id]: staffFormatCNIC(v) }));
+                    else if (field.id === "contact") setFormData((prev) => ({ ...prev, [field.id]: staffFormatPhone(v) }));
+                    else if (isDate) setFormData((prev) => ({ ...prev, [field.id]: staffFormatDateInput(v) }));
+                    else if (isTextProper && field.type !== "email") setFormData((prev) => ({ ...prev, [field.id]: toProperCase(v) }));
+                  };
+                  const onChange = (e) => {
+                    let v = e.target.value;
+                    if (field.id === "cnic") setFormData({ ...formData, [field.id]: staffFormatCNIC(v) });
+                    else if (field.id === "contact") setFormData({ ...formData, [field.id]: staffFormatPhone(v) });
+                    else if (field.id === "iban") setFormData({ ...formData, [field.id]: v.replace(/[\W_]+/g, "").toUpperCase().slice(0, 24) });
+                    else if (isDate) setFormData({ ...formData, [field.id]: staffFormatDateInput(v) });
+                    else setFormData({ ...formData, [field.id]: v });
+                  };
+                  return (
+                    <FieldWrap
+                      key={field.id}
+                      label={field.label}
+                      htmlFor={inputId}
+                      required={field.id === "name"}
+                      className={field.type === "textarea" ? "sm:col-span-2" : undefined}
+                    >
+                      {field.type === "textarea" ? (
+                        <Textarea
+                          id={inputId}
+                          value={value}
+                          onChange={handleChange}
+                          onBlur={(e) => isTextProper && setFormData((prev) => ({ ...prev, [field.id]: toProperCase(e.target.value) }))}
+                          placeholder={`Enter ${field.label}`}
+                          className="min-h-[80px]"
+                        />
+                      ) : field.type === "select" ? (
+                        <NativeSelect id={inputId} value={value || (field.options && field.options[0]) || ""} onChange={handleChange} className="w-full">
+                          {(field.options || []).map((opt) => (
+                            <NativeSelectOption key={opt} value={opt}>
+                              {opt}
+                            </NativeSelectOption>
+                          ))}
+                        </NativeSelect>
+                      ) : (
+                        <Input
+                          id={inputId}
+                          type={isDate ? "text" : field.type}
+                          value={value}
+                          onChange={onChange}
+                          onBlur={handleBlur}
+                          placeholder={isDate ? "dd/mm/yyyy" : field.type === "email" ? "" : undefined}
+                          maxLength={field.id === "iban" ? 24 : isDate ? 10 : field.id === "cnic" ? 15 : field.id === "contact" ? 12 : undefined}
+                          className="w-full"
+                        />
+                      )}
+                    </FieldWrap>
+                  );
+                })}
+              </div>
+
+              <Separator />
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">Save Profile</Button>
+              </div>
             </div>
-          </div>
-        </form>
-        </div>
-      </>
+          </form>
+        </CardContent>
+      </Card>
     );
   }
 
 
   const teacherProfiles = safeProfiles.filter((p) => normalizeStaffCategory(p.staffCategory) === "Teaching");
   const workerProfiles = safeProfiles.filter((p) => normalizeStaffCategory(p.staffCategory) === "Non Teaching");
+  const activeRows = tableTab === "Non Teaching" ? workerProfiles : teacherProfiles;
+  const activeGroup = STAFF_TABLE_GROUPS.find((g) => g.title === colTab) || STAFF_TABLE_GROUPS[0];
+  const visibleHeaders = STAFF_PROFILE_TABLE_HEADERS.filter((h) => {
+    if (h.id === "photo" || h.id === "name") return true;
+    return activeGroup.fields.includes(h.id);
+  });
+  const nowrapFields = new Set(["cnic", "dob", "contact", "email", "emergencyContact"]);
+
+  const buildExportRows = () => {
+    const headers = STAFF_PROFILE_TABLE_HEADERS.map((h) => h.label);
+    const rows = safeProfiles.map((p) =>
+      STAFF_PROFILE_TABLE_HEADERS.map((h) => {
+        const v = p[h.id];
+        if (h.id === "staffCategory") return normalizeStaffCategory(p.staffCategory);
+        if (v == null || v === "") return "—";
+        const s = String(v).trim();
+        if (["dob", "doe", "dprs", "dppp", "daps"].includes(h.id)) return staffDateToDDMMYYYY(s) || "—";
+        if (h.id === "cnic") return staffFormatCNIC(s) || "—";
+        if (h.id === "contact") return staffFormatPhone(s) || "—";
+        if (["name", "fname", "designation", "domicile", "aq", "subj", "pq", "bankName", "branch", "address"].includes(h.id)) {
+          return toProperCase(s) || "—";
+        }
+        return h.id === "photo" ? (p.photo ? "Photo" : "—") : s;
+      }),
+    );
+    return { headers, rows };
+  };
+
+  const cellVal = (p, id) => {
+    if (id === "staffCategory") return normalizeStaffCategory(p.staffCategory);
+    const v = p[id];
+    if (v == null || v === "") return "—";
+    if (typeof v === "object" || typeof v === "function") return "—";
+    const s = String(v).trim();
+    const sensitive = ["cnic", "contact", "accNo", "iban"];
+    if (!showSensitive && sensitive.includes(id)) {
+      if (id === "cnic" && s.length >= 13) return `•••••-•••••••-${s.slice(-1)}`;
+      if (id === "contact" && s.length >= 11) return `${s.slice(0, 4)} ••••• ${s.slice(-2)}`;
+      if ((id === "accNo" || id === "iban") && s.length > 6) return `${s.slice(0, 4)}••••••••${s.slice(-4)}`;
+      return "••••••••";
+    }
+    if (["dob", "doe", "dprs", "dppp", "daps"].includes(id)) return staffDateToDDMMYYYY(s) || "—";
+    if (id === "cnic") return staffFormatCNIC(s) || "—";
+    if (id === "contact" || id === "emergencyContact") return staffFormatPhone(s) || s || "—";
+    if (["name", "fname", "designation", "domicile", "aq", "subj", "pq", "bankName", "branch", "address"].includes(id)) {
+      return toProperCase(s) || "—";
+    }
+    return s;
+  };
 
   return (
-    <Card className="min-h-full border-border/70 shadow-sm">
-      <CardContent className="space-y-4 p-5">
-      <div>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-[200px] flex-1 overflow-x-auto">
-            {safeProfiles.length > 0 && (
-              <Tabs value={tableTab} onValueChange={setTableTab}>
-                <TabsList className="h-auto">
-                  <TabsTrigger value="Teaching">Teaching ({teacherProfiles.length})</TabsTrigger>
-                  <TabsTrigger value="Non Teaching">Non Teaching ({workerProfiles.length})</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {safeProfiles.length > 0 && (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowSensitive(!showSensitive)}
-                  className="gap-1.5"
-                >
-                  {showSensitive ? <EyeOff size={16} /> : <Eye size={16} />}
-                  {showSensitive ? "Hide Sensitive Data" : "Show Sensitive Data"}
+    <div className="flex flex-col gap-3">
+      <Card className="border-border/70 shadow-sm">
+        <CardHeader className="gap-3 space-y-0 pb-3">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 space-y-1">
+                <CardTitle className="text-base">Staff directory</CardTitle>
+                <CardDescription>
+                  {safeProfiles.length} profile{safeProfiles.length === 1 ? "" : "s"} · {activeGroup.short || activeGroup.title} columns
+                </CardDescription>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {safeProfiles.length > 0 && (
+                  <>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setShowSensitive(!showSensitive)}>
+                      {showSensitive ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      {showSensitive ? "Hide Sensitive" : "Show Sensitive"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const { headers, rows } = buildExportRows();
+                        void exportTableToPdf(settings, currentSession, "Staff Profiles", headers, rows, "Staff_Profiles.pdf").catch(() =>
+                          alert("PDF export failed."),
+                        );
+                      }}
+                    >
+                      Export PDF
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const { headers, rows } = buildExportRows();
+                        void exportTableToExcel(settings, currentSession, "Staff Profiles", headers, rows, "Staff_Profiles.xlsx");
+                      }}
+                    >
+                      Export Excel
+                    </Button>
+                  </>
+                )}
+                <Button size="sm" onClick={() => handleOpenForm()}>
+                  <Plus className="size-4" />
+                  Add Profile
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => { const headers = STAFF_PROFILE_TABLE_HEADERS.map((h) => h.label); const rows = safeProfiles.map((p) => STAFF_PROFILE_TABLE_HEADERS.map((h) => { const v = p[h.id]; if (h.id === "staffCategory") return normalizeStaffCategory(p.staffCategory); if (v == null || v === "") return "—"; const s = String(v).trim(); if (["dob", "doe", "dprs", "dppp", "daps"].includes(h.id)) return staffDateToDDMMYYYY(s) || "—"; if (h.id === "cnic") return staffFormatCNIC(s) || "—"; if (h.id === "contact") return staffFormatPhone(s) || "—"; if (["name", "fname", "designation", "domicile", "aq", "subj", "pq", "bankName", "branch", "address"].includes(h.id)) return toProperCase(s) || "—"; return h.id === "photo" ? (p.photo ? "Photo" : "—") : s; })); void exportTableToPdf(settings, currentSession, "Staff Profiles", headers, rows, "Staff_Profiles.pdf").catch(()=>alert("PDF export failed.")); }}>Export PDF</Button>
-                <Button variant="outline" size="sm" onClick={() => { const headers = STAFF_PROFILE_TABLE_HEADERS.map((h) => h.label); const rows = safeProfiles.map((p) => STAFF_PROFILE_TABLE_HEADERS.map((h) => { const v = p[h.id]; if (h.id === "staffCategory") return normalizeStaffCategory(p.staffCategory); if (v == null || v === "") return "—"; const s = String(v).trim(); if (["dob", "doe", "dprs", "dppp", "daps"].includes(h.id)) return staffDateToDDMMYYYY(s) || "—"; if (h.id === "cnic") return staffFormatCNIC(s) || "—"; if (h.id === "contact") return staffFormatPhone(s) || "—"; if (["name", "fname", "designation", "domicile", "aq", "subj", "pq", "bankName", "branch", "address"].includes(h.id)) return toProperCase(s) || "—"; return h.id === "photo" ? (p.photo ? "Photo" : "—") : s; })); void exportTableToExcel(settings, currentSession, "Staff Profiles", headers, rows, "Staff_Profiles.xlsx"); }}>Export Excel</Button>
-              </>
-            )}
-            <Button onClick={() => handleOpenForm()}><Plus size={16} className="mr-1.5" /> Add Profile</Button>
-          </div>
-        </div>
-        {safeProfiles.length > 0 && (
-          <Tabs value={colTab} onValueChange={setColTab}>
-            <TabsList className="h-auto flex-wrap">
-              {STAFF_TABLE_GROUPS.map((g) => (
-                <TabsTrigger key={g.title} value={g.title}>{g.title}</TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-        )}
-      </div>
-
-
-      {transferOpen && (
-        <div style={{ marginBottom: 16, padding: 14, border: "1px solid #cbd5e1", borderRadius: 8, background: "#f8fafc" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <strong style={{ color: C.navy }}>Transfer Staff</strong>
-            <Button variant="outline" size="sm" onClick={() => setTransferOpen(false)}>Close</Button>
-          </div>
-          <div style={{ fontSize: 12, color: C.gray, marginBottom: 10 }}>
-            {transferStaff?.name ? `Staff: ${transferStaff.name}` : "Select transfer details."}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10, alignItems: "end" }}>
-            <div>
-              <label style={{ display: "block", fontSize: 12, marginBottom: 4, color: C.gray, fontWeight: 600 }}>Transfer Type</label>
-              <select value={transferType} onChange={(e) => setTransferType(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1.5px solid #d1d5db", borderRadius: 6 }}>
-                <option value="school" disabled={targetSchools.length === 0}>School to School</option>
-                <option value="retired">Retired</option>
-              </select>
+              </div>
             </div>
-            {transferType === "school" && (
-              <div>
-                <label style={{ display: "block", fontSize: 12, marginBottom: 4, color: C.gray, fontWeight: 600 }}>Target School</label>
-                <select value={transferTargetSchoolId} onChange={(e) => setTransferTargetSchoolId(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1.5px solid #d1d5db", borderRadius: 6 }}>
-                  {targetSchools.length === 0 && <option value="">No active target school available</option>}
-                  {targetSchools.map((s) => <option key={s.id} value={s.id}>{s.name || s.id}</option>)}
-                </select>
+
+            {safeProfiles.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <Tabs value={tableTab} onValueChange={setTableTab}>
+                  <TabsList>
+                    <TabsTrigger value="Teaching">Teaching ({teacherProfiles.length})</TabsTrigger>
+                    <TabsTrigger value="Non Teaching">Non Teaching ({workerProfiles.length})</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <Tabs value={colTab} onValueChange={setColTab}>
+                  <div className="overflow-x-auto">
+                    <TabsList className="h-9 w-max max-w-none">
+                      {STAFF_TABLE_GROUPS.map((g) => (
+                        <TabsTrigger key={g.title} value={g.title} className="shrink-0">
+                          {g.short || g.title}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  </div>
+                </Tabs>
               </div>
             )}
-            <div>
-              <label style={{ display: "block", fontSize: 12, marginBottom: 4, color: C.gray, fontWeight: 600 }}>Transfer Date</label>
-              <input type="date" value={transferDate} onChange={(e) => setTransferDate(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1.5px solid #d1d5db", borderRadius: 6 }} />
-            </div>
-            <div>
-              <Button onClick={handleTransfer} disabled={transferType === "school" && targetSchools.length === 0}>Save Transfer</Button>
-            </div>
           </div>
-        </div>
-      )}
-      {safeProfiles.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "60px 20px", background: "#f9fafb", borderRadius: 8, border: "2px dashed #e5e7eb" }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>👨‍🏫</div>
-          <h3 style={{ margin: "0 0 8px", color: C.navy }}>No Staff Profiles Found</h3>
-          <p style={{ margin: 0, color: C.gray, fontSize: 13, maxWidth: 400, marginInline: "auto" }}>Get started by adding your first staff profile. You can record comprehensive details including CPN, qualifications, dates of entry, and banking info.</p>
-          <br />
-          <Button onClick={() => handleOpenForm()}>Add First Profile</Button>
-        </div>
-      ) : (
-        <div style={{ display: "grid", gap: 18 }}>
+        </CardHeader>
 
-          {[{ title: "Teaching", rows: teacherProfiles }, { title: "Non Teaching", rows: workerProfiles }]
-            .filter(section => section.title === tableTab)
-            .map((section) => {
-              const visibleHeaders = STAFF_PROFILE_TABLE_HEADERS.filter(h => {
-                const isSticky = h.id === "photo" || h.id === "name";
-                if (isSticky) return true;
-                const group = STAFF_TABLE_GROUPS.find(g => g.title === colTab);
-                return group && group.fields.includes(h.id);
-              });
-              const nowrapFields = new Set(["cnic", "dob", "contact", "email", "emergencyContact"]);
-
-              return (
-            <div key={section.title} style={{ border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
-              {section.rows.length === 0 ? (
-                <div style={{ padding: "14px 12px", color: C.gray, fontSize: 13 }}>No profiles in this category.</div>
-              ) : (
-                <div style={{ overflowX: "auto", maxHeight: "70vh" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 500 }}>
-                    <thead>
-                      <tr style={{ background: C.navy, color: "#fff" }}>
-                        {visibleHeaders.map((h, i) => (
-                          <th key={h.id} style={{ padding: "10px 12px", textAlign: "left", whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 3, background: C.navy, borderRadius: i === 0 ? "6px 0 0 0" : undefined }}>{h.label}</th>
-                        ))}
-                        <th style={{ padding: "10px 12px", textAlign: "center", borderRadius: "0 6px 0 0", whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 3, background: C.navy }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {section.rows.map((p, i) => {
-                        const cellVal = (id) => {
-                          if (id === "staffCategory") return normalizeStaffCategory(p.staffCategory);
-                          const v = p[id];
-                          if (v == null || v === "") return "—";
-                          if (typeof v === "object" || typeof v === "function") return "—";
-                          const s = String(v).trim();
-                          const sensitive = ["cnic", "contact", "accNo", "iban"];
-                          if (!showSensitive && sensitive.includes(id)) {
-                             if (id === "cnic" && s.length >= 13) return "•••••-•••••••-" + s.slice(-1);
-                             if (id === "contact" && s.length >= 11) return s.slice(0, 4) + " ••••• " + s.slice(-2);
-                             if ((id === "accNo" || id === "iban") && s.length > 6) return s.slice(0, 4) + "••••••••" + s.slice(-4);
-                             return "••••••••";
-                          }
-                          if (["dob", "doe", "dprs", "dppp", "daps"].includes(id)) return staffDateToDDMMYYYY(s) || "—";
-                          if (id === "cnic") return staffFormatCNIC(s) || "—";
-                          if (id === "contact" || id === "emergencyContact") return staffFormatPhone(s) || s || "—";
-                          if (["name", "fname", "designation", "domicile", "aq", "subj", "pq", "bankName", "branch", "address"].includes(id)) return toProperCase(s) || "—";
-                          return s;
-                        };
+        <CardContent className="pt-0">
+          {safeProfiles.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed bg-muted/20 px-6 py-16 text-center">
+              <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Plus className="size-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold">No staff profiles yet</h3>
+                <p className="mx-auto max-w-md text-sm text-muted-foreground">
+                  Add your first profile to record CPN, qualifications, service dates, and banking details.
+                </p>
+              </div>
+              <Button onClick={() => handleOpenForm()}>Add First Profile</Button>
+            </div>
+          ) : activeRows.length === 0 ? (
+            <div className="rounded-lg border border-dashed bg-muted/10 px-4 py-10 text-center text-sm text-muted-foreground">
+              No profiles in this category.
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    {visibleHeaders.map((h) => (
+                      <TableHead key={h.id} className="whitespace-nowrap font-semibold">
+                        {h.label}
+                      </TableHead>
+                    ))}
+                    <TableHead className="whitespace-nowrap text-center font-semibold">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {activeRows.map((p, i) => (
+                    <TableRow key={p.id != null ? p.id : `row-${i}`}>
+                      {visibleHeaders.map((h) => {
+                        const value = cellVal(p, h.id);
                         return (
-                        <tr key={p.id != null ? p.id : `row-${i}`} style={{ borderBottom: "1px solid #e5e7eb", background: i % 2 === 0 ? "#f9fafb" : "#fff" }}>
-                          {visibleHeaders.map((h) => (
-                            <td
-                              key={h.id}
-                              style={{
-                                padding: "10px 12px",
-                                color: h.id === "name" ? C.navy : "inherit",
-                                fontWeight: h.id === "name" ? 600 : 400,
-                                maxWidth: h.id === "address" ? 220 : nowrapFields.has(h.id) ? undefined : 180,
-                                whiteSpace: nowrapFields.has(h.id) ? "nowrap" : h.id === "address" ? "normal" : "nowrap",
-                                verticalAlign: "middle",
-                              }}
-                              title={nowrapFields.has(h.id) || h.id === "address" ? String(cellVal(h.id)) : undefined}
-                            >
-                              {h.id === "photo" ? (
-                                p.photo && typeof p.photo === "string" ? (
-                                  <img src={p.photo} alt="" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", objectPosition: p.photoPosition || "50% 50%" }} />
-                                ) : (
-                                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#e5e7eb", color: C.gray, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>
-                                    {(p.name && typeof p.name === "string" ? p.name.charAt(0) : "?")}
-                                  </div>
-                                )
-                              ) : (
-                                cellVal(h.id)
-                              )}
-                            </td>
-                          ))}
-                          <td style={{ padding: "10px 12px", textAlign: "center", verticalAlign: "middle" }}>
-                            <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                              <button onClick={() => handleOpenForm(p)} style={{ background: "#dbeafe", color: "#1e40af", border: "none", padding: 6, borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center" }} title="Edit">
-                                <Edit2 size={14} />
-                              </button>
-                              <button onClick={() => handleDelete(p.id)} style={{ background: "#fee2e2", color: "#b91c1c", border: "none", padding: 6, borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center" }} title="Delete">
-                                <Trash2 size={14} />
-                              </button>
-                              <button onClick={() => moveStaffWithinCategory(p.id, "up")} style={{ background: "#f8fafc", color: C.navy, border: "1px solid #cbd5e1", padding: "6px 8px", borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", fontSize: 12, fontWeight: 700 }} title="Move Up">
-                                ↑
-                              </button>
-                              <button onClick={() => moveStaffWithinCategory(p.id, "down")} style={{ background: "#f8fafc", color: C.navy, border: "1px solid #cbd5e1", padding: "6px 8px", borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", fontSize: 12, fontWeight: 700 }} title="Move Down">
-                                ↓
-                              </button>
-                              <button onClick={() => openTransferDialog(p)} style={{ background: "#ecfeff", color: "#155e75", border: "none", padding: "6px 8px", borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", fontSize: 12, fontWeight: 700 }} title="Transfer">
-                                Transfer
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                          <TableCell
+                            key={h.id}
+                            className={cn(
+                              "align-middle",
+                              h.id === "name" && "font-semibold text-primary",
+                              nowrapFields.has(h.id) && "whitespace-nowrap",
+                              h.id === "address" && "max-w-[220px] whitespace-normal",
+                            )}
+                            title={nowrapFields.has(h.id) || h.id === "address" ? String(value) : undefined}
+                          >
+                            {h.id === "photo" ? (
+                              <Avatar size="sm">
+                                {p.photo && typeof p.photo === "string" ? (
+                                  <AvatarImage src={p.photo} alt="" style={{ objectPosition: p.photoPosition || "50% 50%" }} />
+                                ) : null}
+                                <AvatarFallback>
+                                  {p.name && typeof p.name === "string" ? p.name.charAt(0).toUpperCase() : "?"}
+                                </AvatarFallback>
+                              </Avatar>
+                            ) : (
+                              value
+                            )}
+                          </TableCell>
                         );
                       })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      <TableCell className="align-middle">
+                        <div className="flex flex-nowrap items-center justify-center gap-1">
+                          <Button type="button" variant="outline" size="icon-sm" onClick={() => handleOpenForm(p)} title="Edit">
+                            <Edit2 className="size-3.5" />
+                          </Button>
+                          <Button type="button" variant="destructive" size="icon-sm" onClick={() => handleDelete(p.id)} title="Delete">
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                          <Button type="button" variant="outline" size="icon-sm" onClick={() => moveStaffWithinCategory(p.id, "up")} title="Move Up">
+                            ↑
+                          </Button>
+                          <Button type="button" variant="outline" size="icon-sm" onClick={() => moveStaffWithinCategory(p.id, "down")} title="Move Down">
+                            ↓
+                          </Button>
+                          <Button type="button" variant="secondary" size="sm" onClick={() => openTransferDialog(p)} title="Transfer">
+                            Transfer
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-            );
-          })}
-        </div>
-      )}
-      </CardContent>
-    </Card>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Transfer Staff</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {transferStaff?.name ? `Staff: ${transferStaff.name}` : "Select transfer details."}
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FieldWrap label="Transfer Type" htmlFor="staff-transfer-type">
+              <NativeSelect id="staff-transfer-type" value={transferType} onChange={(e) => setTransferType(e.target.value)} className="w-full">
+                <NativeSelectOption value="school" disabled={targetSchools.length === 0}>
+                  School to School
+                </NativeSelectOption>
+                <NativeSelectOption value="retired">Retired</NativeSelectOption>
+              </NativeSelect>
+            </FieldWrap>
+            {transferType === "school" && (
+              <FieldWrap label="Target School" htmlFor="staff-transfer-target">
+                <NativeSelect
+                  id="staff-transfer-target"
+                  value={transferTargetSchoolId}
+                  onChange={(e) => setTransferTargetSchoolId(e.target.value)}
+                  className="w-full"
+                >
+                  {targetSchools.length === 0 && (
+                    <NativeSelectOption value="">No active target school available</NativeSelectOption>
+                  )}
+                  {targetSchools.map((s) => (
+                    <NativeSelectOption key={s.id} value={s.id}>
+                      {s.name || s.id}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </FieldWrap>
+            )}
+            <FieldWrap label="Transfer Date" htmlFor="staff-transfer-date" className={transferType === "school" ? undefined : "sm:col-span-2"}>
+              <Input
+                id="staff-transfer-date"
+                type="date"
+                value={transferDate}
+                onChange={(e) => setTransferDate(e.target.value)}
+                className="w-full"
+              />
+            </FieldWrap>
+          </div>
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => setTransferOpen(false)}>
+              Close
+            </Button>
+            <Button type="button" onClick={handleTransfer} disabled={transferType === "school" && targetSchools.length === 0}>
+              Save Transfer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
