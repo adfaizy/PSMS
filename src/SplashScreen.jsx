@@ -10,7 +10,7 @@ export function SplashScreen({ exiting, progressDurationMs = 5000 }) {
       style={{ "--splash-progress-ms": `${progressDurationMs}ms` }}
       role="status"
       aria-live="polite"
-      aria-label="Loading Punjab School Management System"
+      aria-label="Loading Punjab-SMS"
     >
       <div className="app-splash__glow" aria-hidden />
       <div className="app-splash__stage">
@@ -33,7 +33,7 @@ export function SplashScreen({ exiting, progressDurationMs = 5000 }) {
       </div>
       <div className="app-splash__footer">
         <Lock className="app-splash__lock" aria-hidden strokeWidth={2.25} />
-        <span>Punjab School Management System</span>
+        <span>Punjab-SMS</span>
       </div>
     </div>
   );

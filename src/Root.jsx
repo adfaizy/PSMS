@@ -2,15 +2,15 @@ import { useEffect, useState } from "react";
 import App from "./App.jsx";
 import { SplashScreen } from "./SplashScreen.jsx";
 
-/** Visible splash (logo static + progress bar) before fade-out */
-const SPLASH_MIN_MS = 1400;
-const SPLASH_FADE_MS = 480;
+/** Short splash so startup feels instant; fade is brief. */
+const SPLASH_MIN_MS = 320;
+const SPLASH_FADE_MS = 180;
 
 export default function Root() {
   const isHostedWeb =
     typeof window !== "undefined" &&
     !window.Capacitor;
-  const splashMinMs = isHostedWeb ? 900 : SPLASH_MIN_MS;
+  const splashMinMs = isHostedWeb ? 220 : SPLASH_MIN_MS;
   const [showSplash, setShowSplash] = useState(true);
   const [splashExiting, setSplashExiting] = useState(false);
 

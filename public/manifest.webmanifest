@@ -1,26 +1,32 @@
 {
   "id": "/",
-  "name": "PSMS — Punjab School Management System",
-  "short_name": "PSMS",
-  "description": "Punjab School Management System — local-first school dashboard",
+  "name": "Punjab-SMS",
+  "short_name": "Punjab-SMS",
+  "description": "Punjab-SMS — local-first school management dashboard",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#ffffff",
-  "theme_color": "#1B5E20",
+  "theme_color": "#0B3A6E",
   "icons": [
     {
-      "src": "/favicon.png",
+      "src": "/pwa-icon-192.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any"
     },
     {
-      "src": "/favicon.png",
+      "src": "/pwa-icon-512.png",
       "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
   ]
 }

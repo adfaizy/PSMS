@@ -9,7 +9,7 @@ const DEFAULT_INQUIRY_INTRO =
 
 export const WHATSAPP_HREF = `https://wa.me/${PHONE_E164}?text=${encodeURIComponent(DEFAULT_INQUIRY_INTRO)}`
 export const TEL_HREF = `tel:+${PHONE_E164}`
-export const MAILTO_HREF = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('PSMS - Punjab School Management System - inquiry')}&body=${encodeURIComponent(DEFAULT_INQUIRY_INTRO)}`
+export const MAILTO_HREF = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Punjab-SMS - inquiry')}&body=${encodeURIComponent(DEFAULT_INQUIRY_INTRO)}`
 
 function getStorage(storageOverride) {
   if (storageOverride) return storageOverride

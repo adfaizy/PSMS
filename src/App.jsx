@@ -572,7 +572,7 @@ function AuthScreen({ onSignIn, setActiveSchoolId }) {
           <div style={{ background: "var(--color-navy,#1a3a6b)", color: "#fff", padding: "20px 24px", display: "flex", alignItems: "center", gap: 12 }}>
             <img src={APP_BRAND_LOGO} alt="" style={{ width: 80, height: 80, objectFit: "contain", flexShrink: 0, borderRadius: 8, background: "rgba(255,255,255,0.1)", padding: 4 }} />
             <div>
-              <div style={{ fontWeight: 700, fontSize: 17 }}>Punjab School Management System</div>
+              <div style={{ fontWeight: 700, fontSize: 17 }}>Punjab-SMS</div>
               <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>Sign in with your account</div>
             </div>
           </div>
@@ -964,7 +964,7 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
         <img src={APP_BRAND_LOGO} alt="" style={{ width: 72, height: 72, objectFit: "contain", borderRadius: 8, background: "rgba(255,255,255,0.1)", padding: 4, flexShrink: 0 }} />
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: 16 }}>Admin Panel</div>
-          <div style={{ fontSize: 12, opacity: 0.65, marginTop: 1 }}>PSMS — Full Control</div>
+          <div style={{ fontSize: 12, opacity: 0.65, marginTop: 1 }}>Punjab-SMS — Full Control</div>
         </div>
         <div
           title={cloudMsg || (cloudOk ? "Cloud connected — school logins sync to every device" : "Cloud not connected — logins stay on this device only")}

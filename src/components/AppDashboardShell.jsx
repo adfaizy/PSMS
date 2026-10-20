@@ -304,7 +304,7 @@ export function AppDashboardShell({
                 <SidebarMenuButton
                   size="lg"
                   className="pointer-events-none"
-                  tooltip={(schoolName || "").trim() || "PSMS"}
+                  tooltip={(schoolName || "").trim() || "Punjab-SMS"}
                 >
                   <img
                     src={APP_BRAND_LOGO}
@@ -313,7 +313,7 @@ export function AppDashboardShell({
                   />
                   <div className="grid min-w-0 flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                     <span className="truncate font-semibold">
-                      {(schoolName || "").trim() || "PSMS"}
+                      {(schoolName || "").trim() || "Punjab-SMS"}
                     </span>
                     <span className="truncate text-xs text-muted-foreground">
                       {schoolCode || "School workspace"}
@@ -367,7 +367,7 @@ export function AppDashboardShell({
               <BreadcrumbList className="flex-nowrap">
                 <BreadcrumbItem className="hidden min-w-0 md:inline-flex">
                   <span className="truncate text-muted-foreground">
-                    {(schoolName || "").trim() || "PSMS"}
+                    {(schoolName || "").trim() || "Punjab-SMS"}
                   </span>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator className="hidden md:block" />

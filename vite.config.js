@@ -25,6 +25,7 @@ function patchHtmlPublicLinks(base) {
       if (base === "/") return html;
       return html
         .replaceAll('href="/favicon.png"', `href="${base}favicon.png"`)
+        .replaceAll('href="/apple-touch-icon.png"', `href="${base}apple-touch-icon.png"`)
         .replaceAll('href="/manifest.webmanifest"', `href="${base}manifest.webmanifest"`);
     },
   };

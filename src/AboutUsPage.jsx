@@ -21,7 +21,7 @@ const DEFAULT_INQUIRY_INTRO =
 
 const WHATSAPP_HREF = `https://wa.me/${PHONE_E164}?text=${encodeURIComponent(DEFAULT_INQUIRY_INTRO)}`;
 const TEL_HREF = `tel:+${PHONE_E164}`;
-const MAILTO_HREF = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("PSMS — Punjab School Management System — inquiry")}&body=${encodeURIComponent(DEFAULT_INQUIRY_INTRO)}`;
+const MAILTO_HREF = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Punjab-SMS — inquiry")}&body=${encodeURIComponent(DEFAULT_INQUIRY_INTRO)}`;
 
 const DISCUSSION_STORAGE_KEY = "sms_about_discussion_messages_v1";
 const MAX_BODY_LEN = 4000;
@@ -344,7 +344,7 @@ export function AboutUsPage() {
                 PSMS
               </h1>
               <p className="mt-1.5 mb-0 text-[13px] font-semibold uppercase tracking-wide text-white/80">
-                Punjab School Management System
+                Punjab-SMS
               </p>
             </div>
           </div>
