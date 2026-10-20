@@ -197,28 +197,13 @@ body.result-card-capturing .app-layout {
 /* ——— Tablet landscape / small desktop ——— */
 @media (max-width: 1280px) {
   .app-layout:not(.app-page-timetable) {
-    padding-left: max(6px, env(safe-area-inset-left, 0px)) !important;
-    padding-right: max(6px, env(safe-area-inset-right, 0px)) !important;
-  }
-
-  #print-section {
-    padding: 14px !important;
+    padding-left: max(0px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(0px, env(safe-area-inset-right, 0px)) !important;
   }
 }
 
 @media (max-width: 1024px) {
-  .app-sidebar {
-    width: 196px !important;
-  }
-
-  .app-sidebar nav button {
-    font-size: 12px !important;
-    padding: 7px 8px !important;
-  }
-
-  #print-section {
-    padding: 12px !important;
-  }
+  /* Do not force sidebar width — shadcn Sidebar owns collapse/expand sizing */
 
   .app-topbar-center {
     max-width: min(40vw, 360px) !important;
@@ -255,12 +240,12 @@ body.result-card-capturing .app-layout {
     box-shadow: none !important;
   }
 
-  #print-section {
-    padding: 10px 10px 20px !important;
-  }
-
   .psms-grid-2 {
     grid-template-columns: 1fr !important;
+  }
+
+  .dashboard-page {
+    overflow-x: clip;
   }
 
   .psms-toolbar {
@@ -617,16 +602,16 @@ body.result-card-capturing .app-layout {
 }
 
 /*
- * Fill the real viewport even when CSS `zoom` / --psms-zoom shrinks the UI.
- * Without dividing by zoom, height:100dvh + zoom:0.75 leaves empty space below.
+ * Shell fills the viewport at zoom:1. Do not divide by --psms-zoom here —
+ * that double-compensates with CSS zoom and cracks the fixed sidebar.
  */
 .app-layout {
-  min-height: calc(100vh / var(--psms-zoom, 1));
-  height: calc(100vh / var(--psms-zoom, 1));
+  min-height: 100vh;
+  height: 100vh;
 }
 @supports (height: 100dvh) {
   .app-layout {
-    min-height: calc(100dvh / var(--psms-zoom, 1)) !important;
-    height: calc(100dvh / var(--psms-zoom, 1)) !important;
+    min-height: 100dvh !important;
+    height: 100dvh !important;
   }
 }

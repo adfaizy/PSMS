@@ -23,9 +23,8 @@ import { hydrateModuleLocalsFromCloud, pushModuleLocalsToCloud } from "./lib/mod
 import { mergeAuthUserLists } from "./modules/auth/authCore.js";
 import { loadLibraryFromLocal } from "./modules/library/libraryCore.js";
 import { loadDiscussionMessages } from "./modules/aboutSupport/aboutSupportCore.js";
-import { createPortal } from "react-dom";
 import * as XLSX from "./xlsxClient.js";
-import { X, Plus, Edit2, Trash2, Upload, Download, Menu, Settings, AlertTriangle, Eye, EyeOff } from "lucide-react";
+import { Plus, Edit2, Trash2, Upload, Download, Settings, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import { AboutUsPage } from "./AboutUsPage";
 import { BookBankPage } from "./BookBankPage";
 import { LibraryModulePage } from "./modules/library/LibraryModulePage";
@@ -38,7 +37,11 @@ import { yieldToMain } from "./yieldToMain.js";
 import { UI } from "./uiTokens.js";
 import { C, schoolOrBrandLogo, APP_BRAND_LOGO, genId } from "./shared/theme";
 import { Btn, Sel, Inp, SchoolHeader } from "./components/AppControls";
-import { useAppZoom } from "./useAppZoom";
+import { AppDashboardShell } from "./components/AppDashboardShell";
+import { Button } from "./components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./components/ui/dialog";
+import { Input } from "./components/ui/input";
+import { Label } from "./components/ui/label";
 import {
   formatGradeLabel, formatClassDisplay, resolveClass, getClassLabel, normKey,
   getClassSubjects, isTeachingStaffMember, teachingStaffList, normalizeRollNo,
@@ -56,7 +59,6 @@ import { DashboardPage } from "./modules/dashboard/DashboardPage";
 import { StudentsModulePage } from "./modules/students/StudentsModulePage";
 import { StaffModulePage } from "./modules/staff/StaffModulePage";
 import { AcademicModulePage } from "./modules/academic/AcademicModulePage";
-import { setNavIntent } from "./lib/navIntent.js";
 import { TimetablePage } from "./modules/timetable/TimetablePage";
 import { ExaminationPage } from "./modules/examination/ExaminationPage";
 import { PaperGeneratorPage } from "./modules/paperGenerator/PaperGeneratorPage";
@@ -306,32 +308,13 @@ const PRINT_CSS=[
 ].join("\n");
 
 const MOBILE_CSS = [
-  ".app-header-slim{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:rgba(255,255,255,0.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 4px 18px rgba(15,23,42,0.06)}",
-  ".app-header-slim .app-header-school{min-width:0;flex:1;font-family:inherit;font-weight:800;font-size:15px;line-height:1.25;color:#0f3d14;letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
-  ".app-header-slim .mobile-menu-btn{display:inline-flex!important;align-items:center;justify-content:center;width:42px;height:42px;min-width:42px;min-height:42px;padding:0;border:none;border-radius:11px;background:linear-gradient(180deg,#14532d 0%,#166534 100%);color:#fff;cursor:pointer;flex-shrink:0;box-shadow:0 2px 8px rgba(22,101,52,0.28);touch-action:manipulation;-webkit-tap-highlight-color:transparent}",
-  ".app-header-slim .mobile-menu-btn:hover{filter:brightness(1.06)}",
-  ".app-header-slim .mobile-menu-btn:active{transform:scale(0.96)}",
   ".app-page-timetable .timetable-print-area,.app-page-timetable .timetable-main-content{min-width:0;max-width:100%;box-sizing:border-box;}",
   ".app-page-timetable .timetable-main-content > div{max-width:100%;box-sizing:border-box;}",
-  "@keyframes mobile-nav-drawer-in{from{transform:translateX(-100%);opacity:0.9}to{transform:translateX(0);opacity:1}}",
-  ".mobile-menu-backdrop{position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:10000;-webkit-tap-highlight-color:transparent}",
-  ".mobile-menu-panel{position:fixed;top:0;left:0;bottom:0;width:min(300px,88vw);max-width:100vw;background:linear-gradient(180deg,#0f172a 0%,#1e293b 100%);color:#f9fafb;z-index:10001;box-shadow:8px 0 32px rgba(0,0,0,0.35);display:flex;flex-direction:column;overflow:hidden;padding-bottom:env(safe-area-inset-bottom,0);animation:mobile-nav-drawer-in 0.22s ease-out}",
-  ".mobile-menu-panel .mobile-menu-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}",
-  ".mobile-menu-panel .mobile-menu-header{padding:14px 14px 12px;border-bottom:1px solid rgba(148,163,184,0.35);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;background:rgba(15,23,42,0.6)}",
-  ".mobile-menu-panel nav{display:flex;flex-direction:column;padding:8px 0 12px}",
-  ".mobile-menu-panel nav button{width:100%;padding:14px 16px;background:transparent;border:none;color:#e5e7eb;cursor:pointer;text-align:left;font-size:15px;display:flex;align-items:center;gap:12px;border-left:4px solid transparent;-webkit-tap-highlight-color:transparent}",
-  ".mobile-menu-panel nav button.active{background:rgba(248,250,252,0.1);border-left-color:#fbbf24;color:#fff;font-weight:600}",
-  ".mobile-menu-panel .mobile-menu-footer{padding:12px 16px;border-top:1px solid rgba(148,163,184,0.35);font-size:11px;opacity:0.9;line-height:1.45;flex-shrink:0;background:rgba(15,23,42,0.5)}",
+  ".hide-on-mobile{display:none!important}",
   "@media (max-width:768px){",
-  "  .app-body-row{flex-direction:column!important}",
-  "  .app-sidebar{display:none!important}",
-  "  .app-main{flex:1 1 100%!important;min-width:0;width:100%!important}",
   "  .hide-on-mobile{display:none!important}",
   "}",
   "@media (max-width:1280px){",
-  "  .app-page-timetable .app-sidebar{display:none!important}",
-  "  .app-page-timetable .app-body-row{gap:4px!important}",
-  "  .app-page-timetable .app-main{flex:1 1 auto!important;min-width:0!important;width:100%!important;max-width:100%!important}",
   "  .app-page-timetable #print-section{padding:8px max(4px, env(safe-area-inset-left)) 8px max(4px, env(safe-area-inset-right))!important;max-width:100%!important;box-sizing:border-box!important}",
   "}"
 ].join("\n");
@@ -1359,8 +1342,6 @@ function App(){
   const [page,setPage]=useState("dashboard");
   const [barSubtitle,setBarSubtitle]=useState("");
   useEffect(()=>{ queueMicrotask(()=>setBarSubtitle("")); },[page]);
-  const [mobileMenuOpen,setMobileMenuOpen]=useState(false);
-  const appZoom=useAppZoom();
   const [themeMode]=useState(()=>{
     try{
       const stored=window.localStorage.getItem("sms_theme_mode");
@@ -1386,7 +1367,6 @@ function App(){
   const [loadedFromDb,setLoadedFromDb]=useState(false);
 
   // Change-password modal state (for the currently logged-in user)
-  const [showProfileMenu,setShowProfileMenu]=useState(false);
   const [showChangePw,setShowChangePw]=useState(false);
   const [changePwCurrent,setChangePwCurrent]=useState("");
   const [changePwNew,setChangePwNew]=useState("");
@@ -1421,7 +1401,6 @@ function App(){
     if(!session?.userId) return null;
     return loadAuthUsers().find(u=>u.id===session.userId)||null;
   },[session]);
-  useEffect(()=>{if(!showProfileMenu)return;const h=(e)=>{if(!e.target.closest("[data-profile-menu]"))setShowProfileMenu(false);};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[showProfileMenu]);
 
   const saveStatusTimeoutRef=useRef(null);
   const cloudSaveTimerRef=useRef(null);
@@ -1766,15 +1745,6 @@ function App(){
   useEffect(()=>{ try{ if(activeSchoolId) localStorage.setItem("activeSchoolId",activeSchoolId); }catch{} },[activeSchoolId]);
 
   useEffect(()=>{
-    if(!mobileMenuOpen) return;
-    const prev=document.body.style.overflow;
-    document.body.style.overflow="hidden";
-    const onKey=(e)=>{ if(e.key==="Escape") setMobileMenuOpen(false); };
-    window.addEventListener("keydown",onKey);
-    return ()=>{ document.body.style.overflow=prev; window.removeEventListener("keydown",onKey); };
-  },[mobileMenuOpen]);
-
-  useEffect(()=>{
     if(!loadedFromDb) return;
     saveToLocal(schools,activeSchoolId);
     if(!isSupabaseConfigured){
@@ -1888,211 +1858,37 @@ function App(){
         flexDirection:"column",
         overflow:"hidden",
         fontFamily:UI.fontApp,
-        background:UI.shellBg,
-        padding:page==="timetable"?"0 max(6px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left))":"0 max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left))",
+        background:"#ffffff",
+        padding:"0 max(0px, env(safe-area-inset-right)) max(0px, env(safe-area-inset-bottom)) max(0px, env(safe-area-inset-left))",
         boxSizing:"border-box",
-        zoom:appZoom.zoom,
-        // Compensate so zoomed layout still fills the real viewport (CSS also uses --psms-zoom)
-        width:`${100 / appZoom.zoom}vw`,
-        maxWidth:`${100 / appZoom.zoom}vw`,
-        height:`${100 / appZoom.zoom}dvh`,
-        minHeight:`${100 / appZoom.zoom}dvh`,
-        ["--psms-zoom"]:String(appZoom.zoom),
+        // Keep zoom at 1 for the shadcn shell — CSS zoom cracks the fixed sidebar on Timetable.
+        zoom: 1,
+        width: "100vw",
+        maxWidth: "100vw",
+        height: "100dvh",
+        minHeight: "100dvh",
+        ["--psms-zoom"]: "1",
       }}
     >
-      <header className="app-header app-header-slim no-print" style={{flexShrink:0,zIndex:20,margin:"8px 0 0"}}>
-        <div
-          className="app-header-school"
-          title={(effectiveSettings.schoolName||"").trim()||"School"}
-        >
-          {(effectiveSettings.schoolName||"").trim()||"School"}
-        </div>
-        <button
-          type="button"
-          className="mobile-menu-btn"
-          aria-label="Open menu"
-          aria-expanded={mobileMenuOpen}
-          onClick={()=>setMobileMenuOpen(true)}
-        >
-          <Menu size={UI.iconMenu} strokeWidth={2.25} aria-hidden />
-        </button>
-      </header>
-      <div className="app-body-row" style={{display:"flex",flex:1,minHeight:0,overflow:"hidden",gap:10,marginTop:8}}>
-      <div
-        className="app-sidebar no-print"
-        style={{
-          height:"100%",
-          overflowY:"auto",
-          overflowX:"hidden",
-          width:220,
-          background:"linear-gradient(180deg, #0f3d14 0%, #1B5E20 55%, #2e7d32 100%)",
-          color:"#f9fafb",
-          display:"flex",
-          flexDirection:"column",
-          boxShadow:"0 4px 20px rgba(15,23,42,0.2)",
-          flexShrink:0,
-          border:"1px solid rgba(148,163,184,0.22)",
-          borderRadius:12
-        }}>
-        <nav style={{flex:1,padding:"12px 10px 12px",display:"flex",flexDirection:"column",gap:4}}>
-          {nav.map(item=><button
-            key={item.id}
-            onClick={()=>startTransition(()=>setPage(item.id))}
-            style={{
-              width:"100%",
-              padding:"8px 10px",
-              marginBottom:2,
-              background:page===item.id?"rgba(248,250,252,0.16)":"transparent",
-              border:"none",
-              color:"#e5e7eb",
-              cursor:"pointer",
-              textAlign:"left",
-              fontSize:13,
-              display:"flex",
-              alignItems:"center",
-              gap:9,
-              borderRadius:8,
-              borderLeft:page===item.id?"3px solid #fbbf24":"3px solid transparent",
-              transition:"background 0.18s ease,border-left-color 0.18s ease,transform 0.12s ease",
-              transform:page===item.id?"translateX(2px)":"translateX(0)"
-            }}>
-            <span style={{fontSize:UI.navEmoji,lineHeight:1,flexShrink:0}}>{item.i}</span>
-            <span style={{flex:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.l}</span>
-          </button>)}
-          <div data-profile-menu style={{position:"relative",marginTop:6}}>
-            <button type="button" onClick={()=>setShowProfileMenu(p=>!p)} style={{width:"100%",padding:"8px 10px",background:showProfileMenu?"rgba(255,255,255,0.13)":"rgba(255,255,255,0.07)",border:"1px solid rgba(148,163,184,0.25)",color:"#e5e7eb",cursor:"pointer",textAlign:"left",fontSize:12,display:"flex",alignItems:"center",gap:8,borderRadius:8,transition:"background 0.18s ease"}}>
-              <div style={{width:28,height:28,borderRadius:"50%",background:"linear-gradient(135deg,#3b82f6,#1d4ed8)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#fff",flexShrink:0}}>
-                {(currentUser?.name||currentUser?.email||"U").charAt(0).toUpperCase()}
-              </div>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontWeight:600,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"#f1f5f9"}}>{currentUser?.name||"User"}</div>
-                <div style={{fontSize:10,color:"#94a3b8",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{currentUser?.email||""}</div>
-              </div>
-              <span style={{fontSize:10,opacity:0.5,flexShrink:0,transform:showProfileMenu?"rotate(0deg)":"rotate(180deg)",transition:"transform 0.2s",display:"inline-block"}}>▲</span>
-            </button>
-            {showProfileMenu&&<div style={{position:"absolute",bottom:"calc(100% + 6px)",left:0,right:0,background:"#1e293b",border:"1px solid rgba(148,163,184,0.25)",borderRadius:10,boxShadow:"0 -6px 24px rgba(0,0,0,0.35)",overflow:"hidden",zIndex:200}}>
-              <div style={{padding:"12px 14px",borderBottom:"1px solid rgba(148,163,184,0.18)",display:"flex",alignItems:"center",gap:10}}>
-                <div style={{width:38,height:38,borderRadius:"50%",background:"linear-gradient(135deg,#3b82f6,#1d4ed8)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700,color:"#fff",flexShrink:0}}>
-                  {(currentUser?.name||currentUser?.email||"U").charAt(0).toUpperCase()}
-                </div>
-                <div style={{minWidth:0}}>
-                  <div style={{fontWeight:700,fontSize:13,color:"#f1f5f9",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{currentUser?.name||"User"}</div>
-                  <div style={{fontSize:11,color:"#94a3b8",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{currentUser?.email||""}</div>
-                  {currentUser?.userType&&<div style={{fontSize:10,color:"#64748b",marginTop:1,textTransform:"capitalize"}}>{currentUser.userType}</div>}
-                </div>
-              </div>
-              {session?.userId&&<button type="button" onClick={()=>{setShowProfileMenu(false);setShowChangePw(true);}} style={{width:"100%",padding:"9px 14px",background:"transparent",border:"none",color:"#94a3b8",cursor:"pointer",textAlign:"left",fontSize:12,display:"flex",alignItems:"center",gap:9,transition:"background 0.15s"}}>
-                <span style={{fontSize:14,lineHeight:1}}>🔑</span> Change Password
-              </button>}
-              <button type="button" onClick={()=>{setShowProfileMenu(false);signOut();}} style={{width:"100%",padding:"9px 14px",background:"transparent",border:"none",color:"#fb7185",cursor:"pointer",textAlign:"left",fontSize:12,display:"flex",alignItems:"center",gap:9,fontWeight:600,transition:"background 0.15s"}}>
-                <span style={{fontSize:14,lineHeight:1}}>🚪</span> Sign Out
-              </button>
-            </div>}
-          </div>
-        </nav>
-        <div style={{padding:"8px 12px 6px",borderTop:"1px solid rgba(148,163,184,0.25)",fontSize:10,opacity:0.8,lineHeight:1.4}}>
-          {isTeacher?(session?.name||"Teacher"):(effectiveSettings.principalName||"Principal / Headmaster")}
-        </div>
-        <div
-          style={{padding:"6px 12px 10px",borderTop:"1px solid rgba(148,163,184,0.15)",fontSize:9,lineHeight:1.4,display:"flex",alignItems:"center",gap:6}}
-          title={
-            !isSupabaseConfigured ? "Local only — data stored on this device"
-            : !isOnline ? "Offline — will sync when internet returns"
-            : cloudReady ? "Cloud connected — logins and data work worldwide"
-            : cloudSyncing ? "Syncing to cloud…"
-            : "Connecting to cloud…"
-          }
-        >
-          <span style={{
-            width:7,height:7,borderRadius:"50%",flexShrink:0,
-            background:!isSupabaseConfigured?"#f59e0b":!isOnline?"#dc2626":cloudReady?"#22c55e":"#38bdf8",
-            boxShadow:!isSupabaseConfigured?"0 0 8px rgba(245,158,11,0.9)":!isOnline?"0 0 8px rgba(220,38,38,0.7)":cloudReady?"0 0 8px rgba(34,197,94,0.8)":"0 0 8px rgba(56,189,248,0.8)",
-          }}/>
-          {!isSupabaseConfigured ? "Local only · This device"
-            : !isOnline ? "☁ Offline · Will sync"
-            : cloudReady ? "☁ Cloud · Worldwide"
-            : cloudSyncing ? "☁ Syncing…"
-            : "☁ Connecting…"}
-        </div>
-      </div>
-      <div className="app-main" style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,minHeight:0,overflow:"hidden",background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",boxShadow:"0 2px 12px rgba(15,23,42,0.06)"}}>
-        {mobileMenuOpen&&typeof document!=="undefined"&&createPortal(
-          <>
-            <div className="mobile-menu-backdrop" aria-hidden="true" onClick={()=>setMobileMenuOpen(false)}/>
-            <div className="mobile-menu-panel" role="dialog" aria-modal="true" aria-label="Sidebar navigation">
-              <div className="mobile-menu-header">
-                <div style={{display:"flex",alignItems:"center",gap:12,overflow:"hidden",minWidth:0}}>
-                  <img src={APP_BRAND_LOGO} alt="" style={{width:UI.logoApp,height:UI.logoApp,borderRadius:UI.radiusControl,objectFit:"contain",flexShrink:0,boxShadow:"0 0 0 2px rgba(251,191,36,0.35)"}}/>
-                  <div style={{overflow:"hidden",minWidth:0}}>
-                    <div style={{fontWeight:700,fontSize:13,lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(effectiveSettings.schoolName||"").trim()||"School"}</div>
-                    <div style={{fontSize:11,opacity:0.75,marginTop:2}}>{effectiveSettings.schoolCode||"—"}</div>
-                  </div>
-                </div>
-                <button type="button" aria-label="Close menu" style={{width:40,height:40,display:"flex",alignItems:"center",justifyContent:"center",border:"none",background:"rgba(255,255,255,0.12)",color:"#fff",borderRadius:8,cursor:"pointer"}} onClick={()=>setMobileMenuOpen(false)}>
-                  <X size={UI.iconMd} strokeWidth={2.25} aria-hidden />
-                </button>
-              </div>
-              <div className="mobile-menu-scroll">
-                <div style={{padding:"10px 12px 4px"}}>
-                  <div style={{fontSize:10,fontWeight:700,letterSpacing:0.06,textTransform:"uppercase",color:"#94a3b8",marginBottom:8,paddingLeft:4}}>Quick Actions</div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                    {[
-                      {l:"Admit Student",page:"students",tab:"admission"},
-                      {l:"Attendance",page:"attendance",tab:"students"},
-                      {l:"Fee Collection",page:"fees",tab:"collection"},
-                      {l:"Marks Entry",page:"examination",tab:"marks"},
-                    ].map(a=>(
-                      <button
-                        key={a.l}
-                        type="button"
-                        onClick={()=>{
-                          if(a.tab) setNavIntent({page:a.page,tab:a.tab});
-                          startTransition(()=>setPage(a.page));
-                          setMobileMenuOpen(false);
-                        }}
-                        style={{
-                          padding:"10px 8px",borderRadius:8,border:"1px solid rgba(148,163,184,0.35)",
-                          background:"rgba(248,250,252,0.08)",color:"#f1f5f9",fontSize:11,fontWeight:700,
-                          cursor:"pointer",textAlign:"left",lineHeight:1.3,
-                        }}
-                      >
-                        {a.l}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <nav>
-                  {nav.map(item=>(
-                    <button key={item.id} type="button" className={page===item.id?"active":""} onClick={()=>{ startTransition(()=>setPage(item.id)); setMobileMenuOpen(false); }}>
-                      <span style={{fontSize:UI.navEmoji,lineHeight:1,flexShrink:0,width:32,textAlign:"center"}}>{item.i}</span>
-                      <span style={{flex:1}}>{item.l}</span>
-                    </button>
-                  ))}
-                  <div style={{marginTop: 8, paddingTop: 12, borderTop: "1px solid rgba(148,163,184,0.2)"}}>
-                    <div style={{padding:"10px 16px 8px",display:"flex",alignItems:"center",gap:10}}>
-                      <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#3b82f6,#1d4ed8)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:700,color:"#fff",flexShrink:0}}>
-                        {(currentUser?.name||currentUser?.email||"U").charAt(0).toUpperCase()}
-                      </div>
-                      <div style={{minWidth:0}}>
-                        <div style={{fontWeight:700,fontSize:13,color:"#f1f5f9",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{currentUser?.name||"User"}</div>
-                        <div style={{fontSize:11,color:"#94a3b8",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{currentUser?.email||""}</div>
-                      </div>
-                    </div>
-                    <button type="button" onClick={()=>{setMobileMenuOpen(false);signOut();}} style={{width: "100%", padding: "10px 16px", background: "transparent", border: "none", color: "#fb7185", cursor: "pointer", textAlign: "left", fontSize: 13, display: "flex", alignItems: "center", gap: 8, fontWeight: 600}}>
-                      <span style={{fontSize:UI.navEmoji,lineHeight:1,width:32,textAlign:"center"}}>🚪</span> Sign out
-                    </button>
-                    {session?.userId&&<button type="button" onClick={()=>{setShowChangePw(true);setMobileMenuOpen(false);}} style={{width:"100%",padding:"10px 16px",background:"transparent",border:"none",color:"#94a3b8",cursor:"pointer",textAlign:"left",fontSize:13,display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{fontSize:UI.navEmoji,lineHeight:1,width:32,textAlign:"center"}}>🔑</span> Change Password
-                    </button>}
-                  </div>
-                </nav>
-              </div>
-              <div className="mobile-menu-footer">{isTeacher?(session?.name||"Teacher"):(effectiveSettings.principalName||"Principal / Headmaster")}<br/><span style={{opacity:0.75,fontSize:10}}>● Local only · This device</span></div>
-            </div>
-          </>,
-          document.body
-        )}
-        <div id="print-section" style={{flex:1,minHeight:0,padding:UI.padMain,overflow:"auto",WebkitOverflowScrolling:"touch",background:UI.canvasBg,fontFamily:UI.fontApp}}>
+      <AppDashboardShell
+        className="h-full min-h-0 flex-1"
+        nav={nav}
+        page={page}
+        onNavigate={(id)=>startTransition(()=>setPage(id))}
+        schoolName={effectiveSettings.schoolName}
+        schoolCode={effectiveSettings.schoolCode}
+        pageTitle={nav.find(n=>n.id===page)?.l || "Page"}
+        pageSubtitle={barSubtitle}
+        currentUser={currentUser}
+        session={session}
+        roleLabel={isTeacher?(session?.name||"Teacher"):(effectiveSettings.principalName||"Principal / Headmaster")}
+        isSupabaseConfigured={isSupabaseConfigured}
+        isOnline={isOnline}
+        cloudReady={cloudReady}
+        cloudSyncing={cloudSyncing}
+        onSignOut={signOut}
+        onChangePassword={()=>setShowChangePw(true)}
+      >
           {page==="dashboard"&&(
             <DashboardPage
               settings={effectiveSettings}
@@ -2191,34 +1987,69 @@ function App(){
           )}
           {page==="about"&&<AboutUsPage />}
           {page==="settings"&&!isTeacher&&<SettingsPage settings={effectiveSettings} setSettings={setSettingsForActive} setSchools={setSchools} students={students} setStudents={setStudentsForActive} schools={schools} activeSchoolId={activeSchoolId} timetable={timetable} exam_tm={exam_tm} exam_om={exam_om} setExamMarks={setExamMarksForActive} currentSession={curSession} sessions={activeSchool.sessions||[curSession]} setCurrentSession={setCurrentSessionForActive} addSession={addSessionForActive} staffProfiles={staffProfiles} setBarSubtitle={setBarSubtitle} session={session}/>}
-        </div>
-      </div>
-      </div>
+      </AppDashboardShell>
       <PWAInstallBanner />
     </div>
-    {/* ── Change Password Modal ── */}
-    {showChangePw&&typeof document!=="undefined"&&createPortal(
-      <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.65)",zIndex:10100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>{if(e.target===e.currentTarget){setShowChangePw(false);setChangePwError("");setChangePwSuccess("");}}}>
-        <div style={{background:"#fff",borderRadius:16,padding:28,width:"100%",maxWidth:390,boxShadow:"0 25px 50px rgba(0,0,0,0.4)",fontFamily:UI.fontApp}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
-            <h3 style={{margin:0,fontSize:18,fontWeight:700,color:"#1e293b"}}>🔑 Change Password</h3>
-            <button type="button" onClick={()=>{setShowChangePw(false);setChangePwError("");setChangePwSuccess("");}} style={{border:"none",background:"transparent",fontSize:22,cursor:"pointer",color:"#64748b",lineHeight:1,padding:"0 4px"}}>×</button>
+    <Dialog
+      open={showChangePw}
+      onOpenChange={(open)=>{
+        setShowChangePw(open);
+        if(!open){ setChangePwError(""); setChangePwSuccess(""); }
+      }}
+    >
+      <DialogContent className="sm:max-w-md" showCloseButton>
+        <DialogHeader>
+          <DialogTitle>Change Password</DialogTitle>
+          <DialogDescription>Update the password for your signed-in account.</DialogDescription>
+        </DialogHeader>
+        {changePwError ? (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {changePwError}
           </div>
-          {changePwError&&<div style={{padding:"10px 12px",marginBottom:14,background:"#fef2f2",color:"#b91c1c",borderRadius:8,fontSize:13,border:"1px solid #fecaca"}}>{changePwError}</div>}
-          {changePwSuccess&&<div style={{padding:"10px 12px",marginBottom:14,background:"#f0fdf4",color:"#166534",borderRadius:8,fontSize:13,border:"1px solid #bbf7d0"}}>{changePwSuccess}</div>}
-          {[["Current Password",changePwCurrent,setChangePwCurrent],["New Password",changePwNew,setChangePwNew],["Confirm New Password",changePwConfirm,setChangePwConfirm]].map(([lbl,val,setter])=>(
-            <div key={lbl} style={{marginBottom:14}}>
-              <label style={{display:"block",fontSize:13,fontWeight:600,color:"#374151",marginBottom:4}}>{lbl}</label>
-              <input type="password" value={val} onChange={e=>setter(e.target.value)} style={{width:"100%",padding:"10px 12px",border:"1px solid #d1d5db",borderRadius:8,fontSize:14,boxSizing:"border-box",fontFamily:"inherit"}} onKeyDown={e=>{if(e.key==="Enter") handleChangeOwnPassword();}}/>
+        ) : null}
+        {changePwSuccess ? (
+          <div className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground">
+            {changePwSuccess}
+          </div>
+        ) : null}
+        <div className="grid gap-3">
+          {[
+            ["Current Password", changePwCurrent, setChangePwCurrent],
+            ["New Password", changePwNew, setChangePwNew],
+            ["Confirm New Password", changePwConfirm, setChangePwConfirm],
+          ].map(([lbl, val, setter]) => (
+            <div key={lbl} className="grid gap-1.5">
+              <Label htmlFor={`pw-${lbl}`}>{lbl}</Label>
+              <Input
+                id={`pw-${lbl}`}
+                type="password"
+                value={val}
+                onChange={(e) => setter(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleChangeOwnPassword();
+                }}
+              />
             </div>
           ))}
-          <button type="button" onClick={handleChangeOwnPassword} disabled={changePwLoading} style={{width:"100%",padding:"12px",background:"#1e3a6b",color:"#fff",border:"none",borderRadius:8,fontSize:14,fontWeight:700,cursor:"pointer",marginTop:4,opacity:changePwLoading?0.7:1}}>
-            {changePwLoading?"Saving…":"Change Password"}
-          </button>
         </div>
-      </div>,
-      document.body
-    )}
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setShowChangePw(false);
+              setChangePwError("");
+              setChangePwSuccess("");
+            }}
+          >
+            Cancel
+          </Button>
+          <Button type="button" onClick={handleChangeOwnPassword} disabled={changePwLoading}>
+            {changePwLoading ? "Saving…" : "Change Password"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
   );
 }

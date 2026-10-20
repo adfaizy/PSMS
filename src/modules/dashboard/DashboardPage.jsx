@@ -16,12 +16,12 @@ import {
 import * as feeCore from "@/modules/fee/feeCore";
 import { feeService, dashboardService } from "@/services";
 import { loadAttendanceFromLocal, hydrateAttendanceFromCloud } from "@/modules/attendance/AttendancePage";
-import { C } from "@/shared/theme";
-import { Btn, Sel } from "@/components/AppControls";
-import { Card, CardContent } from "@/components/ui/card";
+import { Sel } from "@/components/AppControls";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardAction } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { setNavIntent } from "@/lib/navIntent.js";
 import * as H from "@/shared/helpers";
 
@@ -39,36 +39,41 @@ function navigateTo(onNavigate, page, tab) {
   onNavigate?.(page);
 }
 
-function KpiCard({ icon, label, value, hint, accent = C.navy, onClick }) {
-  const IconCmp = icon;
-  const body = (
-    <CardContent className="p-4">
-      <div className="mb-3 flex items-start justify-between gap-2">
-        <div
-          className="flex h-10 w-10 items-center justify-center rounded-lg"
-          style={{ background: `${accent}18`, color: accent }}
-        >
-          {IconCmp ? <IconCmp size={18} aria-hidden /> : null}
+function KpiCard({ icon: IconCmp, label, value, hint, onClick }) {
+  const inner = (
+    <Card
+      size="sm"
+      className="h-full min-w-0 bg-card shadow-none transition-colors hover:bg-muted/40"
+    >
+      <CardHeader className="pb-0">
+        <div className="flex size-9 items-center justify-center rounded-lg border border-border bg-muted/50 text-foreground">
+          {IconCmp ? <IconCmp className="size-4" aria-hidden /> : null}
         </div>
-        {onClick ? <ArrowRight size={14} className="mt-1 text-muted-foreground" aria-hidden /> : null}
-      </div>
-      <div className="text-2xl font-bold tracking-tight tabular-nums" style={{ color: accent }}>
-        {value}
-      </div>
-      <div className="mt-1 text-xs font-semibold text-foreground">{label}</div>
-      {hint ? <div className="mt-1 text-[11px] text-muted-foreground">{hint}</div> : null}
-    </CardContent>
+        {onClick ? (
+          <CardAction>
+            <ArrowRight className="size-3.5 text-muted-foreground" aria-hidden />
+          </CardAction>
+        ) : null}
+        <CardTitle className="mt-2 truncate text-xl font-bold tabular-nums tracking-tight sm:text-2xl">
+          {value}
+        </CardTitle>
+        <CardDescription className="truncate font-medium text-foreground">{label}</CardDescription>
+      </CardHeader>
+      {hint ? (
+        <CardContent className="pt-0">
+          <p className="m-0 line-clamp-2 text-[11px] leading-snug text-muted-foreground">{hint}</p>
+        </CardContent>
+      ) : null}
+    </Card>
   );
-  if (!onClick) {
-    return <Card className="border-border/70 shadow-sm">{body}</Card>;
-  }
+  if (!onClick) return inner;
   return (
     <button
       type="button"
       onClick={onClick}
-      className="m-0 block w-full cursor-pointer border-0 bg-transparent p-0 text-left"
+      className="m-0 block h-full min-w-0 w-full cursor-pointer border-0 bg-transparent p-0 text-left"
     >
-      <Card className="border-border/70 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">{body}</Card>
+      {inner}
     </button>
   );
 }
@@ -302,6 +307,12 @@ export function DashboardPage({
       run: () => navigateTo(onNavigate, "staff", "directory"),
     },
     {
+      label: "Academic Setup",
+      detail: "Classes, subjects, and sessions",
+      icon: School,
+      run: () => navigateTo(onNavigate, "academic", "classes"),
+    },
+    {
       label: "Mark Attendance",
       detail: "Record today's present / absent / late",
       icon: ClipboardList,
@@ -334,27 +345,28 @@ export function DashboardPage({
   ];
 
   return (
-    <div className="psms-page space-y-5" style={{ width: "100%", minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }}>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="m-0 text-xl font-bold text-primary">Dashboard</h2>
-          <p className="m-0 mt-1 text-sm text-muted-foreground">
-            School operations overview
-            {currentSession ? ` · Academic session ${currentSession}` : ""}
-            {" · "}
-            {new Date().toLocaleDateString("en-PK", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-          </p>
-        </div>
+    <div className="psms-page dashboard-page mx-auto w-full min-w-0 max-w-[1600px] space-y-4 pb-8 md:space-y-6">
+      <div className="min-w-0 space-y-1">
+        <h2 className="m-0 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">Dashboard</h2>
+        <p className="m-0 text-xs text-muted-foreground sm:text-sm">
+          School operations overview
+          {currentSession ? ` · Session ${currentSession}` : ""}
+          {" · "}
+          {new Date().toLocaleDateString("en-PK", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })}
+        </p>
       </div>
 
-      {/* KPI strip */}
-      <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(170px,1fr))]">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         <KpiCard
           icon={Users}
           label="Total Students"
           value={students.length}
           hint={`${(settings.classes || []).length} classes · ${sectionCount} sections`}
-          accent={C.navy}
           onClick={() => navigateTo(onNavigate, "students", "directory")}
         />
         <KpiCard
@@ -362,7 +374,6 @@ export function DashboardPage({
           label="Teaching Staff"
           value={teachingStaffCount}
           hint={`${nonTeachingStaffCount} non-teaching`}
-          accent="#7c3aed"
           onClick={() => navigateTo(onNavigate, "staff", "directory")}
         />
         <KpiCard
@@ -370,7 +381,6 @@ export function DashboardPage({
           label="Classes"
           value={(settings.classes || []).length}
           hint={`${sectionCount} class / section units`}
-          accent="#0d9488"
           onClick={() => navigateTo(onNavigate, "academic", "classes")}
         />
         <KpiCard
@@ -378,7 +388,6 @@ export function DashboardPage({
           label="Today's Attendance"
           value={`${attendanceToday.rate}%`}
           hint={`${attendanceToday.present} present · ${attendanceToday.absent} absent · ${attendanceToday.unmarked} unmarked`}
-          accent="#15803d"
           onClick={() => navigateTo(onNavigate, "attendance", "overview")}
         />
         <KpiCard
@@ -386,7 +395,6 @@ export function DashboardPage({
           label={`Fee Collected (${monthLabel.slice(0, 3)})`}
           value={feeCore.formatCurrency(feeStats.totalCollected)}
           hint={`Pending ${feeCore.formatCurrency(feeStats.totalPending)} · ${feeStats.pct}% collected`}
-          accent="#16a34a"
           onClick={() => navigateTo(onNavigate, "fees", "overview")}
         />
         <KpiCard
@@ -394,272 +402,259 @@ export function DashboardPage({
           label="Staff Directory"
           value={staffTotal}
           hint="Profiles for cards and timetables"
-          accent="#0f766e"
           onClick={() => navigateTo(onNavigate, "staff", "directory")}
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.9fr)]">
-        {/* Quick actions */}
-        <Card className="border-border/70 shadow-sm">
-          <CardContent className="space-y-3 p-4">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="m-0 text-sm font-semibold text-primary">Quick Actions</h3>
-              <span className="text-[11px] font-medium text-muted-foreground">Common daily tasks</span>
-            </div>
-            <Separator />
-            <div className="grid gap-2 sm:grid-cols-2">
-              {quickActions.map((action) => {
-                const Icon = action.icon;
-                return (
-                  <button
-                    key={action.label}
-                    type="button"
-                    onClick={action.run}
-                    className="flex items-start gap-3 rounded-xl border border-border/70 bg-muted/20 p-3 text-left transition hover:border-primary/40 hover:bg-muted/40"
-                  >
-                    <span
-                      className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-                      style={{ background: `${C.navy}12`, color: C.navy }}
-                    >
-                      <Icon size={16} aria-hidden />
+      <Card size="sm" className="min-w-0 shadow-none">
+        <CardHeader className="border-b">
+          <CardTitle>Quick Actions</CardTitle>
+          <CardDescription>Jump into the most common daily tasks</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-(--card-spacing)">
+          <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+            {quickActions.map((action) => {
+              const Icon = action.icon;
+              return (
+                <Button
+                  key={action.label}
+                  type="button"
+                  variant="outline"
+                  onClick={action.run}
+                  className="h-auto min-h-0 justify-start gap-3 whitespace-normal px-3 py-3 text-left"
+                >
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted/40">
+                    <Icon className="size-4" aria-hidden />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-foreground">{action.label}</span>
+                    <span className="mt-0.5 block text-[11px] font-normal leading-snug text-muted-foreground">
+                      {action.detail}
                     </span>
-                    <span className="min-w-0">
-                      <span className="block text-sm font-bold text-foreground">{action.label}</span>
-                      <span className="mt-0.5 block text-[11px] text-muted-foreground">{action.detail}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+                  </span>
+                </Button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Notifications / reminders */}
-        <Card className="border-border/70 shadow-sm">
-          <CardContent className="space-y-3 p-4">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="m-0 flex items-center gap-2 text-sm font-semibold text-primary">
-                <Bell size={15} aria-hidden /> Notifications
-              </h3>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Card size="sm" className="min-w-0 shadow-none">
+          <CardHeader className="border-b">
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="size-4" aria-hidden /> Notifications
+            </CardTitle>
+            <CardAction>
               <Badge variant="secondary">{reminders.length}</Badge>
-            </div>
-            <Separator />
+            </CardAction>
+          </CardHeader>
+          <CardContent className="space-y-2 pt-(--card-spacing)">
             {reminders.length === 0 ? (
               <p className="m-0 text-sm text-muted-foreground">No pending operational alerts.</p>
             ) : (
-              <div className="space-y-2">
-                {reminders.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-xl border border-border/70 p-3"
-                    style={{
-                      background: item.level === "warning" ? "#fffbeb" : "#f8fafc",
-                      borderColor: item.level === "warning" ? "#fde68a" : undefined,
-                    }}
-                  >
-                    <div className="text-sm font-bold text-foreground">{item.title}</div>
-                    <div className="mt-1 text-[12px] text-muted-foreground">{item.detail}</div>
-                    {item.action?.page ? (
-                      <div className="mt-2">
-                        <Btn
-                          small
-                          outline
-                          onClick={() => navigateTo(onNavigate, item.action.page, item.action.tab)}
-                        >
-                          {item.action.label || "Open"}
-                        </Btn>
+              reminders.map((item) => (
+                <div key={item.id} className="rounded-lg border border-border bg-muted/20 p-3">
+                  <div className="text-sm font-semibold text-foreground">{item.title}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">{item.detail}</div>
+                  {item.action?.page ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => navigateTo(onNavigate, item.action.page, item.action.tab)}
+                    >
+                      {item.action.label || "Open"}
+                    </Button>
+                  ) : null}
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card size="sm" className="min-w-0 shadow-none">
+          <CardHeader className="border-b">
+            <CardTitle className="flex items-center gap-2">
+              <CalendarDays className="size-4" aria-hidden /> Upcoming Exams
+            </CardTitle>
+            <CardAction>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => navigateTo(onNavigate, "examination", "datesheet")}
+              >
+                Date Sheet
+              </Button>
+            </CardAction>
+          </CardHeader>
+          <CardContent className="space-y-2 pt-(--card-spacing)">
+            {upcomingExams.length === 0 ? (
+              <p className="m-0 text-sm text-muted-foreground">
+                No upcoming date-sheet entries. Add dates under Examination → Date Sheet.
+              </p>
+            ) : (
+              upcomingExams.map((row) => (
+                <div key={row.id || row.date} className="rounded-lg border border-border bg-muted/20 px-3 py-2.5">
+                  <div className="text-sm font-semibold text-foreground">
+                    {new Date(`${row.date}T00:00:00`).toLocaleDateString("en-PK", {
+                      weekday: "short",
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-muted-foreground">
+                    {row.note || "Scheduled examination day"}
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card size="sm" className="min-w-0 shadow-none md:col-span-2 xl:col-span-1">
+          <CardHeader className="border-b">
+            <CardTitle>Today&apos;s Attendance</CardTitle>
+            <CardDescription>Live snapshot for the current day</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-(--card-spacing)">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-2">
+              {[
+                { l: "Present", v: attendanceToday.present },
+                { l: "Absent", v: attendanceToday.absent },
+                { l: "Late", v: attendanceToday.late },
+                { l: "Unmarked", v: attendanceToday.unmarked },
+              ].map((cell) => (
+                <div key={cell.l} className="rounded-lg border border-border bg-background px-3 py-2.5">
+                  <div className="text-lg font-bold tabular-nums text-foreground">{cell.v}</div>
+                  <div className="text-[11px] font-medium text-muted-foreground">{cell.l}</div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {(settings.classes || []).length > 0 && (
+        <Card size="sm" className="min-w-0 shadow-none">
+          <CardHeader className="border-b">
+            <CardTitle>
+              {dashView === "class" ? "Academic Performance · Class-wise" : "Academic Performance · Subject-wise"}
+            </CardTitle>
+            <CardDescription>
+              Pass threshold: {passThreshold}%. Same totals as Result Cards / Marks Entry.
+            </CardDescription>
+            <CardAction className="w-full sm:w-auto">
+              <Tabs value={dashView} onValueChange={setDashView} className="w-full sm:w-auto">
+                <TabsList className="grid w-full grid-cols-2 sm:inline-flex sm:w-auto">
+                  <TabsTrigger value="class">Class-wise</TabsTrigger>
+                  <TabsTrigger value="subject">Subject-wise</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </CardAction>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-(--card-spacing)">
+            <div className="grid grid-cols-1 gap-3 sm:max-w-xl sm:grid-cols-2">
+              <Sel label="Exam" value={dashExam} onChange={setDashExam} options={dashExamOptions} width="100%" />
+              {dashView === "subject" && (
+                <Sel
+                  label="Class"
+                  value={dashSubjClass}
+                  onChange={setDashSubjClass}
+                  options={[
+                    { value: "all", label: "All Classes" },
+                    ...(settings.classes || []).map((c) => ({
+                      value: c.id,
+                      label: formatClassDisplay(c),
+                    })),
+                  ]}
+                  width="100%"
+                />
+              )}
+            </div>
+
+            {dashView === "class" && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {classStats.map((row) => (
+                  <div key={row.id} className="min-w-0 rounded-lg border border-border bg-muted/20 p-3">
+                    <div className="mb-2 truncate text-sm font-semibold text-foreground">{row.name}</div>
+                    <div className="grid grid-cols-2 gap-1.5 text-center sm:grid-cols-4">
+                      {[
+                        { l: "Enrolled", v: row.count },
+                        { l: "Pass", v: row.pass },
+                        { l: "Fail", v: row.fail },
+                        { l: "Pass %", v: row.count ? `${row.passRatePct}%` : "—" },
+                      ].map((cell) => (
+                        <div key={cell.l} className="rounded-md border border-border bg-background px-1 py-2">
+                          <div className="text-sm font-bold tabular-nums text-foreground">{cell.v}</div>
+                          <div className="text-[9px] font-medium text-muted-foreground">{cell.l}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-1 border-t border-dashed border-border pt-2 text-[11px]">
+                      <span className="text-muted-foreground">Fee ({monthLabel.slice(0, 3)})</span>
+                      <span className="font-semibold text-foreground">
+                        {feeCore.formatCurrency(row.feeCollected)}
+                        <span className="ml-1 font-medium text-muted-foreground">
+                          / {feeCore.formatCurrency(row.feeExpected)}
+                        </span>
+                      </span>
+                    </div>
+                    {row.pending > 0 ? (
+                      <div className="mt-1 text-center text-[10px] text-muted-foreground">
+                        {row.pending} student{row.pending === 1 ? "" : "s"} without marks in this view
                       </div>
                     ) : null}
                   </div>
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
-      </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.85fr)]">
-        {/* Academic performance */}
-        {(settings.classes || []).length > 0 && (
-          <Card className="border-border/70 shadow-sm">
-            <CardContent className="space-y-3 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="m-0 text-sm font-semibold text-primary">
-                  {dashView === "class" ? "Academic Performance · Class-wise" : "Academic Performance · Subject-wise"}
-                </h3>
-                <Tabs value={dashView} onValueChange={setDashView}>
-                  <TabsList>
-                    <TabsTrigger value="class">Class-wise</TabsTrigger>
-                    <TabsTrigger value="subject">Subject-wise</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-              <Separator />
-              <div className="flex flex-wrap items-end gap-3">
-                <Sel label="Exam" value={dashExam} onChange={setDashExam} options={dashExamOptions} width={200} />
-                {dashView === "subject" && (
-                  <Sel
-                    label="Class"
-                    value={dashSubjClass}
-                    onChange={setDashSubjClass}
-                    options={[
-                      { value: "all", label: "All Classes" },
-                      ...(settings.classes || []).map((c) => ({ value: c.id, label: formatClassDisplay(c) })),
-                    ]}
-                    width={200}
-                  />
-                )}
-              </div>
-              <p className="m-0 text-[11px] text-muted-foreground">
-                Pass threshold: {passThreshold}%. Uses the same totals as Result Cards / Marks Entry.
-              </p>
-
-              {dashView === "class" && (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {classStats.map((row) => (
-                    <div key={row.id} className="rounded-xl border border-border/70 bg-muted/20 p-3">
-                      <div className="mb-2 truncate text-sm font-bold text-primary">{row.name}</div>
-                      <div className="grid grid-cols-4 gap-1.5 text-center">
-                        {[
-                          { l: "Enrolled", v: row.count, c: C.navy },
-                          { l: "Pass", v: row.pass, c: C.green },
-                          { l: "Fail", v: row.fail, c: C.red },
-                          { l: "Pass %", v: row.count ? `${row.passRatePct}%` : "—", c: C.navy },
-                        ].map((cell) => (
-                          <div key={cell.l} className="rounded-lg border border-border/60 bg-white px-1 py-2">
-                            <div className="text-sm font-bold tabular-nums" style={{ color: cell.c }}>
-                              {cell.v}
-                            </div>
-                            <div className="text-[9px] font-medium text-muted-foreground">{cell.l}</div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-2 flex items-center justify-between border-t border-dashed border-border/70 pt-2 text-[11px]">
-                        <span className="text-muted-foreground">Fee ({monthLabel.slice(0, 3)})</span>
-                        <span className="font-bold text-green-700">
-                          {feeCore.formatCurrency(row.feeCollected)}
-                          <span className="ml-1 font-medium text-muted-foreground">
-                            / {feeCore.formatCurrency(row.feeExpected)}
-                          </span>
-                        </span>
-                      </div>
-                      {row.pending > 0 ? (
-                        <div className="mt-1 text-center text-[10px] text-muted-foreground">
-                          {row.pending} student{row.pending === 1 ? "" : "s"} without marks in this view
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
+            {dashView === "subject" &&
+              (subjectStats.length === 0 ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  No subject marks found for this exam selection.
                 </div>
-              )}
-
-              {dashView === "subject" &&
-                (subjectStats.length === 0 ? (
-                  <div className="py-8 text-center text-sm text-muted-foreground">
-                    No subject marks found for this exam selection.
-                  </div>
-                ) : (
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {subjectStats.map((row) => {
-                      const passRatePct = row.total > 0 ? Math.round(((100 * row.pass) / row.total) * 10) / 10 : 0;
-                      return (
-                        <div key={row.name} className="rounded-xl border border-border/70 bg-sky-50/60 p-3">
-                          <div className="mb-2 truncate text-sm font-bold text-sky-800">{row.name}</div>
-                          <div className="grid grid-cols-4 gap-1.5 text-center">
-                            {[
-                              { l: "Appeared", v: row.total, c: C.navy },
-                              { l: "Pass", v: row.pass, c: C.green },
-                              { l: "Fail", v: row.fail, c: C.red },
-                              { l: "Pass %", v: row.total ? `${passRatePct}%` : "—", c: C.navy },
-                            ].map((cell) => (
-                              <div key={cell.l} className="rounded-lg border border-border/60 bg-white px-1 py-2">
-                                <div className="text-sm font-bold tabular-nums" style={{ color: cell.c }}>
-                                  {cell.v}
-                                </div>
-                                <div className="text-[9px] font-medium text-muted-foreground">{cell.l}</div>
-                              </div>
-                            ))}
-                          </div>
-                          {row.total > 0 ? (
-                            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sky-100">
-                              <div
-                                className="h-full rounded-full"
-                                style={{
-                                  width: `${passRatePct}%`,
-                                  background:
-                                    passRatePct >= 80 ? "#22c55e" : passRatePct >= 50 ? "#eab308" : "#ef4444",
-                                }}
-                              />
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {subjectStats.map((row) => {
+                    const passRatePct =
+                      row.total > 0 ? Math.round(((100 * row.pass) / row.total) * 10) / 10 : 0;
+                    return (
+                      <div key={row.name} className="min-w-0 rounded-lg border border-border bg-muted/20 p-3">
+                        <div className="mb-2 truncate text-sm font-semibold text-foreground">{row.name}</div>
+                        <div className="grid grid-cols-2 gap-1.5 text-center sm:grid-cols-4">
+                          {[
+                            { l: "Appeared", v: row.total },
+                            { l: "Pass", v: row.pass },
+                            { l: "Fail", v: row.fail },
+                            { l: "Pass %", v: row.total ? `${passRatePct}%` : "—" },
+                          ].map((cell) => (
+                            <div key={cell.l} className="rounded-md border border-border bg-background px-1 py-2">
+                              <div className="text-sm font-bold tabular-nums text-foreground">{cell.v}</div>
+                              <div className="text-[9px] font-medium text-muted-foreground">{cell.l}</div>
                             </div>
-                          ) : null}
+                          ))}
                         </div>
-                      );
-                    })}
-                  </div>
-                ))}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Upcoming exams / calendar */}
-        <Card className="border-border/70 shadow-sm">
-          <CardContent className="space-y-3 p-4">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="m-0 flex items-center gap-2 text-sm font-semibold text-primary">
-                <CalendarDays size={15} aria-hidden /> Upcoming Exams
-              </h3>
-              <Btn small outline onClick={() => navigateTo(onNavigate, "examination", "datesheet")}>
-                Date Sheet
-              </Btn>
-            </div>
-            <Separator />
-            {upcomingExams.length === 0 ? (
-              <p className="m-0 text-sm text-muted-foreground">
-                No upcoming date-sheet entries. Add dates under Examination → Date Sheet.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {upcomingExams.map((row) => (
-                  <div key={row.id || row.date} className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5">
-                    <div className="text-sm font-bold text-foreground">
-                      {new Date(`${row.date}T00:00:00`).toLocaleDateString("en-PK", {
-                        weekday: "short",
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </div>
-                    <div className="mt-0.5 text-[11px] text-muted-foreground">{row.note || "Scheduled examination day"}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <Separator />
-            <div>
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Today&apos;s attendance snapshot
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { l: "Present", v: attendanceToday.present, c: "#15803d" },
-                  { l: "Absent", v: attendanceToday.absent, c: "#b91c1c" },
-                  { l: "Late", v: attendanceToday.late, c: "#b45309" },
-                  { l: "Unmarked", v: attendanceToday.unmarked, c: "#475569" },
-                ].map((cell) => (
-                  <div key={cell.l} className="rounded-lg border border-border/70 bg-white px-3 py-2">
-                    <div className="text-lg font-bold tabular-nums" style={{ color: cell.c }}>
-                      {cell.v}
-                    </div>
-                    <div className="text-[11px] font-medium text-muted-foreground">{cell.l}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
+                        {row.total > 0 ? (
+                          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full rounded-full bg-foreground/70"
+                              style={{ width: `${passRatePct}%` }}
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
           </CardContent>
         </Card>
-      </div>
+      )}
     </div>
   );
 }
