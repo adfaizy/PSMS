@@ -448,9 +448,20 @@ export async function processStudentPhotoWithBackground(file, opts = {}) {
     throw new Error("composite failed");
   } catch (e) {
     console.warn("Background removal failed, using fallback", e);
-    const out = await fallbackFromFile();
-    if (!isDisplayablePhotoSrc(out)) throw new Error("Could not process this photo. Try JPG or PNG.");
-    return out;
+    try {
+      const out = await fallbackFromFile();
+      if (isDisplayablePhotoSrc(out)) return out;
+    } catch (err2) {
+      console.warn("Photo fallback decode failed", err2);
+    }
+    // Last resort for camera blobs that FileReader tagged as non-displayable MIME
+    try {
+      const jpeg = await readStudentPhotoAsJpeg(file);
+      if (isDisplayablePhotoSrc(jpeg)) return jpeg;
+    } catch (err3) {
+      console.warn("Photo JPEG fallback failed", err3);
+    }
+    throw new Error("Could not process this photo. Try JPG or PNG.");
   }
 }
 
@@ -470,7 +481,30 @@ export function isStudentPhotoFile(file) {
   const type = String(file.type || "").toLowerCase();
   if (type.startsWith("image/")) return true;
   // Some OS/browsers leave type empty for HEIC/JFIF/etc.
-  return STUDENT_PHOTO_EXT_RE.test(String(file.name || ""));
+  if (STUDENT_PHOTO_EXT_RE.test(String(file.name || ""))) return true;
+  // System camera capture often returns empty name + empty/octet-stream type
+  if (file.size > 0 && (!type || type === "application/octet-stream")) return true;
+  return false;
+}
+
+/**
+ * Normalize a gallery/camera File so AI + canvas pipelines always get a usable image blob.
+ * (Desktop/mobile camera pickers frequently omit filename or MIME.)
+ */
+export function normalizeStudentPhotoFile(file) {
+  if (!file) return null;
+  const type = String(file.type || "").toLowerCase();
+  const name = String(file.name || "").trim();
+  const hasExt = STUDENT_PHOTO_EXT_RE.test(name);
+  if (type.startsWith("image/") && hasExt) return file;
+  const mime = type.startsWith("image/") ? type : "image/jpeg";
+  const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
+  const safeName = hasExt ? name : `capture-${Date.now()}.${ext}`;
+  try {
+    return new File([file], safeName, { type: mime, lastModified: file.lastModified || Date.now() });
+  } catch {
+    return file;
+  }
 }
 
 /** True if a stored photo src can render in <img> (rejects HTML/HEIC dumps). */

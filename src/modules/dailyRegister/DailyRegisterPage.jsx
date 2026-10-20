@@ -17,6 +17,13 @@ import {
   studentTotals,
   uniqueGrades,
 } from "./dailyRegisterCore.js";
+import { ModulePageShell } from "@/components/ModulePageShell";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { cn } from "@/lib/utils";
 import "./dailyRegister.css";
 
 const TABS = [
@@ -156,82 +163,93 @@ function DailyRegisterSheet({
   };
 
   return (
-    <div className="card">
-      <div className="info">
-        <div className="field">
-          <label>School Name</label>
-          <div className="val">{schoolName}</div>
-        </div>
-        <div className="field">
-          <label>EMIS Code</label>
-          <div className="val">{schoolCode}</div>
-        </div>
-        <div className="field">
-          <label>Class</label>
-          <select aria-label="Class" value={grade} onChange={(e) => onGradeChange(e.target.value)}>
-            {grades.length === 0 && <option value="">No classes</option>}
-            {grades.map((g) => (
-              <option key={g} value={g}>{g}</option>
-            ))}
-          </select>
-        </div>
-        <div className="field">
-          <label>Section</label>
-          <select aria-label="Section" value={classId} onChange={(e) => onClassChange(e.target.value)}>
-            {sectionOptions.length === 0 && <option value="">—</option>}
-            {sectionOptions.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.section || c.name || "—"}
-              </option>
-            ))}
-          </select>
-        </div>
-            <div className="field">
-              <label>On Roll</label>
-              <div className="val">{sheet.students.length}</div>
-            </div>
-            <div className="field field-month">
-              <label htmlFor="dr-month">Month</label>
-              <select
-                id="dr-month"
-                className="month-select"
-                aria-label="Month"
-                value={monthKey}
-                onChange={(e) => onMonthChange(e.target.value)}
-              >
-                {monthOptions.map((m) => (
-                  <option key={m} value={m}>{formatMonthLabel(m)}</option>
-                ))}
-              </select>
-            </div>
+    <div className="card space-y-3">
+      <Card size="sm" className="no-print shadow-none">
+        <CardContent className="grid gap-3 pt-(--card-spacing) sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <div className="space-y-1.5">
+            <Label>School Name</Label>
+            <div className="text-sm font-medium">{schoolName}</div>
           </div>
-
-      <div className="toolbar">
-        <div className="tabs">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className={`tab${tab === t.id ? " active" : ""}`}
-              onClick={() => setTab(t.id)}
+          <div className="space-y-1.5">
+            <Label>EMIS Code</Label>
+            <div className="text-sm font-medium">{schoolCode}</div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="dr-grade">Class</Label>
+            <NativeSelect
+              id="dr-grade"
+              aria-label="Class"
+              value={grade}
+              onChange={(e) => onGradeChange(e.target.value)}
+              className="w-full"
             >
-              {t.l}
-            </button>
-          ))}
-        </div>
-        <div className="actions">
-          <span id="status">{status}</span>
-          <button className="btn primary" type="button" onClick={() => persist(sheet, "Saved")}>Save</button>
-          <button className="btn" type="button" onClick={resetMonth}>Reset month</button>
+              {grades.length === 0 && <option value="">No classes</option>}
+              {grades.map((g) => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="dr-section">Section</Label>
+            <NativeSelect
+              id="dr-section"
+              aria-label="Section"
+              value={classId}
+              onChange={(e) => onClassChange(e.target.value)}
+              className="w-full"
+            >
+              {sectionOptions.length === 0 && <option value="">—</option>}
+              {sectionOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.section || c.name || "—"}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="space-y-1.5">
+            <Label>On Roll</Label>
+            <div className="text-sm font-medium">{sheet.students.length}</div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="dr-month">Month</Label>
+            <NativeSelect
+              id="dr-month"
+              aria-label="Month"
+              className={cn("w-full", "month-select")}
+              value={monthKey}
+              onChange={(e) => onMonthChange(e.target.value)}
+            >
+              {monthOptions.map((m) => (
+                <option key={m} value={m}>{formatMonthLabel(m)}</option>
+              ))}
+            </NativeSelect>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="no-print flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <Tabs value={tab} onValueChange={setTab} className="min-w-0">
+          <TabsList className="h-auto flex-wrap">
+            {TABS.map((t) => (
+              <TabsTrigger key={t.id} value={t.id} className="text-xs sm:text-sm">
+                {t.l}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+        <div className="flex flex-wrap items-center gap-2">
+          <span id="status" className="text-xs text-muted-foreground">{status}</span>
+          <Button type="button" size="sm" onClick={() => persist(sheet, "Saved")}>Save</Button>
+          <Button type="button" size="sm" variant="outline" onClick={resetMonth}>Reset month</Button>
           {tab === "report" && (
-            <button className="btn primary" type="button" onClick={printReport}>Print report</button>
+            <Button type="button" size="sm" onClick={printReport}>Print report</Button>
           )}
         </div>
       </div>
 
       {tab === "student" && (
         <div className="panel active panel-student">
-          <div className="table-scroll">
+          <div className="table-scroll" tabIndex={0} aria-label="Student daily marks grid">
             <table className="sr">
               <thead>
                 <tr>
@@ -324,7 +342,7 @@ function DailyRegisterSheet({
 
       {tab === "summary" && (
         <div className="panel active panel-summary">
-          <div className="table-scroll">
+          <div className="table-scroll" tabIndex={0} aria-label="Daily summary grid">
             <table className="sr" id="summaryTable">
                   <thead>
                 <tr>
@@ -394,9 +412,9 @@ function DailyRegisterSheet({
       {tab === "report" && (
         <div className="panel active panel-report">
           <div className="report-toolbar no-print">
-            <button className="btn primary" type="button" onClick={printReport}>
+            <Button type="button" onClick={printReport}>
               Print / Save as PDF
-            </button>
+            </Button>
           </div>
           <div className="report-sheet">
             <div className="report-doc-head">
@@ -488,7 +506,13 @@ export function DailyRegisterPage({
   }, [setBarSubtitle]);
 
   return (
-    <div className="daily-register psms-page">
+    <ModulePageShell
+      title="Daily Quick Test Register"
+      description="Marks entry, day summary, and printable performance report"
+      bareContent
+      className="daily-register"
+      maxWidthClassName="max-w-[1600px]"
+    >
       <div className="wrap">
         <DailyRegisterSheet
           key={`${activeSchoolId || ""}|${classId}|${monthKey}`}
@@ -509,6 +533,6 @@ export function DailyRegisterPage({
           onMonthChange={setMonthPick}
         />
       </div>
-    </div>
+    </ModulePageShell>
   );
 }

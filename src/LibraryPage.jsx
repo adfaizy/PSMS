@@ -4,6 +4,13 @@ import "./LibraryPage.css";
 import { findStudentByRollInClass, resolveClass, formatClassDisplay, loadLibraryFromLocal, saveLibraryToLocal, hydrateLibraryFromCloud } from "./modules";
 import { yieldToMain } from "./yieldToMain.js";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Card, CardContent } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const LIBRARY_EXCEL_HEADERS = ["Title", "Author", "Publisher", "ISBN", "Number of copies", "Cover URL", "Book ID"];
 const LIBRARY_CLASSES = ["Nursery", "KG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
@@ -574,16 +581,16 @@ export function LibraryPage({
 
             {activeTab === "books" ? (
               <div className="library-excel-actions" aria-label="Excel import and export">
-                <button type="button" className="library-excel-btn" onClick={() => void exportBooksExcel()}>
+                <Button type="button" variant="outline" size="sm" onClick={() => void exportBooksExcel()}>
                   Export Excel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className="library-excel-btn library-excel-btn--primary"
+                  size="sm"
                   onClick={() => excelImportRef.current?.click()}
                 >
                   Import Excel
-                </button>
+                </Button>
                 <input
                   ref={excelImportRef}
                   type="file"
@@ -596,7 +603,7 @@ export function LibraryPage({
           </div>
 
           <div className="library-search">
-            <input
+            <Input
               type="search"
               placeholder="Search books by title, author, publisher or ISBN"
               value={query}
@@ -609,92 +616,104 @@ export function LibraryPage({
       <section className="library-editor">
         {activeTab === "books" ? (
           <>
-            <form className="library-form" onSubmit={handleAddBook}>
-              <h2>Add new book</h2>
-              <div className="library-form-grid">
-                <label>
-                  Title
-                  <input
-                    type="text"
-                    value={bookForm.title}
-                    onChange={(event) => updateBookForm("title", event.target.value)}
-                    placeholder="Book title"
-                    required
-                  />
-                </label>
-                <label>
-                  Author
-                  <input
-                    type="text"
-                    value={bookForm.author}
-                    onChange={(event) => updateBookForm("author", event.target.value)}
-                    placeholder="Author name"
-                  />
-                </label>
-                <label>
-                  Publisher
-                  <input
-                    type="text"
-                    value={bookForm.publisher}
-                    onChange={(event) => updateBookForm("publisher", event.target.value)}
-                    placeholder="Publisher"
-                  />
-                </label>
-                <label>
-                  ISBN
-                  <input
-                    type="text"
-                    value={bookForm.isbn}
-                    onChange={(event) => updateBookForm("isbn", event.target.value)}
-                    placeholder="ISBN or catalogue ID"
-                  />
-                </label>
-                <label>
-                  Number of copies
-                  <input
-                    type="number"
-                    min="1"
-                    value={bookForm.copies}
-                    onChange={(event) => updateBookForm("copies", event.target.value)}
-                    placeholder="1"
-                  />
-                </label>
-                <label className="library-form-full">
-                  Cover image URL or gallery
-                  <div className="library-cover-input-row">
-                    <input
-                      type="url"
-                      value={bookForm.coverUrl}
-                      onChange={(event) => updateBookForm("coverUrl", event.target.value)}
-                      placeholder="Optional cover image URL"
-                    />
-                    <button
-                      type="button"
-                      className="library-cover-upload-btn"
-                      onClick={() => coverInputRef.current?.click()}
-                    >
-                      Gallery
-                    </button>
-                  </div>
-                  {bookForm.coverUrl ? (
-                    <div className="library-cover-preview">
-                      <img src={bookForm.coverUrl} alt="Cover preview" />
+            <Card className="library-form-card">
+              <CardContent className="pt-4">
+                <form className="library-form" onSubmit={handleAddBook}>
+                  <h2>Add new book</h2>
+                  <div className="library-form-grid">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="book-title">Title</Label>
+                      <Input
+                        id="book-title"
+                        type="text"
+                        value={bookForm.title}
+                        onChange={(event) => updateBookForm("title", event.target.value)}
+                        placeholder="Book title"
+                        required
+                      />
                     </div>
-                  ) : null}
-                  <input
-                    ref={coverInputRef}
-                    type="file"
-                    accept="image/*"
-                    style={{ display: "none" }}
-                    onChange={handleCoverFileChange}
-                  />
-                </label>
-              </div>
-              <div className="library-form-actions">
-                <button type="submit">Add book</button>
-                <span className="library-saved-hint">{savedHint ? "Saved" : ""}</span>
-              </div>
-            </form>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="book-author">Author</Label>
+                      <Input
+                        id="book-author"
+                        type="text"
+                        value={bookForm.author}
+                        onChange={(event) => updateBookForm("author", event.target.value)}
+                        placeholder="Author name"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="book-publisher">Publisher</Label>
+                      <Input
+                        id="book-publisher"
+                        type="text"
+                        value={bookForm.publisher}
+                        onChange={(event) => updateBookForm("publisher", event.target.value)}
+                        placeholder="Publisher"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="book-isbn">ISBN</Label>
+                      <Input
+                        id="book-isbn"
+                        type="text"
+                        value={bookForm.isbn}
+                        onChange={(event) => updateBookForm("isbn", event.target.value)}
+                        placeholder="ISBN or catalogue ID"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="book-copies">Number of copies</Label>
+                      <Input
+                        id="book-copies"
+                        type="number"
+                        min="1"
+                        value={bookForm.copies}
+                        onChange={(event) => updateBookForm("copies", event.target.value)}
+                        placeholder="1"
+                      />
+                    </div>
+                    <div className="library-form-full space-y-1.5">
+                      <Label htmlFor="book-cover-url">Cover image URL or gallery</Label>
+                      <div className="library-cover-input-row">
+                        <Input
+                          id="book-cover-url"
+                          type="url"
+                          value={bookForm.coverUrl}
+                          onChange={(event) => updateBookForm("coverUrl", event.target.value)}
+                          placeholder="Optional cover image URL"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="library-cover-upload-btn"
+                          onClick={() => coverInputRef.current?.click()}
+                        >
+                          Gallery
+                        </Button>
+                      </div>
+                      {bookForm.coverUrl ? (
+                        <div className="library-cover-preview">
+                          <img src={bookForm.coverUrl} alt="Cover preview" />
+                        </div>
+                      ) : null}
+                      <input
+                        ref={coverInputRef}
+                        type="file"
+                        accept="image/*"
+                        style={{ display: "none" }}
+                        onChange={handleCoverFileChange}
+                      />
+                    </div>
+                  </div>
+                  <div className="library-form-actions">
+                    <Button type="submit">Add book</Button>
+                    <span className="library-saved-hint">{savedHint ? "Saved" : ""}</span>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
 
             <div className="library-booklist">
               <div className="library-booklist__header">
@@ -712,25 +731,23 @@ export function LibraryPage({
                 </div>
               ) : (
                 <div className="library-catalog-table-wrap">
-                  <table className="library-catalog-table">
-                    <thead>
-                      <tr>
-                        <th scope="col">Cover</th>
-                        <th scope="col">Title</th>
-                        <th scope="col">Author</th>
-                        <th scope="col">Publisher</th>
-                        <th scope="col">ISBN</th>
-                        <th scope="col">Number of copies</th>
-                        <th scope="col">Book ID</th>
-                        <th scope="col" className="library-catalog-table__th-actions">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table className="library-catalog-table">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Cover</TableHead>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Author</TableHead>
+                        <TableHead>Publisher</TableHead>
+                        <TableHead>ISBN</TableHead>
+                        <TableHead>Number of copies</TableHead>
+                        <TableHead>Book ID</TableHead>
+                        <TableHead className="library-catalog-table__th-actions">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {visibleBooks.map((book) => (
-                        <tr key={book.id}>
-                          <td className="library-catalog-table__cover-cell">
+                        <TableRow key={book.id}>
+                          <TableCell className="library-catalog-table__cover-cell">
                             <div className="library-catalog-table__thumb">
                               {book.coverUrl ? (
                                 <img src={book.coverUrl} alt="" />
@@ -738,213 +755,228 @@ export function LibraryPage({
                                 <span className="library-catalog-table__thumb-placeholder">No cover</span>
                               )}
                             </div>
-                          </td>
-                          <td className="library-catalog-table__title">{book.title}</td>
-                          <td>{book.author?.trim() ? book.author : "—"}</td>
-                          <td>{book.publisher?.trim() ? book.publisher : "—"}</td>
-                          <td>{book.isbn?.trim() ? book.isbn : "—"}</td>
-                          <td>{book.copies ?? 1}</td>
-                          <td className="library-catalog-table__id">
+                          </TableCell>
+                          <TableCell className="library-catalog-table__title">{book.title}</TableCell>
+                          <TableCell>{book.author?.trim() ? book.author : "—"}</TableCell>
+                          <TableCell>{book.publisher?.trim() ? book.publisher : "—"}</TableCell>
+                          <TableCell>{book.isbn?.trim() ? book.isbn : "—"}</TableCell>
+                          <TableCell>{book.copies ?? 1}</TableCell>
+                          <TableCell className="library-catalog-table__id">
                             <span title={book.id}>{book.id}</span>
-                          </td>
-                          <td className="library-catalog-table__actions">
-                            <button
+                          </TableCell>
+                          <TableCell className="library-catalog-table__actions">
+                            <Button
                               type="button"
-                              className="library-book-card__btn library-book-card__btn--edit"
+                              variant="outline"
+                              size="sm"
                               onClick={() => openEditBook(book)}
                             >
                               Edit
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               type="button"
-                              className="library-book-card__btn library-book-card__btn--remove"
+                              variant="outline"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
                               onClick={() => handleRemoveBook(book.id)}
                             >
                               Remove
-                            </button>
-                          </td>
-                        </tr>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </div>
 
-            {editBookId ? (
-              <div className="library-edit-modal" role="dialog" aria-modal="true" aria-labelledby="library-edit-heading">
-                <button
-                  type="button"
-                  className="library-edit-modal__backdrop"
-                  aria-label="Close edit dialog"
-                  onClick={() => setEditBookId(null)}
-                />
-                <div className="library-edit-modal__panel">
-                  <form className="library-form library-edit-modal__form" onSubmit={handleSaveEditBook}>
-                    <h2 id="library-edit-heading">Edit book</h2>
-                    <div className="library-form-grid">
-                      <label>
-                        Title
-                        <input
-                          type="text"
-                          value={editForm.title}
-                          onChange={(event) => updateEditForm("title", event.target.value)}
-                          placeholder="Book title"
-                          required
+            {/* Edit book dialog */}
+            <Dialog open={!!editBookId} onOpenChange={(open) => { if (!open) setEditBookId(null); }}>
+              <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Edit book</DialogTitle>
+                </DialogHeader>
+                <form id="edit-book-form" className="library-form" onSubmit={handleSaveEditBook}>
+                  <div className="library-form-grid">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-book-title">Title</Label>
+                      <Input
+                        id="edit-book-title"
+                        type="text"
+                        value={editForm.title}
+                        onChange={(event) => updateEditForm("title", event.target.value)}
+                        placeholder="Book title"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-book-author">Author</Label>
+                      <Input
+                        id="edit-book-author"
+                        type="text"
+                        value={editForm.author}
+                        onChange={(event) => updateEditForm("author", event.target.value)}
+                        placeholder="Author name"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-book-publisher">Publisher</Label>
+                      <Input
+                        id="edit-book-publisher"
+                        type="text"
+                        value={editForm.publisher}
+                        onChange={(event) => updateEditForm("publisher", event.target.value)}
+                        placeholder="Publisher"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-book-isbn">ISBN</Label>
+                      <Input
+                        id="edit-book-isbn"
+                        type="text"
+                        value={editForm.isbn}
+                        onChange={(event) => updateEditForm("isbn", event.target.value)}
+                        placeholder="ISBN or catalogue ID"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-book-copies">Number of copies</Label>
+                      <Input
+                        id="edit-book-copies"
+                        type="number"
+                        min="1"
+                        value={editForm.copies}
+                        onChange={(event) => updateEditForm("copies", event.target.value)}
+                        placeholder="1"
+                      />
+                    </div>
+                    <div className="library-form-full space-y-1.5">
+                      <Label htmlFor="edit-book-cover-url">Cover image URL or gallery</Label>
+                      <div className="library-cover-input-row">
+                        <Input
+                          id="edit-book-cover-url"
+                          type="url"
+                          value={editForm.coverUrl}
+                          onChange={(event) => updateEditForm("coverUrl", event.target.value)}
+                          placeholder="Optional cover image URL"
                         />
-                      </label>
-                      <label>
-                        Author
-                        <input
-                          type="text"
-                          value={editForm.author}
-                          onChange={(event) => updateEditForm("author", event.target.value)}
-                          placeholder="Author name"
-                        />
-                      </label>
-                      <label>
-                        Publisher
-                        <input
-                          type="text"
-                          value={editForm.publisher}
-                          onChange={(event) => updateEditForm("publisher", event.target.value)}
-                          placeholder="Publisher"
-                        />
-                      </label>
-                      <label>
-                        ISBN
-                        <input
-                          type="text"
-                          value={editForm.isbn}
-                          onChange={(event) => updateEditForm("isbn", event.target.value)}
-                          placeholder="ISBN or catalogue ID"
-                        />
-                      </label>
-                      <label>
-                        Number of copies
-                        <input
-                          type="number"
-                          min="1"
-                          value={editForm.copies}
-                          onChange={(event) => updateEditForm("copies", event.target.value)}
-                          placeholder="1"
-                        />
-                      </label>
-                      <label className="library-form-full">
-                        Cover image URL or gallery
-                        <div className="library-cover-input-row">
-                          <input
-                            type="url"
-                            value={editForm.coverUrl}
-                            onChange={(event) => updateEditForm("coverUrl", event.target.value)}
-                            placeholder="Optional cover image URL"
-                          />
-                          <button
-                            type="button"
-                            className="library-cover-upload-btn"
-                            onClick={() => editCoverInputRef.current?.click()}
-                          >
-                            Gallery
-                          </button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="library-cover-upload-btn"
+                          onClick={() => editCoverInputRef.current?.click()}
+                        >
+                          Gallery
+                        </Button>
+                      </div>
+                      {editForm.coverUrl ? (
+                        <div className="library-cover-preview">
+                          <img src={editForm.coverUrl} alt="Cover preview" />
                         </div>
-                        {editForm.coverUrl ? (
-                          <div className="library-cover-preview">
-                            <img src={editForm.coverUrl} alt="Cover preview" />
-                          </div>
-                        ) : null}
-                        <input
-                          ref={editCoverInputRef}
-                          type="file"
-                          accept="image/*"
-                          style={{ display: "none" }}
-                          onChange={handleEditCoverFileChange}
-                        />
-                      </label>
+                      ) : null}
+                      <input
+                        ref={editCoverInputRef}
+                        type="file"
+                        accept="image/*"
+                        style={{ display: "none" }}
+                        onChange={handleEditCoverFileChange}
+                      />
                     </div>
-                    <div className="library-form-actions">
-                      <button type="submit">Save changes</button>
-                      <button type="button" className="library-edit-modal__cancel" onClick={() => setEditBookId(null)}>
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            ) : null}
+                  </div>
+                </form>
+                <DialogFooter>
+                  <Button variant="outline" type="button" onClick={() => setEditBookId(null)}>Cancel</Button>
+                  <Button type="submit" form="edit-book-form">Save changes</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </>
         ) : (
           <>
-            <form className="library-form" onSubmit={handleIssueBook}>
-              <h2>Issue book to student</h2>
-              <div className="library-form-grid">
-                <label>
-                  Class (required)
-                  <select
-                    value={borrowForm.className}
-                    onChange={(event) => updateBorrowForm("className", event.target.value)}
-                    required
-                  >
-                    <option value="">Select class</option>
-                    {classes
-                      .filter((cls) => cls && cls.id != null && String(cls.id).trim() !== "")
-                      .map((cls) => (
-                        <option key={cls.id} value={cls.id}>
-                          {formatClassDisplay(cls) || cls.name || `${cls.grade}${cls.section ? `-${cls.section}` : ""}`}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-                <label>
-                  Roll Number (required)
-                  <input
-                    type="text"
-                    value={borrowForm.roll}
-                    onChange={(event) => updateBorrowForm("roll", event.target.value)}
-                    placeholder="Enter roll number"
-                    required
-                  />
-                </label>
-                <label>
-                  Student Name
-                  <input
-                    type="text"
-                    value={borrowForm.studentName}
-                    readOnly
-                    placeholder="Auto-populated from roll number"
-                  />
-                </label>
-                <label>
-                  Father Name
-                  <input
-                    type="text"
-                    value={borrowForm.fatherName}
-                    readOnly
-                    placeholder="Auto-populated from roll number"
-                  />
-                </label>
-                <label className="library-form-full">
-                  Book (required)
-                  <select
-                    value={borrowForm.bookId}
-                    onChange={(event) => updateBorrowForm("bookId", event.target.value)}
-                    required
-                  >
-                    <option value="">Select a book</option>
-                    {library.books
-                      .filter(book => getAvailableCopies(book, library.borrowings) > 0)
-                      .map((book) => (
-                        <option key={book.id} value={book.id}>
-                          {book.title} (Available: {getAvailableCopies(book, library.borrowings)})
-                        </option>
-                      ))}
-                  </select>
-                </label>
-              </div>
-              <div className="library-form-actions">
-                <button type="submit">Issue book</button>
-                <span className="library-saved-hint">{savedHint ? "Saved" : ""}</span>
-              </div>
-            </form>
+            <Card className="library-form-card">
+              <CardContent className="pt-4">
+                <form className="library-form" onSubmit={handleIssueBook}>
+                  <h2>Issue book to student</h2>
+                  <div className="library-form-grid">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="borrow-class">Class (required)</Label>
+                      <NativeSelect
+                        id="borrow-class"
+                        value={borrowForm.className}
+                        onChange={(event) => updateBorrowForm("className", event.target.value)}
+                        required
+                        className="w-full"
+                      >
+                        <option value="">Select class</option>
+                        {classes
+                          .filter((cls) => cls && cls.id != null && String(cls.id).trim() !== "")
+                          .map((cls) => (
+                            <option key={cls.id} value={cls.id}>
+                              {formatClassDisplay(cls) || cls.name || `${cls.grade}${cls.section ? `-${cls.section}` : ""}`}
+                            </option>
+                          ))}
+                      </NativeSelect>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="borrow-roll">Roll Number (required)</Label>
+                      <Input
+                        id="borrow-roll"
+                        type="text"
+                        value={borrowForm.roll}
+                        onChange={(event) => updateBorrowForm("roll", event.target.value)}
+                        placeholder="Enter roll number"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="borrow-student-name">Student Name</Label>
+                      <Input
+                        id="borrow-student-name"
+                        type="text"
+                        value={borrowForm.studentName}
+                        readOnly
+                        placeholder="Auto-populated from roll number"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="borrow-father-name">Father Name</Label>
+                      <Input
+                        id="borrow-father-name"
+                        type="text"
+                        value={borrowForm.fatherName}
+                        readOnly
+                        placeholder="Auto-populated from roll number"
+                      />
+                    </div>
+                    <div className="library-form-full space-y-1.5">
+                      <Label htmlFor="borrow-book">Book (required)</Label>
+                      <NativeSelect
+                        id="borrow-book"
+                        value={borrowForm.bookId}
+                        onChange={(event) => updateBorrowForm("bookId", event.target.value)}
+                        required
+                        className="w-full"
+                      >
+                        <option value="">Select a book</option>
+                        {library.books
+                          .filter(book => getAvailableCopies(book, library.borrowings) > 0)
+                          .map((book) => (
+                            <option key={book.id} value={book.id}>
+                              {book.title} (Available: {getAvailableCopies(book, library.borrowings)})
+                            </option>
+                          ))}
+                      </NativeSelect>
+                    </div>
+                  </div>
+                  <div className="library-form-actions">
+                    <Button type="submit">Issue book</Button>
+                    <span className="library-saved-hint">{savedHint ? "Saved" : ""}</span>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
 
             <div className="library-booklist">
               <div className="library-booklist__header">
@@ -958,32 +990,28 @@ export function LibraryPage({
                 </div>
               ) : (
                 <div className="library-catalog-table-wrap">
-                  <table className="library-catalog-table library-borrow-table">
-                    <thead>
-                      <tr>
-                        <th scope="col">Cover</th>
-                        <th scope="col">Book title</th>
-                        <th scope="col">Student name</th>
-                        <th scope="col">Father&apos;s name</th>
-                        <th scope="col">Roll</th>
-                        <th scope="col">Class</th>
-                        <th scope="col">Issued date</th>
-                        <th scope="col" className="library-borrow-table__th-time">
-                          Issue time
-                        </th>
-                        <th scope="col" className="library-catalog-table__th-actions">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table className="library-catalog-table library-borrow-table">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Cover</TableHead>
+                        <TableHead>Book title</TableHead>
+                        <TableHead>Student name</TableHead>
+                        <TableHead>Father&apos;s name</TableHead>
+                        <TableHead>Roll</TableHead>
+                        <TableHead>Class</TableHead>
+                        <TableHead>Issued date</TableHead>
+                        <TableHead className="library-borrow-table__th-time">Issue time</TableHead>
+                        <TableHead className="library-catalog-table__th-actions">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {currentBorrowings.map((borrowing) => {
                         const book = library.books.find((b) => b.id === borrowing.bookId);
                         const clsLabel =
                           formatClassDisplay(resolveClass(classes, borrowing.className)) || borrowing.className || "—";
                         return (
-                          <tr key={borrowing.id}>
-                            <td className="library-catalog-table__cover-cell">
+                          <TableRow key={borrowing.id}>
+                            <TableCell className="library-catalog-table__cover-cell">
                               <div className="library-catalog-table__thumb">
                                 {book?.coverUrl ? (
                                   <img src={book.coverUrl} alt="" />
@@ -991,35 +1019,36 @@ export function LibraryPage({
                                   <span className="library-catalog-table__thumb-placeholder">No cover</span>
                                 )}
                               </div>
-                            </td>
-                            <td className="library-catalog-table__title">{book?.title || "—"}</td>
-                            <td>{borrowing.studentName || "—"}</td>
-                            <td>{borrowing.fatherName?.trim() ? borrowing.fatherName : "—"}</td>
-                            <td>{borrowing.roll != null && String(borrowing.roll).trim() !== "" ? borrowing.roll : "—"}</td>
-                            <td>{clsLabel}</td>
-                            <td>{borrowing.issuedAt ? new Date(borrowing.issuedAt).toLocaleDateString() : "—"}</td>
-                            <td className="library-borrow-table__time-cell">{formatBorrowTime(borrowing.issuedAt)}</td>
-                            <td className="library-catalog-table__actions">
-                              <button
+                            </TableCell>
+                            <TableCell className="library-catalog-table__title">{book?.title || "—"}</TableCell>
+                            <TableCell>{borrowing.studentName || "—"}</TableCell>
+                            <TableCell>{borrowing.fatherName?.trim() ? borrowing.fatherName : "—"}</TableCell>
+                            <TableCell>{borrowing.roll != null && String(borrowing.roll).trim() !== "" ? borrowing.roll : "—"}</TableCell>
+                            <TableCell>{clsLabel}</TableCell>
+                            <TableCell>{borrowing.issuedAt ? new Date(borrowing.issuedAt).toLocaleDateString() : "—"}</TableCell>
+                            <TableCell className="library-borrow-table__time-cell">{formatBorrowTime(borrowing.issuedAt)}</TableCell>
+                            <TableCell className="library-catalog-table__actions">
+                              <Button
                                 type="button"
-                                className="library-book-card__btn library-book-card__btn--edit"
+                                variant="outline"
+                                size="sm"
                                 onClick={() => openEditBorrowing(borrowing)}
                               >
                                 Edit
-                              </button>
-                              <button
+                              </Button>
+                              <Button
                                 type="button"
-                                className="library-book-card__btn library-book-card__btn--return"
+                                size="sm"
                                 onClick={() => handleReturnBook(borrowing.id)}
                               >
                                 Return
-                              </button>
-                            </td>
-                          </tr>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
                         );
                       })}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </div>
@@ -1031,29 +1060,29 @@ export function LibraryPage({
                   <p>{borrowingHistory.length} returned book{borrowingHistory.length === 1 ? "" : "s"}</p>
                 </div>
                 <div className="library-catalog-table-wrap">
-                  <table className="library-catalog-table library-borrow-table library-borrow-table--history">
-                    <thead>
-                      <tr>
-                        <th scope="col">Cover</th>
-                        <th scope="col">Book title</th>
-                        <th scope="col">Student name</th>
-                        <th scope="col">Father&apos;s name</th>
-                        <th scope="col">Roll</th>
-                        <th scope="col">Class</th>
-                        <th scope="col">Issued date</th>
-                        <th scope="col">Issue time</th>
-                        <th scope="col">Returned date</th>
-                        <th scope="col">Return time</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table className="library-catalog-table library-borrow-table library-borrow-table--history">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Cover</TableHead>
+                        <TableHead>Book title</TableHead>
+                        <TableHead>Student name</TableHead>
+                        <TableHead>Father&apos;s name</TableHead>
+                        <TableHead>Roll</TableHead>
+                        <TableHead>Class</TableHead>
+                        <TableHead>Issued date</TableHead>
+                        <TableHead>Issue time</TableHead>
+                        <TableHead>Returned date</TableHead>
+                        <TableHead>Return time</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {borrowingHistory.map((borrowing) => {
                         const book = library.books.find((b) => b.id === borrowing.bookId);
                         const clsLabel =
                           formatClassDisplay(resolveClass(classes, borrowing.className)) || borrowing.className || "—";
                         return (
-                          <tr key={borrowing.id} className="library-borrow-table__row--returned">
-                            <td className="library-catalog-table__cover-cell">
+                          <TableRow key={borrowing.id} className="library-borrow-table__row--returned">
+                            <TableCell className="library-catalog-table__cover-cell">
                               <div className="library-catalog-table__thumb">
                                 {book?.coverUrl ? (
                                   <img src={book.coverUrl} alt="" />
@@ -1061,114 +1090,115 @@ export function LibraryPage({
                                   <span className="library-catalog-table__thumb-placeholder">No cover</span>
                                 )}
                               </div>
-                            </td>
-                            <td className="library-catalog-table__title">{book?.title || "—"}</td>
-                            <td>{borrowing.studentName || "—"}</td>
-                            <td>{borrowing.fatherName?.trim() ? borrowing.fatherName : "—"}</td>
-                            <td>{borrowing.roll != null && String(borrowing.roll).trim() !== "" ? borrowing.roll : "—"}</td>
-                            <td>{clsLabel}</td>
-                            <td>{borrowing.issuedAt ? new Date(borrowing.issuedAt).toLocaleDateString() : "—"}</td>
-                            <td className="library-borrow-table__time-cell">{formatBorrowTime(borrowing.issuedAt)}</td>
-                            <td>{borrowing.returnedAt ? new Date(borrowing.returnedAt).toLocaleDateString() : "—"}</td>
-                            <td className="library-borrow-table__time-cell">{formatBorrowTime(borrowing.returnedAt)}</td>
-                          </tr>
+                            </TableCell>
+                            <TableCell className="library-catalog-table__title">{book?.title || "—"}</TableCell>
+                            <TableCell>{borrowing.studentName || "—"}</TableCell>
+                            <TableCell>{borrowing.fatherName?.trim() ? borrowing.fatherName : "—"}</TableCell>
+                            <TableCell>{borrowing.roll != null && String(borrowing.roll).trim() !== "" ? borrowing.roll : "—"}</TableCell>
+                            <TableCell>{clsLabel}</TableCell>
+                            <TableCell>{borrowing.issuedAt ? new Date(borrowing.issuedAt).toLocaleDateString() : "—"}</TableCell>
+                            <TableCell className="library-borrow-table__time-cell">{formatBorrowTime(borrowing.issuedAt)}</TableCell>
+                            <TableCell>{borrowing.returnedAt ? new Date(borrowing.returnedAt).toLocaleDateString() : "—"}</TableCell>
+                            <TableCell className="library-borrow-table__time-cell">{formatBorrowTime(borrowing.returnedAt)}</TableCell>
+                          </TableRow>
                         );
                       })}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
             )}
 
-            {editBorrowingId ? (
-              <div className="library-edit-modal" role="dialog" aria-modal="true" aria-labelledby="library-edit-borrow-heading">
-                <button
-                  type="button"
-                  className="library-edit-modal__backdrop"
-                  aria-label="Close edit borrowing dialog"
-                  onClick={() => setEditBorrowingId(null)}
-                />
-                <div className="library-edit-modal__panel library-edit-modal__panel--wide">
-                  <form className="library-form library-edit-modal__form" onSubmit={handleSaveEditBorrowing}>
-                    <h2 id="library-edit-borrow-heading">Edit borrowing</h2>
-                    <div className="library-form-grid">
-                      <label className="library-form-full">
-                        Book
-                        <select
-                          value={editBorrowForm.bookId}
-                          onChange={(event) => updateEditBorrowForm("bookId", event.target.value)}
-                          required
-                        >
-                          <option value="">Select book</option>
-                          {booksForEditBorrow.map((book) => (
-                            <option key={book.id} value={book.id}>
-                              {book.title}
+            {/* Edit borrowing dialog */}
+            <Dialog open={!!editBorrowingId} onOpenChange={(open) => { if (!open) setEditBorrowingId(null); }}>
+              <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Edit borrowing</DialogTitle>
+                </DialogHeader>
+                <form id="edit-borrow-form" className="library-form" onSubmit={handleSaveEditBorrowing}>
+                  <div className="library-form-grid">
+                    <div className="library-form-full space-y-1.5">
+                      <Label htmlFor="edit-borrow-book">Book</Label>
+                      <NativeSelect
+                        id="edit-borrow-book"
+                        value={editBorrowForm.bookId}
+                        onChange={(event) => updateEditBorrowForm("bookId", event.target.value)}
+                        required
+                        className="w-full"
+                      >
+                        <option value="">Select book</option>
+                        {booksForEditBorrow.map((book) => (
+                          <option key={book.id} value={book.id}>
+                            {book.title}
+                          </option>
+                        ))}
+                      </NativeSelect>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-borrow-class">Class</Label>
+                      <NativeSelect
+                        id="edit-borrow-class"
+                        value={editBorrowForm.className}
+                        onChange={(event) => updateEditBorrowForm("className", event.target.value)}
+                        className="w-full"
+                      >
+                        <option value="">Select class</option>
+                        {classes
+                          .filter((cls) => cls && cls.id != null && String(cls.id).trim() !== "")
+                          .map((cls) => (
+                            <option key={cls.id} value={cls.id}>
+                              {formatClassDisplay(cls) || cls.name || `${cls.grade}${cls.section ? `-${cls.section}` : ""}`}
                             </option>
                           ))}
-                        </select>
-                      </label>
-                      <label>
-                        Class
-                        <select
-                          value={editBorrowForm.className}
-                          onChange={(event) => updateEditBorrowForm("className", event.target.value)}
-                        >
-                          <option value="">Select class</option>
-                          {classes
-                            .filter((cls) => cls && cls.id != null && String(cls.id).trim() !== "")
-                            .map((cls) => (
-                              <option key={cls.id} value={cls.id}>
-                                {formatClassDisplay(cls) || cls.name || `${cls.grade}${cls.section ? `-${cls.section}` : ""}`}
-                              </option>
-                            ))}
-                        </select>
-                      </label>
-                      <label>
-                        Roll number
-                        <input
-                          type="text"
-                          value={editBorrowForm.roll}
-                          onChange={(event) => updateEditBorrowForm("roll", event.target.value)}
-                          placeholder="Roll #"
-                        />
-                      </label>
-                      <label>
-                        Student name
-                        <input
-                          type="text"
-                          value={editBorrowForm.studentName}
-                          onChange={(event) => updateEditBorrowForm("studentName", event.target.value)}
-                          required
-                        />
-                      </label>
-                      <label className="library-form-full">
-                        Father&apos;s name
-                        <input
-                          type="text"
-                          value={editBorrowForm.fatherName}
-                          onChange={(event) => updateEditBorrowForm("fatherName", event.target.value)}
-                          placeholder="Optional"
-                        />
-                      </label>
-                      <label>
-                        Issued date
-                        <input
-                          type="date"
-                          value={editBorrowForm.issuedAt}
-                          onChange={(event) => updateEditBorrowForm("issuedAt", event.target.value)}
-                        />
-                      </label>
+                      </NativeSelect>
                     </div>
-                    <div className="library-form-actions">
-                      <button type="submit">Save changes</button>
-                      <button type="button" className="library-edit-modal__cancel" onClick={() => setEditBorrowingId(null)}>
-                        Cancel
-                      </button>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-borrow-roll">Roll number</Label>
+                      <Input
+                        id="edit-borrow-roll"
+                        type="text"
+                        value={editBorrowForm.roll}
+                        onChange={(event) => updateEditBorrowForm("roll", event.target.value)}
+                        placeholder="Roll #"
+                      />
                     </div>
-                  </form>
-                </div>
-              </div>
-            ) : null}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-borrow-student-name">Student name</Label>
+                      <Input
+                        id="edit-borrow-student-name"
+                        type="text"
+                        value={editBorrowForm.studentName}
+                        onChange={(event) => updateEditBorrowForm("studentName", event.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="library-form-full space-y-1.5">
+                      <Label htmlFor="edit-borrow-father-name">Father&apos;s name</Label>
+                      <Input
+                        id="edit-borrow-father-name"
+                        type="text"
+                        value={editBorrowForm.fatherName}
+                        onChange={(event) => updateEditBorrowForm("fatherName", event.target.value)}
+                        placeholder="Optional"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-borrow-issued-at">Issued date</Label>
+                      <Input
+                        id="edit-borrow-issued-at"
+                        type="date"
+                        value={editBorrowForm.issuedAt}
+                        onChange={(event) => updateEditBorrowForm("issuedAt", event.target.value)}
+                      />
+                    </div>
+                  </div>
+                </form>
+                <DialogFooter>
+                  <Button variant="outline" type="button" onClick={() => setEditBorrowingId(null)}>Cancel</Button>
+                  <Button type="submit" form="edit-borrow-form">Save changes</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </>
         )}
       </section>

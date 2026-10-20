@@ -1,8 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Btn, Sel, Inp, SchoolHeader } from "@/components/AppControls";
-import { C, genId } from "@/shared/theme";
+import { SchoolHeader } from "@/components/AppControls";
+import { genId } from "@/shared/theme";
 import * as H from "@/shared/helpers";
 import { STUDENT_STATUS } from "./studentsCore.js";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 const {
   formatClassDisplay,
@@ -17,17 +23,43 @@ const {
   preloadStudentPhotoAi,
   isStudentPhotoFile,
   isDisplayablePhotoSrc,
+  normalizeStudentPhotoFile,
+  readStudentPhotoAsJpeg,
 } = H;
 
-const panel = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, boxShadow: "0 1px 4px rgba(15,23,42,0.06)" };
+function FieldWrap({ label, children, className }) {
+  return (
+    <div className={cn("flex flex-col gap-1", className)}>
+      <Label>{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+async function uploadPhotoOrKeep(dataUrl, activeSchoolId, studentId) {
+  if (!dataUrl || !isDisplayablePhotoSrc(dataUrl)) return dataUrl || null;
+  if (/^https?:\/\//i.test(dataUrl)) return dataUrl;
+  try {
+    const { uploadDataUrlPhoto } = await import("../../lib/photoStorage.js");
+    const prefix = `${activeSchoolId || "school"}/students/${studentId || "new"}`;
+    const url = await uploadDataUrlPhoto(dataUrl, prefix);
+    return url || dataUrl;
+  } catch (err) {
+    console.warn("Photo cloud upload skipped", err);
+    return dataUrl;
+  }
+}
 
 export function AdmissionPanel({ settings, students, setStudents, activeSchoolId }) {
+  const classes = settings.classes || [];
+  const defaultClassId = classes[0]?.id || "";
+
   const admissionEmpty = {
     admissionNo: "",
     rollNo: "",
     name: "",
     fatherName: "",
-    classId: settings.classes?.[0]?.id || "",
+    classId: defaultClassId,
     dob: "",
     bayForm: "",
     fatherCnic: "",
@@ -37,6 +69,8 @@ export function AdmissionPanel({ settings, students, setStudents, activeSchoolId
   const [form, setForm] = useState(admissionEmpty);
   const galleryRef = useRef(null);
   const cameraRef = useRef(null);
+  const photoFileRef = useRef(null);
+  const photoDataRef = useRef(null); // always keep latest processed JPEG data URL
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoStatus, setPhotoStatus] = useState("");
   const [saving, setSaving] = useState(false);
@@ -51,6 +85,20 @@ export function AdmissionPanel({ settings, students, setStudents, activeSchoolId
     () => nextRollNoForClass(students, settings.classes, form.classId, settings.commonTeachers),
     [students, settings.classes, form.classId, settings.commonTeachers],
   );
+
+  useEffect(() => {
+    if (!form.classId) return;
+    setForm((x) => {
+      if (x.admissionNo === suggestedNextAdm && x.rollNo === suggestedNextRoll) return x;
+      return { ...x, admissionNo: suggestedNextAdm, rollNo: suggestedNextRoll };
+    });
+  }, [form.classId, suggestedNextAdm, suggestedNextRoll]);
+
+  const onClassChange = (classId) => {
+    const roll = nextRollNoForClass(students, settings.classes, classId, settings.commonTeachers);
+    const adm = nextAdmissionNo(students);
+    setForm((x) => ({ ...x, classId, admissionNo: adm, rollNo: roll }));
+  };
 
   const formatDob = (v) => {
     const d = String(v || "").replace(/\D/g, "").slice(0, 8);
@@ -70,48 +118,78 @@ export function AdmissionPanel({ settings, students, setStudents, activeSchoolId
     return `${d.slice(0, 4)}-${d.slice(4)}`;
   };
 
-  const toWorldwidePhoto = async (dataUrl, studentId) => {
-    if (!dataUrl || !isDisplayablePhotoSrc(dataUrl)) return dataUrl;
-    if (/^https?:\/\//i.test(dataUrl)) return dataUrl;
-    try {
-      const { uploadDataUrlPhoto } = await import("../../lib/photoStorage.js");
-      const prefix = `${activeSchoolId || "school"}/students/${studentId || "new"}`;
-      return await uploadDataUrlPhoto(dataUrl, prefix);
-    } catch (err) {
-      console.warn("Photo cloud upload skipped", err);
-      return dataUrl;
-    }
+  const setPhotoOnForm = (dataUrl) => {
+    photoDataRef.current = dataUrl;
+    setForm((x) => ({ ...x, photo: dataUrl }));
   };
 
-  const handlePhoto = async (f) => {
-    if (!f) return;
+  const handlePhoto = async (rawFile) => {
+    if (!rawFile) return;
+    const f = normalizeStudentPhotoFile(rawFile) || rawFile;
     if (!isStudentPhotoFile(f)) {
       alert("Please choose an image file (JPG, PNG, WEBP, HEIC, etc.).");
       return;
     }
+    photoFileRef.current = f;
     setPhotoBusy(true);
     setPhotoStatus("Preparing…");
     try {
-      const data = await processStudentPhotoWithBackground(f, {
-        onProgress: (msg) => setPhotoStatus(String(msg || "Processing…")),
-      });
-      if (!data) {
-        alert("Could not process this photo. Try another image.");
+      let data = null;
+      try {
+        data = await processStudentPhotoWithBackground(f, {
+          onProgress: (msg) => setPhotoStatus(String(msg || "Processing…")),
+        });
+      } catch (err) {
+        console.warn("AI photo failed, using plain JPEG", err);
+        setPhotoStatus("Saving photo…");
+        data = await readStudentPhotoAsJpeg(f);
+      }
+      if (!data || !isDisplayablePhotoSrc(data)) {
+        alert("Could not process this camera photo. Try Select Image, or retake as JPG.");
         return;
       }
-      setPhotoStatus("Uploading…");
-      const worldwide = await toWorldwidePhoto(data, "admission");
-      setForm((x) => ({ ...x, photo: worldwide }));
+      // Keep data URL for save reliability; upload to cloud on Admit
+      setPhotoOnForm(data);
     } catch (err) {
-      alert("Photo upload failed: " + (err?.message || String(err)));
+      alert("Photo failed: " + (err?.message || String(err)));
     } finally {
       setPhotoBusy(false);
       setPhotoStatus("");
     }
   };
 
+  const onPhotoInputChange = async (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (f) await handlePhoto(f);
+  };
+
+  const resolvePhotoForSave = async (studentId) => {
+    let photo = photoDataRef.current || form.photo || null;
+    if (!isDisplayablePhotoSrc(photo) && photoFileRef.current) {
+      try {
+        photo = await processStudentPhotoWithBackground(photoFileRef.current);
+      } catch {
+        photo = await readStudentPhotoAsJpeg(photoFileRef.current);
+      }
+    }
+    if (!isDisplayablePhotoSrc(photo) && !/^https?:\/\//i.test(String(photo || ""))) {
+      return null;
+    }
+    // Prefer HTTPS for directory + cloud (data URLs get stripped on cloud sync)
+    if (String(photo).startsWith("data:image")) {
+      const uploaded = await uploadPhotoOrKeep(photo, activeSchoolId, studentId);
+      return uploaded || photo;
+    }
+    return photo;
+  };
+
   const saveAdmission = async () => {
     if (saveLock.current || saving) return;
+    if (!form.classId) {
+      alert("Please select a class first.");
+      return;
+    }
     if (!(form.name || "").trim()) {
       alert("Please enter Student Name.");
       return;
@@ -121,10 +199,8 @@ export function AdmissionPanel({ settings, students, setStudents, activeSchoolId
     try {
       const name = toProperCase(form.name || "");
       const fatherName = toProperCase(form.fatherName || "");
-      let admissionNo = (form.admissionNo || "").trim();
-      let rollNo = (form.rollNo || "").trim();
-      if (!admissionNo) admissionNo = nextAdmissionNo(students);
-      if (!rollNo) rollNo = nextRollNoForClass(students, settings.classes, form.classId, settings.commonTeachers);
+      const admissionNo = nextAdmissionNo(students);
+      const rollNo = nextRollNoForClass(students, settings.classes, form.classId, settings.commonTeachers);
       const dupAdm = findStudentByAdmissionNo(students, admissionNo, null);
       if (dupAdm) {
         alert(
@@ -155,8 +231,7 @@ export function AdmissionPanel({ settings, students, setStudents, activeSchoolId
         return;
       }
       const id = genId();
-      let photo = form.photo || null;
-      if (photo && String(photo).startsWith("data:image")) photo = await toWorldwidePhoto(photo, id);
+      const photo = await resolvePhotoForSave(id);
       const payload = {
         ...form,
         name,
@@ -173,8 +248,21 @@ export function AdmissionPanel({ settings, students, setStudents, activeSchoolId
         documents: [],
       };
       setStudents((s) => [...s, payload]);
-      setForm({ ...admissionEmpty, classId: settings.classes?.[0]?.id || "" });
-      alert("Student admitted successfully. Open Student Directory to review the record.");
+      photoFileRef.current = null;
+      photoDataRef.current = null;
+      const nextClass = form.classId || defaultClassId;
+      setForm({
+        ...admissionEmpty,
+        classId: nextClass,
+        admissionNo: nextAdmissionNo([...students, payload]),
+        rollNo: nextRollNoForClass([...students, payload], settings.classes, nextClass, settings.commonTeachers),
+        photo: null,
+      });
+      alert(
+        photo
+          ? "Student admitted with photo. Open Student Directory to review."
+          : "Student admitted (no photo). Open Student Directory to review.",
+      );
     } catch (err) {
       alert("Could not admit student: " + (err?.message || String(err)));
     } finally {
@@ -184,68 +272,102 @@ export function AdmissionPanel({ settings, students, setStudents, activeSchoolId
   };
 
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto" }}>
+    <div className="mx-auto w-full max-w-[720px]">
       <SchoolHeader settings={settings} subtitle="STUDENT ADMISSION" />
-      <div style={{ ...panel, padding: 20, marginTop: 12 }}>
-        <p style={{ margin: "0 0 14px", fontSize: 13, color: C.gray }}>
-          Enroll a new student with class, roll number, guardian details, and optional photo.
-        </p>
-        <div className="psms-photo-form-row" style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 14, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
-            <div
-              style={{
-                width: 80,
-                height: 100,
-                border: "2px dashed #d1d5db",
-                borderRadius: 6,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                overflow: "hidden",
-                background: "#fafafa",
-              }}
-            >
-              {photoBusy ? (
-                <span style={{ fontSize: 10, color: C.gray, textAlign: "center", padding: 4 }}>{photoStatus || "AI processing…"}</span>
-              ) : isDisplayablePhotoSrc(form.photo) ? (
-                <img src={form.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              ) : (
-                <span style={{ fontSize: 10, color: C.gray }}>Photo</span>
-              )}
+      <Card size="sm" className="mt-3 shadow-none">
+        <CardContent className="pt-4">
+          <p className="mb-3.5 text-sm text-muted-foreground">
+            Select class first — admission and roll numbers are assigned automatically.
+          </p>
+          <div className="mb-3.5 flex flex-wrap items-start gap-4">
+            <div className="flex shrink-0 flex-col items-center gap-1.5">
+              <div className="flex h-[100px] w-20 items-center justify-center overflow-hidden rounded border-2 border-dashed bg-muted/20">
+                {photoBusy ? (
+                  <span className="px-1 text-center text-[10px] text-muted-foreground">{photoStatus || "AI processing…"}</span>
+                ) : isDisplayablePhotoSrc(form.photo) ? (
+                  <img src={form.photo} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-[10px] text-muted-foreground">Photo</span>
+                )}
+              </div>
+              <div className="flex flex-wrap justify-center gap-1">
+                <Button type="button" size="xs" variant="outline" disabled={photoBusy} onClick={() => galleryRef.current?.click()}>
+                  Select Image
+                </Button>
+                <Button type="button" size="xs" variant="outline" disabled={photoBusy} onClick={() => cameraRef.current?.click()}>
+                  Capture Photo
+                </Button>
+                {form.photo && !photoBusy && (
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="destructive"
+                    onClick={() => {
+                      photoFileRef.current = null;
+                      photoDataRef.current = null;
+                      setForm((x) => ({ ...x, photo: null }));
+                    }}
+                  >
+                    Clear Photo
+                  </Button>
+                )}
+              </div>
+              <input
+                ref={galleryRef}
+                type="file"
+                accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
+                className="hidden"
+                onChange={onPhotoInputChange}
+              />
+              <input
+                ref={cameraRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={onPhotoInputChange}
+              />
             </div>
-            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "center" }}>
-              <Btn type="button" small outline disabled={photoBusy} onClick={() => galleryRef.current?.click()}>
-                Select Image
-              </Btn>
-              <Btn type="button" small outline disabled={photoBusy} onClick={() => cameraRef.current?.click()}>
-                Capture Photo
-              </Btn>
-              {form.photo && !photoBusy && (
-                <Btn type="button" small danger onClick={() => setForm((x) => ({ ...x, photo: null }))}>
-                  Clear Photo
-                </Btn>
-              )}
+
+            <div className="grid min-w-0 flex-1 grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <FieldWrap label="Class" className="sm:col-span-2">
+                <NativeSelect value={form.classId} onChange={(e) => onClassChange(e.target.value)} className="w-full">
+                  {classes.length === 0 && <NativeSelectOption value="">No classes</NativeSelectOption>}
+                  {classes.map((c) => (
+                    <NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </FieldWrap>
+              <FieldWrap label="Admission No (auto)">
+                <Input value={form.admissionNo || suggestedNextAdm} readOnly className="w-full bg-muted/40" />
+              </FieldWrap>
+              <FieldWrap label="Roll No (auto)">
+                <Input value={form.rollNo || suggestedNextRoll} readOnly className="w-full bg-muted/40" />
+              </FieldWrap>
+              <FieldWrap label="Student Name">
+                <Input value={form.name} onChange={(e) => setForm((x) => ({ ...x, name: toProperCaseNameInput(e.target.value) }))} className="w-full" />
+              </FieldWrap>
+              <FieldWrap label="Father's Name">
+                <Input value={form.fatherName} onChange={(e) => setForm((x) => ({ ...x, fatherName: toProperCaseNameInput(e.target.value) }))} className="w-full" />
+              </FieldWrap>
+              <FieldWrap label="Form B / Bay Form">
+                <Input value={form.bayForm} onChange={(e) => setForm((x) => ({ ...x, bayForm: formatCnic(e.target.value) }))} placeholder="00000-0000000-0" className="w-full" />
+              </FieldWrap>
+              <FieldWrap label="Date of Birth">
+                <Input value={form.dob} onChange={(e) => setForm((x) => ({ ...x, dob: formatDob(e.target.value) }))} placeholder="dd/mm/yyyy" className="w-full" />
+              </FieldWrap>
+              <FieldWrap label="WhatsApp No" className="sm:col-span-2">
+                <Input value={form.whatsapp} onChange={(e) => setForm((x) => ({ ...x, whatsapp: formatWhatsapp(e.target.value) }))} placeholder="0000-0000000" className="w-full" />
+              </FieldWrap>
             </div>
-            <input ref={galleryRef} type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) await handlePhoto(f); }} />
-            <input ref={cameraRef} type="file" accept="image/*" capture="user" style={{ display: "none" }} onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) await handlePhoto(f); }} />
           </div>
-          <div className="psms-grid-2" style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, minWidth: 0 }}>
-            <Inp label="Admission No" value={form.admissionNo} onChange={(v) => setForm((x) => ({ ...x, admissionNo: v }))} placeholder={"Next: " + suggestedNextAdm} width="100%" />
-            <Inp label="Roll No" value={form.rollNo} onChange={(v) => setForm((x) => ({ ...x, rollNo: v }))} placeholder={"Next in class: " + suggestedNextRoll} width="100%" />
-            <Inp label="Student Name" value={form.name} onChange={(v) => setForm((x) => ({ ...x, name: toProperCaseNameInput(v) }))} width="100%" />
-            <Inp label="Father's Name" value={form.fatherName} onChange={(v) => setForm((x) => ({ ...x, fatherName: toProperCaseNameInput(v) }))} width="100%" />
-            <Inp label="Form B / Bay Form" value={form.bayForm} onChange={(v) => setForm((x) => ({ ...x, bayForm: formatCnic(v) }))} placeholder="00000-0000000-0" width="100%" />
-            <Inp label="Date of Birth" value={form.dob} onChange={(v) => setForm((x) => ({ ...x, dob: formatDob(v) }))} placeholder="dd/mm/yyyy" width="100%" />
-            <Inp label="WhatsApp No" value={form.whatsapp} onChange={(v) => setForm((x) => ({ ...x, whatsapp: formatWhatsapp(v) }))} placeholder="0000-0000000" width="100%" />
-            <Sel label="Class" value={form.classId} onChange={(v) => setForm((x) => ({ ...x, classId: v }))} options={(settings.classes || []).map((c) => ({ value: c.id, label: formatClassDisplay(c) }))} width="100%" />
+          <div className="flex justify-end">
+            <Button onClick={() => void saveAdmission()} disabled={saving || photoBusy || !form.classId}>
+              {saving ? "Processing…" : "Admit Student"}
+            </Button>
           </div>
-        </div>
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <Btn onClick={() => void saveAdmission()} disabled={saving || photoBusy}>
-            {saving ? "Processing…" : "Admit Student"}
-          </Btn>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

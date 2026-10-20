@@ -9,12 +9,13 @@ import QRCode from "qrcode";
 import { X, Plus, Edit2, Trash2, Upload, Download, Menu, Settings, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import * as feeCore from "@/modules/fee/feeCore";
 import { feeService, systemSettingsService, dashboardService } from "@/services";
-import { UI } from "@/uiTokens.js";
 import signImg from "@/assets/sign.png";
 import { yieldToMain } from "@/yieldToMain.js";
 import { C, schoolOrBrandLogo, APP_BRAND_LOGO, genId } from "@/shared/theme";
-import { Btn, Sel, Inp, SchoolHeader } from "@/components/AppControls";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ModulePageShell } from "@/components/ModulePageShell";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import * as H from "@/shared/helpers";
 
 const {
@@ -369,7 +370,7 @@ export function StudentCardGeneratorPage({ settings, students, currentSession })
             <img src={schoolOrBrandLogo(settings.logo)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1.3, textShadow: "0 1px 3px rgba(0,0,0,0.35)", fontFamily: UI.fontHeading }}>{settings.schoolName || "School"}</div>
+            <div className="font-heading" style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1.3, textShadow: "0 1px 3px rgba(0,0,0,0.35)" }}>{settings.schoolName || "School"}</div>
             {(settings.institutionAddress || "").trim() && <div style={{ fontSize: 10, color: "rgba(255,255,255,0.96)", marginTop: 3, lineHeight: 1.35 }}>{settings.institutionAddress.trim()}</div>}
             {(settings.schoolCode || "").trim() && <div style={{ fontSize: 15, fontWeight: 800, color: "#fff", marginTop: 5, letterSpacing: "0.04em", textShadow: "0 1px 3px rgba(0,0,0,0.35)" }}>{(settings.schoolCode || "").trim()}</div>}
           </div>
@@ -534,31 +535,39 @@ export function StudentCardGeneratorPage({ settings, students, currentSession })
         Generate student ID cards <strong>on demand</strong>: pick a class, then enter roll number(s) and/or admission number(s). At least one of roll or admission is required. Roll supports lists and ranges (e.g. 1,3,5-10); multiple admission numbers are comma-separated.
       </p>
       <div className="no-print" style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap", alignItems: "flex-end" }}>
-        <Sel
-          label="Class"
-          value={selCls}
-          onChange={setSelCls}
-          options={settings.classes.map((c) => ({ value: c.id, label: formatClassDisplay(c) }))}
-        />
-        <Inp
-          label="Roll No(s)"
-          value={singleRoll}
-          onChange={setSingleRoll}
-          placeholder="e.g. 1,3,5-10 or roll text"
-        />
-        <Inp
-          label="Admission No(s)"
-          value={singleAdm}
-          onChange={setSingleAdm}
-          placeholder="Comma-separated, exact match"
-        />
-        <Btn
-          outline
+        <div className="flex flex-col gap-1">
+          <Label className="text-xs font-semibold text-muted-foreground">Class</Label>
+          <select
+            value={selCls}
+            onChange={e => setSelCls(e.target.value)}
+            className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            {settings.classes.map((c) => <option key={c.id} value={c.id}>{formatClassDisplay(c)}</option>)}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label className="text-xs font-semibold text-muted-foreground">Roll No(s)</Label>
+          <Input
+            value={singleRoll}
+            onChange={e => setSingleRoll(e.target.value)}
+            placeholder="e.g. 1,3,5-10 or roll text"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label className="text-xs font-semibold text-muted-foreground">Admission No(s)</Label>
+          <Input
+            value={singleAdm}
+            onChange={e => setSingleAdm(e.target.value)}
+            placeholder="Comma-separated, exact match"
+          />
+        </div>
+        <Button
+          variant="outline"
           onClick={handleDownloadPdf}
           disabled={cardsToRender.length === 0 || downloading}
         >
           {downloading ? "Preparing PDF…" : "Export Cards PDF"}
-        </Btn>
+        </Button>
       </div>
       {!settings.classes?.length ? (
         <div style={{ padding: 24, textAlign: "center", color: C.gray, background: "#f9fafb", borderRadius: 8 }}>Add at least one class in Settings before generating student cards.</div>
@@ -672,7 +681,7 @@ export function StaffCardGeneratorPage({ settings = {}, staffProfiles = [] }) {
             <img src={schoolOrBrandLogo(settings.logo)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1.3, textShadow: "0 1px 3px rgba(0,0,0,0.35)", fontFamily: UI.fontHeading }}>{settings.schoolName || "School"}</div>
+            <div className="font-heading" style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1.3, textShadow: "0 1px 3px rgba(0,0,0,0.35)" }}>{settings.schoolName || "School"}</div>
             {(settings.institutionAddress || "").trim() && <div style={{ fontSize: 10, color: "rgba(255,255,255,0.96)", marginTop: 3, lineHeight: 1.35 }}>{settings.institutionAddress.trim()}</div>}
             {(settings.schoolCode || "").trim() && <div style={{ fontSize: 15, fontWeight: 800, color: "#fff", marginTop: 5, letterSpacing: "0.04em", textShadow: "0 1px 3px rgba(0,0,0,0.35)" }}>{(settings.schoolCode || "").trim()}</div>}
           </div>
@@ -755,16 +764,18 @@ export function StaffCardGeneratorPage({ settings = {}, staffProfiles = [] }) {
         Generate staff ID cards <strong>on demand</strong>: enter a staff name or several names separated by commas. Matching uses the name in Staff Profiles (partial match, case-insensitive). PDF includes only the people that match.
       </p>
       <div className="no-print" style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 18, alignItems: "flex-end" }}>
-        <Inp
-          label="Staff name(s)"
-          value={staffNameQuery}
-          onChange={setStaffNameQuery}
-          placeholder="e.g. Ali or Ali, Sara Khan"
-          width={280}
-        />
-        <Btn outline onClick={handleDownloadPdf} disabled={profilesToRender.length === 0 || downloading}>
+        <div className="flex flex-col gap-1">
+          <Label className="text-xs font-semibold text-muted-foreground">Staff name(s)</Label>
+          <Input
+            value={staffNameQuery}
+            onChange={e => setStaffNameQuery(e.target.value)}
+            placeholder="e.g. Ali or Ali, Sara Khan"
+            style={{ width: 280 }}
+          />
+        </div>
+        <Button variant="outline" onClick={handleDownloadPdf} disabled={profilesToRender.length === 0 || downloading}>
           {downloading ? "Preparing PDF…" : "Export Cards PDF"}
-        </Btn>
+        </Button>
       </div>
       {safeProfiles.length === 0 ? (
         <div style={{ padding: 24, textAlign: "center", color: C.gray, background: "#f9fafb", borderRadius: 8 }}>No staff profiles. Add profiles in Staff Profiles first.</div>
@@ -805,7 +816,10 @@ export function StaffCardGeneratorPage({ settings = {}, staffProfiles = [] }) {
 }
 
 // ─── CARD GENERATOR (merged Student + Staff) ───────────────────────────────────
-export const CARD_TABS =[{id:"staff",label:"Staff Cards",i:"🪪"},{id:"student",label:"Student Cards",i:"💳"}];
+export const CARD_TABS =[
+  {id:"staff",l:"Staff Cards",label:"Staff Cards"},
+  {id:"student",l:"Student Cards",label:"Student Cards"},
+];
 export function CardGeneratorPage({settings,students,currentSession,staffProfiles,setBarSubtitle}){
   const [cardTab,setCardTab]=useState("staff");
   useEffect(()=>{
@@ -813,20 +827,17 @@ export function CardGeneratorPage({settings,students,currentSession,staffProfile
     const t=CARD_TABS.find(x=>x.id===cardTab);
     setBarSubtitle(t?.label||"");
   },[cardTab,setBarSubtitle]);
-  return <div>
-    <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
-      <Tabs value={cardTab} onValueChange={setCardTab}>
-        <TabsList className="h-auto flex-wrap">
-          {CARD_TABS.map((t) => (
-            <TabsTrigger key={t.id} value={t.id}>
-              <span className="mr-1.5">{t.i}</span>
-              {t.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-    </div>
-    {cardTab==="student"&&<StudentCardGeneratorPage settings={settings} students={students} currentSession={currentSession}/>}
-    {cardTab==="staff"&&<StaffCardGeneratorPage settings={settings} staffProfiles={staffProfiles}/>}
-  </div>;
+  return (
+    <ModulePageShell
+      title="Card Generator"
+      description="Print staff and student ID cards"
+      tabs={CARD_TABS}
+      tab={cardTab}
+      onTabChange={setCardTab}
+      bareContent
+    >
+      {cardTab==="student"&&<StudentCardGeneratorPage settings={settings} students={students} currentSession={currentSession}/>}
+      {cardTab==="staff"&&<StaffCardGeneratorPage settings={settings} staffProfiles={staffProfiles}/>}
+    </ModulePageShell>
+  );
 }

@@ -1,18 +1,16 @@
 import { startTransition, useEffect, useMemo, useState } from "react";
 import { fetchPtbbBooks } from "./bookBankService.js";
-import "./BookBankPage.css";
+import { ModulePageShell } from "@/components/ModulePageShell";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { BookOpen } from "lucide-react";
 
 function normalize(text) {
   return (text || "").toLowerCase().trim();
-}
-
-function IconBook() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5 5.054 5 3 5.954 3 7.132V19.5C3 20.328 3.672 21 4.5 21c1.746 0 3.332.477 4.5 1.253 1.168-.776 2.754-1.253 4.5-1.253.828 0 1.5-.672 1.5-1.5V7.132C15 5.954 12.946 5 10.5 5 8.754 5 7.168 5.477 6 6.253" />
-    </svg>
-  );
 }
 
 const LAST_RESORT_THUMBNAIL = "https://placehold.co/320x420/e2e8f0/334155?text=Book";
@@ -33,7 +31,7 @@ function BookThumbnail({ book, title }) {
     <img
       src={src}
       alt={`${title} thumbnail`}
-      className="book-card__thumb"
+      className="aspect-[3/4] w-full rounded-md object-cover bg-muted"
       loading="lazy"
       referrerPolicy="no-referrer"
       onError={() => {
@@ -53,8 +51,8 @@ export function BookBankPage({ setBarSubtitle }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setBarSubtitle("PTBB class-wise textbook playlists");
-    return () => setBarSubtitle("");
+    setBarSubtitle?.("PTBB class-wise textbook playlists");
+    return () => setBarSubtitle?.("");
   }, [setBarSubtitle]);
 
   useEffect(() => {
@@ -116,103 +114,104 @@ export function BookBankPage({ setBarSubtitle }) {
   }
 
   return (
-    <div className="book-bank-layout">
-      <section className="social-hero" aria-labelledby="book-bank-title">
-        <p className="social-hero__eyebrow">Punjab textbook board</p>
-        <h1 id="book-bank-title" className="social-hero__title">
-          Book Bank - Class-wise playlist
-        </h1>
-        <form className="social-hero__form" onSubmit={(e) => e.preventDefault()}>
-          <label className="sr-only" htmlFor="book-search">
-            Search books in selected class
-          </label>
-          <Input
-            id="book-search"
-            type="search"
-            className="social-hero__input h-10"
-            placeholder="Search selected class books..."
-            value={query}
-            onChange={(e) => {
-              const next = e.target.value;
-              startTransition(() => setQuery(next));
-            }}
-          />
-        </form>
-      </section>
-
-      <section className="social-dir" aria-labelledby="book-playlists-title">
-        <h2 id="book-playlists-title" className="sr-only">
-          Class playlists
-        </h2>
-
-        <div className="social-bar">
-          <div className="social-bar__cats" role="tablist" aria-label="Classes">
-            {classes.map((item) => (
-              <button
-                key={item.className}
-                type="button"
-                role="tab"
-                aria-selected={activeClass === item.className}
-                className={activeClass === item.className ? "social-pill social-pill--on" : "social-pill"}
-                onClick={() => {
-                  const nextClass = item.className;
-                  startTransition(() => setActiveClass(nextClass));
-                }}
-              >
-                {item.className}
-              </button>
-            ))}
-          </div>
-          <div className="social-bar__meta">
-            <span>
-              Showing <strong>{renderedBooks.length}</strong> of <strong>{visibleBooks.length}</strong> books
-            </span>
-            {currentClass?.books?.length > 0 && (
-              <button type="button" className="social-bar__mini-ai" onClick={openClassPlaylist}>
-                <IconBook />
-                Open full playlist
-              </button>
-            )}
+    <ModulePageShell
+      title="Book Bank"
+      description="Punjab Textbook Board — class-wise playlists"
+      actions={
+        <Input
+          type="search"
+          className="h-9 w-full min-w-0 sm:w-64"
+          placeholder="Search selected class…"
+          value={query}
+          onChange={(e) => {
+            const next = e.target.value;
+            startTransition(() => setQuery(next));
+          }}
+          aria-label="Search books in selected class"
+        />
+      }
+      bareContent
+    >
+      <div className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {classes.length > 0 ? (
+            <Tabs
+              value={activeClass}
+              onValueChange={(next) => startTransition(() => setActiveClass(next))}
+              className="min-w-0 flex-1"
+            >
+              <ScrollArea className="w-full whitespace-nowrap">
+                <TabsList className="inline-flex h-auto min-h-9 w-max max-w-none flex-wrap justify-start gap-1 bg-muted p-1">
+                  {classes.map((item) => (
+                    <TabsTrigger key={item.className} value={item.className} className="shrink-0 text-xs sm:text-sm">
+                      {item.className}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+            </Tabs>
+          ) : null}
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Badge variant="secondary">
+              {renderedBooks.length} / {visibleBooks.length}
+            </Badge>
+            {currentClass?.books?.length > 0 ? (
+              <Button type="button" size="sm" variant="outline" onClick={openClassPlaylist}>
+                <BookOpen className="mr-1.5 size-3.5" />
+                Open playlist
+              </Button>
+            ) : null}
           </div>
         </div>
 
-        {loading && <p className="empty">Loading PTBB class playlists...</p>}
-        {!loading && error && <p className="empty">{error}</p>}
+        {loading && (
+          <p className="m-0 text-sm text-muted-foreground">Loading PTBB class playlists…</p>
+        )}
+        {!loading && error && (
+          <p className="m-0 text-sm text-destructive">{error}</p>
+        )}
 
         {!loading && !error && (
-          <div className="directory-grid">
+          <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {renderedBooks.map((book, index) => (
-              <article key={`${book.title}-${index}`} className="book-card">
-                <BookThumbnail book={book} title={book.title} />
-                <div className="book-card__body">
-                  <h3 className="book-card__title">{book.title}</h3>
-                  <p className="book-card__class">{currentClass?.className}</p>
-                  <div className="book-card__actions">
-                    <a className="book-card__btn" href={book.url} target="_blank" rel="noreferrer">
+              <Card key={`${book.title}-${index}`} size="sm" className="overflow-hidden shadow-none">
+                <CardHeader className="p-3 pb-0">
+                  <BookThumbnail book={book} title={book.title} />
+                </CardHeader>
+                <CardContent className="space-y-1 p-3">
+                  <CardTitle className="line-clamp-2 text-sm leading-snug">{book.title}</CardTitle>
+                  <p className="m-0 text-xs text-muted-foreground">{currentClass?.className}</p>
+                </CardContent>
+                <CardFooter className="flex gap-2 p-3 pt-0">
+                  <Button asChild size="sm" className="flex-1">
+                    <a href={book.url} target="_blank" rel="noreferrer">
                       Open
                     </a>
-                    <a className="book-card__btn book-card__btn--alt" href={book.downloadUrl} target="_blank" rel="noreferrer">
+                  </Button>
+                  <Button asChild size="sm" variant="outline" className="flex-1">
+                    <a href={book.downloadUrl} target="_blank" rel="noreferrer">
                       Download
                     </a>
-                  </div>
-                </div>
-              </article>
+                  </Button>
+                </CardFooter>
+              </Card>
             ))}
           </div>
         )}
 
         {!loading && !error && renderedBooks.length < visibleBooks.length && (
-          <div style={{ display: "flex", justifyContent: "center", marginTop: "1.25rem" }}>
-            <button
+          <div className="flex justify-center pt-2">
+            <Button
               type="button"
-              className="social-bar__mini-ai"
+              variant="outline"
               onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
             >
               Load more books
-            </button>
+            </Button>
           </div>
         )}
-      </section>
-    </div>
+      </div>
+    </ModulePageShell>
   );
 }

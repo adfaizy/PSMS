@@ -13,7 +13,6 @@ import { UI } from "@/uiTokens.js";
 import signImg from "@/assets/sign.png";
 import { yieldToMain } from "@/yieldToMain.js";
 import { C, schoolOrBrandLogo, APP_BRAND_LOGO, genId } from "@/shared/theme";
-import { Btn, Sel, Inp, SchoolHeader } from "@/components/AppControls";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -334,7 +333,7 @@ export function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, 
         <div style={{ background: "#fff", padding: 24, borderRadius: 8, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <h2 style={{ margin: 0, color: C.navy, fontSize: 20 }}>{editingId ? "Edit Staff Profile" : "Add Staff Profile"}</h2>
-          <Btn outline color={C.gray} onClick={() => setIsFormOpen(false)}><X size={16} style={{ marginRight: 4 }} /> Cancel</Btn>
+          <Button variant="outline" onClick={() => setIsFormOpen(false)}><X size={16} className="mr-1" /> Cancel</Button>
         </div>
 
         <form onSubmit={handleSave} style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 32 }}>
@@ -391,8 +390,8 @@ export function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, 
               </div>
             )}
             <input type="file" ref={fileInputRef} accept="image/*" style={{ display: "none" }} onChange={handlePhotoUpload} />
-            <Btn small outline onClick={() => fileInputRef.current?.click()}>Select Image</Btn>
-            {formData.photo && <Btn small danger style={{ marginTop: -4 }} onClick={() => setFormData({ ...formData, photo: null })}>Clear Photo</Btn>}
+            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>Select Image</Button>
+            {formData.photo && <Button variant="destructive" size="sm" className="-mt-1" onClick={() => setFormData({ ...formData, photo: null })}>Clear Photo</Button>}
           </div>
 
           {/* Fields */}
@@ -484,8 +483,8 @@ export function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, 
             );})}
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 12, borderTop: "1px solid #e5e7eb", paddingTop: 20 }}>
-              <Btn outline color={C.gray} onClick={() => setIsFormOpen(false)}>Cancel</Btn>
-              <Btn type="submit">Save Profile</Btn>
+              <Button variant="outline" onClick={() => setIsFormOpen(false)}>Cancel</Button>
+              <Button type="submit">Save Profile</Button>
             </div>
           </div>
         </form>
@@ -526,11 +525,11 @@ export function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, 
                   {showSensitive ? <EyeOff size={16} /> : <Eye size={16} />}
                   {showSensitive ? "Hide Sensitive Data" : "Show Sensitive Data"}
                 </Button>
-                <Btn outline small onClick={() => { const headers = STAFF_PROFILE_TABLE_HEADERS.map((h) => h.label); const rows = safeProfiles.map((p) => STAFF_PROFILE_TABLE_HEADERS.map((h) => { const v = p[h.id]; if (h.id === "staffCategory") return normalizeStaffCategory(p.staffCategory); if (v == null || v === "") return "—"; const s = String(v).trim(); if (["dob", "doe", "dprs", "dppp", "daps"].includes(h.id)) return staffDateToDDMMYYYY(s) || "—"; if (h.id === "cnic") return staffFormatCNIC(s) || "—"; if (h.id === "contact") return staffFormatPhone(s) || "—"; if (["name", "fname", "designation", "domicile", "aq", "subj", "pq", "bankName", "branch", "address"].includes(h.id)) return toProperCase(s) || "—"; return h.id === "photo" ? (p.photo ? "Photo" : "—") : s; })); void exportTableToPdf(settings, currentSession, "Staff Profiles", headers, rows, "Staff_Profiles.pdf").catch(()=>alert("PDF export failed.")); }}>Export PDF</Btn>
-                <Btn outline small onClick={() => { const headers = STAFF_PROFILE_TABLE_HEADERS.map((h) => h.label); const rows = safeProfiles.map((p) => STAFF_PROFILE_TABLE_HEADERS.map((h) => { const v = p[h.id]; if (h.id === "staffCategory") return normalizeStaffCategory(p.staffCategory); if (v == null || v === "") return "—"; const s = String(v).trim(); if (["dob", "doe", "dprs", "dppp", "daps"].includes(h.id)) return staffDateToDDMMYYYY(s) || "—"; if (h.id === "cnic") return staffFormatCNIC(s) || "—"; if (h.id === "contact") return staffFormatPhone(s) || "—"; if (["name", "fname", "designation", "domicile", "aq", "subj", "pq", "bankName", "branch", "address"].includes(h.id)) return toProperCase(s) || "—"; return h.id === "photo" ? (p.photo ? "Photo" : "—") : s; })); void exportTableToExcel(settings, currentSession, "Staff Profiles", headers, rows, "Staff_Profiles.xlsx"); }}>Export Excel</Btn>
+                <Button variant="outline" size="sm" onClick={() => { const headers = STAFF_PROFILE_TABLE_HEADERS.map((h) => h.label); const rows = safeProfiles.map((p) => STAFF_PROFILE_TABLE_HEADERS.map((h) => { const v = p[h.id]; if (h.id === "staffCategory") return normalizeStaffCategory(p.staffCategory); if (v == null || v === "") return "—"; const s = String(v).trim(); if (["dob", "doe", "dprs", "dppp", "daps"].includes(h.id)) return staffDateToDDMMYYYY(s) || "—"; if (h.id === "cnic") return staffFormatCNIC(s) || "—"; if (h.id === "contact") return staffFormatPhone(s) || "—"; if (["name", "fname", "designation", "domicile", "aq", "subj", "pq", "bankName", "branch", "address"].includes(h.id)) return toProperCase(s) || "—"; return h.id === "photo" ? (p.photo ? "Photo" : "—") : s; })); void exportTableToPdf(settings, currentSession, "Staff Profiles", headers, rows, "Staff_Profiles.pdf").catch(()=>alert("PDF export failed.")); }}>Export PDF</Button>
+                <Button variant="outline" size="sm" onClick={() => { const headers = STAFF_PROFILE_TABLE_HEADERS.map((h) => h.label); const rows = safeProfiles.map((p) => STAFF_PROFILE_TABLE_HEADERS.map((h) => { const v = p[h.id]; if (h.id === "staffCategory") return normalizeStaffCategory(p.staffCategory); if (v == null || v === "") return "—"; const s = String(v).trim(); if (["dob", "doe", "dprs", "dppp", "daps"].includes(h.id)) return staffDateToDDMMYYYY(s) || "—"; if (h.id === "cnic") return staffFormatCNIC(s) || "—"; if (h.id === "contact") return staffFormatPhone(s) || "—"; if (["name", "fname", "designation", "domicile", "aq", "subj", "pq", "bankName", "branch", "address"].includes(h.id)) return toProperCase(s) || "—"; return h.id === "photo" ? (p.photo ? "Photo" : "—") : s; })); void exportTableToExcel(settings, currentSession, "Staff Profiles", headers, rows, "Staff_Profiles.xlsx"); }}>Export Excel</Button>
               </>
             )}
-            <Btn onClick={() => handleOpenForm()}><Plus size={16} style={{ marginRight: 6, verticalAlign: "middle" }} /> Add Profile</Btn>
+            <Button onClick={() => handleOpenForm()}><Plus size={16} className="mr-1.5" /> Add Profile</Button>
           </div>
         </div>
         {safeProfiles.length > 0 && (
@@ -549,7 +548,7 @@ export function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, 
         <div style={{ marginBottom: 16, padding: 14, border: "1px solid #cbd5e1", borderRadius: 8, background: "#f8fafc" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <strong style={{ color: C.navy }}>Transfer Staff</strong>
-            <Btn small outline color={C.gray} onClick={() => setTransferOpen(false)}>Close</Btn>
+            <Button variant="outline" size="sm" onClick={() => setTransferOpen(false)}>Close</Button>
           </div>
           <div style={{ fontSize: 12, color: C.gray, marginBottom: 10 }}>
             {transferStaff?.name ? `Staff: ${transferStaff.name}` : "Select transfer details."}
@@ -576,7 +575,7 @@ export function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, 
               <input type="date" value={transferDate} onChange={(e) => setTransferDate(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1.5px solid #d1d5db", borderRadius: 6 }} />
             </div>
             <div>
-              <Btn onClick={handleTransfer} disabled={transferType === "school" && targetSchools.length === 0}>Save Transfer</Btn>
+              <Button onClick={handleTransfer} disabled={transferType === "school" && targetSchools.length === 0}>Save Transfer</Button>
             </div>
           </div>
         </div>
@@ -587,7 +586,7 @@ export function StaffProfilesPage({ settings = {}, schools = [], staffProfiles, 
           <h3 style={{ margin: "0 0 8px", color: C.navy }}>No Staff Profiles Found</h3>
           <p style={{ margin: 0, color: C.gray, fontSize: 13, maxWidth: 400, marginInline: "auto" }}>Get started by adding your first staff profile. You can record comprehensive details including CPN, qualifications, dates of entry, and banking info.</p>
           <br />
-          <Btn onClick={() => handleOpenForm()}>Add First Profile</Btn>
+          <Button onClick={() => handleOpenForm()}>Add First Profile</Button>
         </div>
       ) : (
         <div style={{ display: "grid", gap: 18 }}>

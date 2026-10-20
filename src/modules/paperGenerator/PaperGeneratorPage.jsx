@@ -9,12 +9,16 @@ import QRCode from "qrcode";
 import { X, Plus, Edit2, Trash2, Upload, Download, Menu, Settings, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import * as feeCore from "@/modules/fee/feeCore";
 import { feeService, systemSettingsService, dashboardService } from "@/services";
-import { UI } from "@/uiTokens.js";
 import signImg from "@/assets/sign.png";
 import { yieldToMain } from "@/yieldToMain.js";
 import { C, schoolOrBrandLogo, APP_BRAND_LOGO, genId } from "@/shared/theme";
-import { Btn, Sel, Inp, SchoolHeader } from "@/components/AppControls";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SchoolHeader } from "@/components/AppControls";
+import { ModulePageShell } from "@/components/ModulePageShell";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import * as H from "@/shared/helpers";
 
 const {
@@ -42,12 +46,12 @@ const jsPDF =
     : jsPDFModule?.jsPDF ?? jsPDFModule?.default;
 
 const PAPER_TYPES = [
-  { id: "regular", label: "Regular Paper" },
-  { id: "english", label: "English Medium Paper" },
-  { id: "urdu", label: "Urdu Medium Paper" },
-  { id: "englishLang", label: "English Language Paper" },
-  { id: "urduLang", label: "Urdu Language Paper" },
-  { id: "autoPaper", label: "Auto Paper Generator" },
+  { id: "regular", l: "Regular", label: "Regular Paper" },
+  { id: "english", l: "English Medium", label: "English Medium Paper" },
+  { id: "urdu", l: "Urdu Medium", label: "Urdu Medium Paper" },
+  { id: "englishLang", l: "English Lang", label: "English Language Paper" },
+  { id: "urduLang", l: "Urdu Lang", label: "Urdu Language Paper" },
+  { id: "autoPaper", l: "Auto Paper", label: "Auto Paper Generator" },
 ];
 
 export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBarSubtitle}){
@@ -328,37 +332,49 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
       <span style={{fontSize:12,fontStyle:"italic"}}>End of Paper</span>
     </div>
   </>;
-  return <div>
-    {printPaperMode&&<div className="paper-print-only" style={{position:"absolute",left:"-9999px",top:0,width:"100%",padding:20,fontFamily:(paperType==="urdu"||paperType==="urduLang")?"'Jameel Noori Nastaliq Regular','Jameel Noori Nastaliq',serif":UI.fontHeading,direction:(paperType==="urdu"||paperType==="urduLang")?"rtl":"ltr",textAlign:(paperType==="urdu"||paperType==="urduLang")?"right":"left",fontSize:(paperType==="urdu"||paperType==="urduLang")?14:undefined,boxSizing:"border-box"}}>{paperContent}</div>}
-    <div style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:6,marginBottom:14,width:"100%",boxSizing:"border-box"}}>
-      <div style={{display:"flex",flexWrap:"wrap",gap:6,flex:"1 1 auto",alignItems:"center",minWidth:0}}>
-        <Tabs value={paperType} onValueChange={setPaperType}>
-          <TabsList className="h-auto flex-wrap">
-            {PAPER_TYPES.map((t) => (
-              <TabsTrigger key={t.id} value={t.id}>{t.label}</TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      </div>
-      {paperType!=="autoPaper"&&<Btn outline onClick={()=>setPreview(true)} style={{flexShrink:0,alignSelf:"center"}}>Preview Paper</Btn>}
-    </div>
+  return (
+    <ModulePageShell
+      title="Paper Generator"
+      description={PAPER_TYPES.find((t) => t.id === paperType)?.label || "Build and print exam papers"}
+      tabs={PAPER_TYPES}
+      tab={paperType}
+      onTabChange={setPaperType}
+      bareContent
+      actions={
+        paperType !== "autoPaper" ? (
+          <Button variant="outline" onClick={() => setPreview(true)}>Preview Paper</Button>
+        ) : null
+      }
+    >
+    {printPaperMode&&<div className={`paper-print-only${(paperType==="urdu"||paperType==="urduLang")?"":" font-heading"}`} style={{position:"absolute",left:"-9999px",top:0,width:"100%",padding:20,fontFamily:(paperType==="urdu"||paperType==="urduLang")?"'Jameel Noori Nastaliq Regular','Jameel Noori Nastaliq',serif":undefined,direction:(paperType==="urdu"||paperType==="urduLang")?"rtl":"ltr",textAlign:(paperType==="urdu"||paperType==="urduLang")?"right":"left",fontSize:(paperType==="urdu"||paperType==="urduLang")?14:undefined,boxSizing:"border-box"}}>{paperContent}</div>}
     {paperType==="autoPaper" ? (
-      <div style={{padding:24,background:"#f9fafb",borderRadius:8,border:"1px solid #e5e7eb"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
+      <Card size="sm" className="shadow-none">
+        <CardHeader className="flex flex-col gap-3 border-b sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 style={{margin:"0 0 4px",color:C.navy,fontSize:18}}>🤖 Question Bank & Auto Paper</h3>
-            <p style={{margin:0,color:C.gray,fontSize:13}}>Manage questions chapter-wise and generate papers using smart selection.</p>
+            <CardTitle>Question Bank & Auto Paper</CardTitle>
+            <CardDescription>Manage questions chapter-wise and generate papers using smart selection.</CardDescription>
           </div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            <button onClick={() => setAutoPaperSubPage("dashboard")} style={{padding:"8px 14px",borderRadius:6,border:autoPaperSubPage==="dashboard"?"none":"1px solid #d1d5db",background:autoPaperSubPage==="dashboard"?C.navy:"#fff",color:autoPaperSubPage==="dashboard"?"#fff":"#374151",fontWeight:600,fontSize:13,cursor:"pointer"}}>📚 Dashboard</button>
-            <button onClick={() => setAutoPaperSubPage("upload")} style={{padding:"8px 14px",borderRadius:6,border:autoPaperSubPage==="upload"?"none":"1px solid #d1d5db",background:autoPaperSubPage==="upload"?C.navy:"#fff",color:autoPaperSubPage==="upload"?"#fff":"#374151",fontWeight:600,fontSize:13,cursor:"pointer"}}>📤 Import</button>
-            <button onClick={() => setAutoPaperSubPage("planning")} style={{padding:"8px 14px",borderRadius:6,border:autoPaperSubPage==="planning"?"none":"1px solid #d1d5db",background:autoPaperSubPage==="planning"?C.navy:"#fff",color:autoPaperSubPage==="planning"?"#fff":"#374151",fontWeight:600,fontSize:13,cursor:"pointer"}}>📑 Planning</button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" variant={autoPaperSubPage==="dashboard"?"default":"outline"} onClick={() => setAutoPaperSubPage("dashboard")}>Dashboard</Button>
+            <Button type="button" size="sm" variant={autoPaperSubPage==="upload"?"default":"outline"} onClick={() => setAutoPaperSubPage("upload")}>Import</Button>
+            <Button type="button" size="sm" variant={autoPaperSubPage==="planning"?"default":"outline"} onClick={() => setAutoPaperSubPage("planning")}>Planning</Button>
           </div>
-        </div>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-(--card-spacing)">
 
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:12,marginBottom:20,padding:16,background:"#fff",borderRadius:8,boxShadow:"0 1px 3px rgba(0,0,0,0.05)"}}>
-          <Sel label="Class" value={selCls} onChange={setSelCls} options={settings.classes.map(c=>({value:c.id,label:formatClassDisplay(c)}))}/>
-          <Sel label="Subject" value={subj} onChange={setSubj} options={subs}/>
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs font-semibold text-muted-foreground">Class</Label>
+            <select value={selCls} onChange={e=>setSelCls(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
+              {settings.classes.map(c=><option key={c.id} value={c.id}>{formatClassDisplay(c)}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs font-semibold text-muted-foreground">Subject</Label>
+            <select value={subj} onChange={e=>setSubj(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
+              {subs.map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
         </div>
 
         {!subj ? (
@@ -367,7 +383,7 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
           <div style={{background:"#fff",padding:24,borderRadius:8,border:"1px solid #e5e7eb"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
               <h4 style={{margin:0,color:C.navy}}>Import from Excel</h4>
-              <button type="button" onClick={() => void handleDownloadTemplate()} style={{padding:"6px 14px",borderRadius:6,border:"1px solid "+C.navy,background:"#fff",color:C.navy,fontSize:12,cursor:"pointer"}}>⬇️ Download Template</button>
+              <Button type="button" variant="outline" size="sm" onClick={() => void handleDownloadTemplate()}>⬇️ Download Template</Button>
             </div>
             <div style={{border:"2px dashed #cbd5e1",padding:40,textAlign:"center",borderRadius:12,background:"#f8fafc",marginBottom:20}}>
               <input type="file" accept=".xlsx" onChange={handleExcelFile} style={{display:"none"}} id="qbExcelInput"/>
@@ -381,7 +397,7 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
               <div>
                 <h5 style={{margin:"0 0 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <span>Preview ({excelPreview.mcqs.length + excelPreview.short.length + excelPreview.long.length} questions)</span>
-                  <Btn onClick={()=>{ setBankForCurrent([...bankForCurrent, ...excelPreview.mcqs, ...excelPreview.short, ...excelPreview.long]); setExcelPreview(null); alert("Questions imported to question bank."); setAutoPaperSubPage("dashboard"); }}>Save to Question Bank</Btn>
+                  <Button onClick={()=>{ setBankForCurrent([...bankForCurrent, ...excelPreview.mcqs, ...excelPreview.short, ...excelPreview.long]); setExcelPreview(null); alert("Questions imported to question bank."); setAutoPaperSubPage("dashboard"); }}>Save to Question Bank</Button>
                 </h5>
                 <div style={{maxHeight:300,overflowY:"auto",border:"1px solid #e2e8f0",borderRadius:6,fontSize:11}}>
                   <table style={{width:"100%",borderCollapse:"collapse"}}>
@@ -400,31 +416,74 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
           <div style={{background:"#fff",padding:24,borderRadius:8,border:"1px solid #e5e7eb"}}>
             <h4 style={{margin:"0 0 16px",color:C.navy}}>Random Selection Planning</h4>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:16,marginBottom:20}}>
-              <Sel label="Chapter" value={genChapter} onChange={setGenChapter} options={[{value:"all",label:"All Chapters"}, ...chapters.map(c=>({value:c,label:c}))]}/>
-              <Sel label="Topic" value={genTopic} onChange={setGenTopic} options={[{value:"all",label:"All Topics"}, ...genTopics.map(t=>({value:t,label:t}))]}/>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs font-semibold text-muted-foreground">Chapter</Label>
+                <select value={genChapter} onChange={e=>setGenChapter(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
+                  <option value="all">All Chapters</option>
+                  {chapters.map(c=><option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs font-semibold text-muted-foreground">Topic</Label>
+                <select value={genTopic} onChange={e=>setGenTopic(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
+                  <option value="all">All Topics</option>
+                  {genTopics.map(t=><option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
             </div>
             <div style={{display:"flex",gap:16,alignItems:"center",padding:20,background:"#f1f5f9",borderRadius:12,marginBottom:24,flexWrap:"wrap"}}>
               <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:11,fontWeight:700,color:C.gray}}>MCQs (%)</label><input type="number" value={genPercentMcq} onChange={e=>setGenPercentMcq(e.target.value)} placeholder="All" style={{padding:8,border:"1px solid #cbd5e1",borderRadius:6,width:70}}/></div>
               <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:11,fontWeight:700,color:C.gray}}>Short (%)</label><input type="number" value={genPercentShort} onChange={e=>setGenPercentShort(e.target.value)} placeholder="All" style={{padding:8,border:"1px solid #cbd5e1",borderRadius:6,width:70}}/></div>
               <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:11,fontWeight:700,color:C.gray}}>Long (%)</label><input type="number" value={genPercentLong} onChange={e=>setGenPercentLong(e.target.value)} placeholder="All" style={{padding:8,border:"1px solid #cbd5e1",borderRadius:6,width:70}}/></div>
-              <Btn style={{marginTop:18}} onClick={advancedGenerateFromBank}>Generate Random Paper</Btn>
+              <Button className="mt-[18px]" onClick={advancedGenerateFromBank}>Generate Random Paper</Button>
             </div>
-            {preview && <div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><h5 style={{margin:0}}>Preview</h5><Btn outline onClick={()=>{setPrintPaperMode(true); setTimeout(()=>window.print(),50);}}>Print Paper</Btn></div><div style={{padding:24,background:"#fff",border:"2px solid #e2e8f0",borderRadius:8,fontFamily:UI.fontHeading}}>{paperContent}</div></div>}
+            {preview && <div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><h5 style={{margin:0}}>Preview</h5><Button variant="outline" onClick={()=>{setPrintPaperMode(true); setTimeout(()=>window.print(),50);}}>Print Paper</Button></div><div className="font-heading" style={{padding:24,background:"#fff",border:"2px solid #e2e8f0",borderRadius:8}}>{paperContent}</div></div>}
           </div>
         ) : (
           <div style={{background:"#fff",padding:20,borderRadius:8,border:"1px solid #e5e7eb"}}>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:12,marginBottom:20}}>
-              <Inp label="Search" value={qbSearch} onChange={v=>{setQbSearch(v); setQbPage(1);}} placeholder="Keyword..."/>
-              <Sel label="Type" value={qbFilterType} onChange={v=>{setQbFilterType(v); setQbPage(1);}} options={[{value:"all",label:"All Types"},{value:"MCQs",label:"MCQs"},{value:"Short",label:"Short"},{value:"Long",label:"Long"}]}/>
-              <Sel label="Difficulty" value={qbFilterDifficulty} onChange={v=>{setQbFilterDifficulty(v); setQbPage(1);}} options={[{value:"all",label:"All"},{value:"Easy",label:"Easy"},{value:"Medium",label:"Medium"},{value:"Hard",label:"Hard"}]}/>
-              <Sel label="Chapter" value={qbFilterChapter} onChange={v=>{setQbFilterChapter(v); setQbPage(1);}} options={[{value:"all",label:"All Chapters"}, ...chapters.map(c=>({value:c,label:c}))]}/>
-              <Sel label="Topic" value={qbFilterTopic} onChange={v=>{setQbFilterTopic(v); setQbPage(1);}} options={[{value:"all",label:"All Topics"}, ...topics.map(t=>({value:t,label:t}))]}/>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs font-semibold text-muted-foreground">Search</Label>
+                <Input value={qbSearch} onChange={e=>{setQbSearch(e.target.value); setQbPage(1);}} placeholder="Keyword..."/>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs font-semibold text-muted-foreground">Type</Label>
+                <select value={qbFilterType} onChange={e=>{setQbFilterType(e.target.value); setQbPage(1);}} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
+                  <option value="all">All Types</option>
+                  <option value="MCQs">MCQs</option>
+                  <option value="Short">Short</option>
+                  <option value="Long">Long</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs font-semibold text-muted-foreground">Difficulty</Label>
+                <select value={qbFilterDifficulty} onChange={e=>{setQbFilterDifficulty(e.target.value); setQbPage(1);}} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
+                  <option value="all">All</option>
+                  <option value="Easy">Easy</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Hard">Hard</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs font-semibold text-muted-foreground">Chapter</Label>
+                <select value={qbFilterChapter} onChange={e=>{setQbFilterChapter(e.target.value); setQbPage(1);}} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
+                  <option value="all">All Chapters</option>
+                  {chapters.map(c=><option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs font-semibold text-muted-foreground">Topic</Label>
+                <select value={qbFilterTopic} onChange={e=>{setQbFilterTopic(e.target.value); setQbPage(1);}} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
+                  <option value="all">All Topics</option>
+                  {topics.map(t=><option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
             </div>
             <div style={{marginBottom:16,display:"flex",gap:8,flexWrap:"wrap"}}>
-              <Btn outline onClick={()=>setBankForCurrent([...bankForCurrent, {id:genId(),type:"MCQs",text:"",options:["","","",""],correct:0,chapter:"",topic:"",difficulty:"Medium"}])}>Add MCQ</Btn>
-              <Btn outline onClick={()=>setBankForCurrent([...bankForCurrent, {id:genId(),type:"Short",text:"",chapter:"",topic:"",difficulty:"Medium"}])}>Add Short</Btn>
-              <Btn outline onClick={()=>setBankForCurrent([...bankForCurrent, {id:genId(),type:"Long",text:"",chapter:"",topic:"",difficulty:"Medium"}])}>Add Long</Btn>
-              <button type="button" onClick={() => void handleExportExcel()} style={{marginLeft:"auto",padding:"8px 14px",borderRadius:6,border:"1px solid #10b981",background:"#fff",color:"#10b981",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",gap:6,alignItems:"center"}}><Download size={14}/> Export Excel</button>
+              <Button variant="outline" onClick={()=>setBankForCurrent([...bankForCurrent, {id:genId(),type:"MCQs",text:"",options:["","","",""],correct:0,chapter:"",topic:"",difficulty:"Medium"}])}>Add MCQ</Button>
+              <Button variant="outline" onClick={()=>setBankForCurrent([...bankForCurrent, {id:genId(),type:"Short",text:"",chapter:"",topic:"",difficulty:"Medium"}])}>Add Short</Button>
+              <Button variant="outline" onClick={()=>setBankForCurrent([...bankForCurrent, {id:genId(),type:"Long",text:"",chapter:"",topic:"",difficulty:"Medium"}])}>Add Long</Button>
+              <Button type="button" variant="outline" className="ml-auto gap-1.5" onClick={() => void handleExportExcel()}><Download size={14}/> Export Excel</Button>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr",gap:10}}>
               {paginatedQb.length===0?<div style={{textAlign:"center",padding:40,color:C.gray}}>No questions found.</div>:paginatedQb.map(q=>(
@@ -439,11 +498,24 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:8}}>
                     <textarea value={q.text} onChange={e=>setBankForCurrent(bankForCurrent.map(x=>x.id===q.id?{...x,text:e.target.value}:x))} placeholder="Question text..." style={{padding:6,fontSize:12,border:"1px solid #cbd5e1",borderRadius:4,height:60}}/>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr",gap:4}}>
-                        <Inp label="Chapter" value={q.chapter} onChange={v=>setBankForCurrent(bankForCurrent.map(x=>x.id===q.id?{...x,chapter:v}:x))}/>
-                        <Inp label="Topic" value={q.topic} onChange={v=>setBankForCurrent(bankForCurrent.map(x=>x.id===q.id?{...x,topic:v}:x))}/>
+                      <div className="grid gap-1.5">
+                        <div className="flex flex-col gap-1">
+                          <Label className="text-xs font-semibold text-muted-foreground">Chapter</Label>
+                          <Input value={q.chapter} onChange={e=>setBankForCurrent(bankForCurrent.map(x=>x.id===q.id?{...x,chapter:e.target.value}:x))}/>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <Label className="text-xs font-semibold text-muted-foreground">Topic</Label>
+                          <Input value={q.topic} onChange={e=>setBankForCurrent(bankForCurrent.map(x=>x.id===q.id?{...x,topic:e.target.value}:x))}/>
+                        </div>
                       </div>
-                      <Sel label="Difficulty" value={q.difficulty||"Medium"} onChange={v=>setBankForCurrent(bankForCurrent.map(x=>x.id===q.id?{...x,difficulty:v}:x))} options={[{value:"Easy",label:"Easy"},{value:"Medium",label:"Medium"},{value:"Hard",label:"Hard"}]}/>
+                      <div className="flex flex-col gap-1">
+                        <Label className="text-xs font-semibold text-muted-foreground">Difficulty</Label>
+                        <select value={q.difficulty||"Medium"} onChange={e=>setBankForCurrent(bankForCurrent.map(x=>x.id===q.id?{...x,difficulty:e.target.value}:x))} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
+                          <option value="Easy">Easy</option>
+                          <option value="Medium">Medium</option>
+                          <option value="Hard">Hard</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                   {q.type==="MCQs"&&<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>{(q.options||["","","",""]).map((o,oi)=><input key={oi} value={o} onChange={e=>{const op=[...(q.options||["","","",""])];op[oi]=e.target.value;setBankForCurrent(bankForCurrent.map(x=>x.id===q.id?{...x,options:op}:x));}} placeholder={`Opt ${String.fromCharCode(65+oi)}`} style={{padding:4,fontSize:11,border:"1px solid #cbd5e1",borderRadius:4}}/>)}</div>}
@@ -453,14 +525,33 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
             {totalQbPages > 1 && <div style={{marginTop:20,display:"flex",justifyContent:"center",gap:8}}>{Array.from({length:totalQbPages},(_,i)=>i+1).map(p=><button key={p} onClick={()=>setQbPage(p)} style={{padding:"4px 10px",borderRadius:4,border:"1px solid #cbd5e1",background:qbPage===p?C.navy:"#fff",color:qbPage===p?"#fff":"#374151",cursor:"pointer"}}>{p}</button>)}</div>}
           </div>
         )}
-      </div>
+        </CardContent>
+      </Card>
     ) : (
     <>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:10,marginBottom:12}}>
-      <Sel label="Class" value={selCls} onChange={setSelCls} options={settings.classes.map(c=>({value:c.id,label:formatClassDisplay(c)}))}/>
-      <Sel label="Subject" value={subj} onChange={setSubj} options={subs}/>
-      <Sel label="Exam" value={exam} onChange={setExam} options={["1st Term","Mid Term","Final Term","Annual"]}/>
-      <Inp label="Time (min)" type="number" value={time} onChange={v=>setTime(+v)}/>
+      <div className="flex flex-col gap-1">
+        <Label className="text-xs font-semibold text-muted-foreground">Class</Label>
+        <select value={selCls} onChange={e=>setSelCls(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
+          {settings.classes.map(c=><option key={c.id} value={c.id}>{formatClassDisplay(c)}</option>)}
+        </select>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label className="text-xs font-semibold text-muted-foreground">Subject</Label>
+        <select value={subj} onChange={e=>setSubj(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
+          {subs.map(s=><option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label className="text-xs font-semibold text-muted-foreground">Exam</Label>
+        <select value={exam} onChange={e=>setExam(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
+          {["1st Term","Mid Term","Final Term","Annual"].map(o=><option key={o} value={o}>{o}</option>)}
+        </select>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label className="text-xs font-semibold text-muted-foreground">Time (min)</Label>
+        <Input type="number" value={time} onChange={e=>setTime(+e.target.value)}/>
+      </div>
     </div>
     <div style={{padding:"6px 12px",background:"#fef3c7",borderRadius:5,fontSize:12,color:"#92400e",fontWeight:700,marginBottom:12,marginTop:6}}>Total Marks: {total}</div>
     {sections.map(sec=><div key={sec.id} style={{border:"1.5px solid #e5e7eb",borderRadius:8,marginBottom:14,overflow:"hidden"}}>
@@ -475,7 +566,7 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
           <div style={{display:"flex",gap:6,alignItems:"flex-start"}}>
             <span style={{fontWeight:700,color:C.navy,minWidth:22,paddingTop:6,fontSize:12}}>Q{qi+1}.</span>
             <textarea value={q.text} onChange={e=>upQ(sec.id,q.id,"text",e.target.value)} placeholder="Question…" style={{flex:1,padding:"5px 8px",border:"1px solid #d1d5db",borderRadius:5,fontSize:12,resize:"vertical",minHeight:44}}/>
-            <Btn small danger onClick={()=>rmQ(sec.id,q.id)}>×</Btn>
+            <Button size="sm" variant="destructive" onClick={()=>rmQ(sec.id,q.id)}>×</Button>
           </div>
           {sec.type==="MCQs"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,marginTop:4,marginLeft:28}}>
             {q.options.map((opt,oi)=><div key={oi} style={{display:"flex",alignItems:"center",gap:4}}>
@@ -484,20 +575,23 @@ export function PaperGeneratorPage({settings,questionBank,setQuestionBank,setBar
             </div>)}
           </div>}
         </div>)}
-        <Btn small outline color={C.navy} onClick={()=>addQ(sec.id)}>Add Question</Btn>
+        <Button size="sm" variant="outline" onClick={()=>addQ(sec.id)}>Add Question</Button>
       </div>
     </div>)}
     </>
     )}
-    {preview&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <div style={{background:"#fff",borderRadius:10,width:"100%",maxWidth:780,maxHeight:"90vh",overflow:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
-        <div className="no-print" style={{background:C.navy,color:"#fff",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{fontWeight:700}}>Paper Preview</span>
-          <button onClick={()=>setPreview(false)} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>×</button>
-        </div>
-        <div style={{padding:20,fontFamily:(paperType==="urdu"||paperType==="urduLang")?"'Jameel Noori Nastaliq Regular','Jameel Noori Nastaliq',serif":UI.fontHeading,direction:(paperType==="urdu"||paperType==="urduLang")?"rtl":"ltr",textAlign:(paperType==="urdu"||paperType==="urduLang")?"right":"left",fontSize:(paperType==="urdu"||paperType==="urduLang")?14:undefined}}>{paperContent}</div>
-      </div>
-    </div>}
-  </div>;
+    <Dialog open={preview} onOpenChange={setPreview}>
+      <DialogContent className="max-w-[780px] max-h-[90vh] overflow-auto">
+        <DialogHeader>
+          <DialogTitle>Paper Preview</DialogTitle>
+        </DialogHeader>
+        <div
+          className={(paperType==="urdu"||paperType==="urduLang")?undefined:"font-heading"}
+          style={{fontFamily:(paperType==="urdu"||paperType==="urduLang")?"'Jameel Noori Nastaliq Regular','Jameel Noori Nastaliq',serif":undefined,direction:(paperType==="urdu"||paperType==="urduLang")?"rtl":"ltr",textAlign:(paperType==="urdu"||paperType==="urduLang")?"right":"left",fontSize:(paperType==="urdu"||paperType==="urduLang")?14:undefined}}
+        >{paperContent}</div>
+      </DialogContent>
+    </Dialog>
+    </ModulePageShell>
+  );
 }
 

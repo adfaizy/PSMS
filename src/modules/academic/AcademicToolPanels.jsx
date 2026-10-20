@@ -1,8 +1,14 @@
 import React, { useMemo, useState } from "react";
-import { Btn, Sel, Inp } from "@/components/AppControls";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { cn } from "@/lib/utils";
 import { ClassSubjCard, CommonTeachersEditor } from "@/modules/settings/SettingsPage";
 import { setNavIntent } from "@/lib/navIntent.js";
-import { C } from "@/shared/theme";
 import {
   summarizeAcademicStructure,
   buildClassSubjectMatrix,
@@ -21,13 +27,6 @@ import {
   CALENDAR_EVENT_TYPES,
   formatClassDisplay,
 } from "./academicCore.js";
-
-const panel = {
-  background: "#fff",
-  border: "1px solid #e5e7eb",
-  borderRadius: 12,
-  boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
-};
 
 function navigate(onNavigate, page, tab) {
   if (tab) setNavIntent({ page, tab });
@@ -58,8 +57,8 @@ export function AcademicOverviewPanel({
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
         {cards.map((c) => (
           <button
             key={c.label}
@@ -68,51 +67,49 @@ export function AcademicOverviewPanel({
               if (c.page) navigate(onNavigate, c.page, c.pageTab);
               else onGoTab?.(c.tab);
             }}
-            style={{
-              ...panel,
-              padding: 14,
-              textAlign: "left",
-              cursor: "pointer",
-              border: "1px solid #e5e7eb",
-            }}
+            className="rounded-xl border bg-card p-3.5 text-left cursor-pointer shadow-none hover:bg-accent/50 transition-colors"
           >
-            <div style={{ fontSize: 22, fontWeight: 800, color: C.navy }}>{c.value}</div>
-            <div style={{ fontSize: 12, fontWeight: 700, marginTop: 4 }}>{c.label}</div>
-            <div style={{ fontSize: 11, color: C.gray, marginTop: 2 }}>{c.hint}</div>
+            <div className="text-[22px] font-extrabold text-primary">{c.value}</div>
+            <div className="text-xs font-bold mt-1">{c.label}</div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">{c.hint}</div>
           </button>
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.2fr) minmax(0,1fr)", gap: 14 }}>
-        <div style={{ ...panel, padding: 16 }}>
-          <div style={{ fontWeight: 700, color: C.navy, marginBottom: 8 }}>Related tools</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            <Btn small outline onClick={() => navigate(onNavigate, "timetable")}>Open Timetable</Btn>
-            <Btn small outline onClick={() => navigate(onNavigate, "examination", "datesheet")}>
-              Date Sheet ({datesheetCount})
-            </Btn>
-            <Btn small outline onClick={() => navigate(onNavigate, "examination", "marks")}>Marks Entry</Btn>
-            <Btn small outline onClick={() => onGoTab?.("scheme")}>Scheme of Studies</Btn>
-          </div>
-          <p style={{ margin: "12px 0 0", fontSize: 12, color: C.gray }}>
-            Academic structure drives roll numbers, timetable generation, exams, and ID cards.
-          </p>
-        </div>
-        <div style={{ ...panel, padding: 16 }}>
-          <div style={{ fontWeight: 700, color: C.navy, marginBottom: 8 }}>Upcoming calendar</div>
-          {upcoming.length === 0 ? (
-            <div style={{ fontSize: 13, color: C.gray }}>No upcoming events. Add holidays on the Calendar tab.</div>
-          ) : (
-            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
-              {upcoming.map((e) => (
-                <li key={e.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12 }}>
-                  <span style={{ fontWeight: 600 }}>{e.title}</span>
-                  <span style={{ color: C.gray }}>{e.date} · {e.type}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+      <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-3.5">
+        <Card className="shadow-none">
+          <CardContent className="p-4">
+            <CardTitle className="mb-2">Related tools</CardTitle>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={() => navigate(onNavigate, "timetable")}>Open Timetable</Button>
+              <Button size="sm" variant="outline" onClick={() => navigate(onNavigate, "examination", "datesheet")}>
+                Date Sheet ({datesheetCount})
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => navigate(onNavigate, "examination", "marks")}>Marks Entry</Button>
+              <Button size="sm" variant="outline" onClick={() => onGoTab?.("scheme")}>Scheme of Studies</Button>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Academic structure drives roll numbers, timetable generation, exams, and ID cards.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="shadow-none">
+          <CardContent className="p-4">
+            <CardTitle className="mb-2">Upcoming calendar</CardTitle>
+            {upcoming.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No upcoming events. Add holidays on the Calendar tab.</div>
+            ) : (
+              <ul className="m-0 p-0 list-none grid gap-2">
+                {upcoming.map((e) => (
+                  <li key={e.id} className="flex justify-between gap-2 text-xs">
+                    <span className="font-semibold">{e.title}</span>
+                    <span className="text-muted-foreground">{e.date} · {e.type}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
@@ -139,19 +136,38 @@ export function AcademicClassesPanel({ settings, setSettings }) {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ ...panel, padding: 16 }}>
-        <div style={{ fontWeight: 700, color: C.navy, marginBottom: 4 }}>Classes & Sections</div>
-        <p style={{ margin: "0 0 12px", fontSize: 13, color: C.gray }}>
-          Add grades/sections and manage examination & timetable subjects for each class.
-        </p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
-          <Inp label="Grade" value={grade} onChange={setGrade} placeholder="e.g. 5 or Nursery" width={140} />
-          <Inp label="Section" value={section} onChange={setSection} placeholder="e.g. A" width={120} />
-          <Btn onClick={addClass}>Add Class</Btn>
-        </div>
-      </div>
-      <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+    <div className="flex flex-col gap-3.5">
+      <Card className="shadow-none">
+        <CardContent className="p-4">
+          <CardTitle className="mb-1">Classes & Sections</CardTitle>
+          <CardDescription className="mb-3">
+            Add grades/sections and manage examination & timetable subjects for each class.
+          </CardDescription>
+          <div className="flex flex-wrap gap-2.5 items-end">
+            <div className="flex flex-col gap-1.5">
+              <Label>Grade</Label>
+              <Input
+                value={grade}
+                onChange={(e) => setGrade(e.target.value)}
+                placeholder="e.g. 5 or Nursery"
+                className="w-36"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Section</Label>
+              <Input
+                value={section}
+                onChange={(e) => setSection(e.target.value)}
+                placeholder="e.g. A"
+                className="w-28"
+              />
+            </div>
+            <Button size="sm" onClick={addClass}>Add Class</Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
         {(settings.classes || []).map((cls) => (
           <ClassSubjCard
             key={cls.id}
@@ -169,8 +185,13 @@ export function AcademicClassesPanel({ settings, setSettings }) {
           />
         ))}
       </div>
+
       {(settings.classes || []).length === 0 && (
-        <div style={{ ...panel, padding: 24, textAlign: "center", color: C.gray }}>No classes yet. Add the first grade/section above.</div>
+        <Card className="shadow-none">
+          <CardContent className="p-6 text-center text-muted-foreground">
+            No classes yet. Add the first grade/section above.
+          </CardContent>
+        </Card>
       )}
     </div>
   );
@@ -196,55 +217,66 @@ export function AcademicSubjectsPanel({ settings, setSettings }) {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ ...panel, padding: 16 }}>
-        <div style={{ fontWeight: 700, color: C.navy, marginBottom: 4 }}>Subject Matrix</div>
-        <p style={{ margin: "0 0 12px", fontSize: 13, color: C.gray }}>
-          {matrix.allSubjects.length} unique subjects across {matrix.rows.length} classes.
-        </p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
-          <Inp label="Add subject to all classes" value={bulkSubject} onChange={setBulkSubject} placeholder="e.g. Mathematics" width={220} />
-          <Sel
-            label="Apply to"
-            value={bulkTarget}
-            onChange={setBulkTarget}
-            options={[
-              { value: "exam", label: "Examination" },
-              { value: "timetable", label: "Timetable" },
-            ]}
-            width={150}
-          />
-          <Btn onClick={applyBulk}>Apply</Btn>
-        </div>
-      </div>
-      <div style={{ ...panel, padding: 0, overflow: "hidden" }}>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-            <thead>
-              <tr style={{ background: "#1e3a5f", color: "#fff" }}>
+    <div className="flex flex-col gap-3.5">
+      <Card className="shadow-none">
+        <CardContent className="p-4">
+          <CardTitle className="mb-1">Subject Matrix</CardTitle>
+          <CardDescription className="mb-3">
+            {matrix.allSubjects.length} unique subjects across {matrix.rows.length} classes.
+          </CardDescription>
+          <div className="flex flex-wrap gap-2.5 items-end">
+            <div className="flex flex-col gap-1.5">
+              <Label>Add subject to all classes</Label>
+              <Input
+                value={bulkSubject}
+                onChange={(e) => setBulkSubject(e.target.value)}
+                placeholder="e.g. Mathematics"
+                className="w-56"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Apply to</Label>
+              <NativeSelect value={bulkTarget} onChange={(e) => setBulkTarget(e.target.value)} size="sm" className="w-36">
+                <NativeSelectOption value="exam">Examination</NativeSelectOption>
+                <NativeSelectOption value="timetable">Timetable</NativeSelectOption>
+              </NativeSelect>
+            </div>
+            <Button size="sm" onClick={applyBulk}>Apply</Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-none overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
                 {["Class", "Exam subjects", "Timetable subjects"].map((h) => (
-                  <th key={h} style={{ padding: "10px 12px", textAlign: "left" }}>{h}</th>
+                  <TableHead key={h} className="bg-muted text-foreground">{h}</TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {matrix.rows.length === 0 ? (
-                <tr>
-                  <td colSpan={3} style={{ padding: 20, textAlign: "center", color: C.gray }}>No classes configured.</td>
-                </tr>
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center text-muted-foreground py-5">
+                    No classes configured.
+                  </TableCell>
+                </TableRow>
               ) : (
                 matrix.rows.map((r, i) => (
-                  <tr key={r.classId} style={{ background: i % 2 ? "#fff" : "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                    <td style={{ padding: "10px 12px", fontWeight: 700 }}>{r.label}</td>
-                    <td style={{ padding: "10px 12px" }}>{r.exam.join(", ") || "—"}</td>
-                    <td style={{ padding: "10px 12px" }}>{r.timetable.join(", ") || "—"}</td>
-                  </tr>
+                  <TableRow key={r.classId} className={i % 2 !== 0 ? "" : "bg-muted/20"}>
+                    <TableCell className="font-bold">{r.label}</TableCell>
+                    <TableCell>{r.exam.join(", ") || "—"}</TableCell>
+                    <TableCell>{r.timetable.join(", ") || "—"}</TableCell>
+                  </TableRow>
                 ))
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
-      </div>
+      </Card>
+
       <CommonTeachersEditor settings={settings} setSettings={setSettings} />
     </div>
   );
@@ -260,57 +292,69 @@ export function AcademicSessionsPanel({
   const list = normalizeSessionList(sessions, currentSession);
 
   return (
-    <div style={{ ...panel, padding: 16 }}>
-      <div style={{ fontWeight: 700, color: C.navy, fontSize: 15, marginBottom: 4 }}>Academic Sessions</div>
-      <p style={{ margin: "0 0 14px", fontSize: 13, color: C.gray }}>
-        Exam marks and date sheets are stored per session. Switch the active year to view that data.
-      </p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end", marginBottom: 16 }}>
-        <Sel
-          label="Current session"
-          value={currentSession || list[0] || ""}
-          onChange={(v) => setCurrentSession?.(v)}
-          options={list.map((s) => ({ value: s, label: s }))}
-          width={180}
-        />
-        <Inp label="Add session" value={newSession} onChange={setNewSession} placeholder="2025-2026" width={140} />
-        <Btn
-          onClick={() => {
-            const check = validateSessionLabel(newSession);
-            if (!check.ok) {
-              alert(check.error);
-              return;
-            }
-            addSession?.(check.session);
-            setNewSession("");
-          }}
-        >
-          Add Session
-        </Btn>
-      </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-        {list.map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setCurrentSession?.(s)}
-            style={{
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: s === currentSession ? "2px solid #1e3a5f" : "1px solid #e2e8f0",
-              background: s === currentSession ? "#eff6ff" : "#fff",
-              fontWeight: 700,
-              fontSize: 12,
-              cursor: "pointer",
-              color: C.navy,
+    <Card className="shadow-none">
+      <CardContent className="p-4">
+        <CardTitle className="text-base mb-1">Academic Sessions</CardTitle>
+        <CardDescription className="mb-3.5">
+          Exam marks and date sheets are stored per session. Switch the active year to view that data.
+        </CardDescription>
+        <div className="flex flex-wrap gap-2.5 items-end mb-4">
+          <div className="flex flex-col gap-1.5">
+            <Label>Current session</Label>
+            <NativeSelect
+              value={currentSession || list[0] || ""}
+              onChange={(e) => setCurrentSession?.(e.target.value)}
+              size="sm"
+              className="w-44"
+            >
+              {list.map((s) => (
+                <NativeSelectOption key={s} value={s}>{s}</NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Add session</Label>
+            <Input
+              value={newSession}
+              onChange={(e) => setNewSession(e.target.value)}
+              placeholder="2025-2026"
+              className="w-36"
+            />
+          </div>
+          <Button
+            size="sm"
+            onClick={() => {
+              const check = validateSessionLabel(newSession);
+              if (!check.ok) {
+                alert(check.error);
+                return;
+              }
+              addSession?.(check.session);
+              setNewSession("");
             }}
           >
-            {s}
-            {s === currentSession ? " · Active" : ""}
-          </button>
-        ))}
-      </div>
-    </div>
+            Add Session
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {list.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setCurrentSession?.(s)}
+              className={cn(
+                "px-3 py-2 rounded-lg text-xs font-bold cursor-pointer transition-colors",
+                s === currentSession
+                  ? "border-2 border-primary bg-primary/10 text-primary"
+                  : "border border-border bg-card text-foreground hover:bg-accent/50",
+              )}
+            >
+              {s}{s === currentSession ? " · Active" : ""}
+            </button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -323,81 +367,105 @@ export function AcademicCalendarPanel({ settings, setSettings }) {
   const calendar = Array.isArray(settings?.academicCalendar) ? settings.academicCalendar : [];
 
   return (
-    <div style={{ ...panel, padding: 16 }}>
-      <div style={{ fontWeight: 700, color: C.navy, fontSize: 15, marginBottom: 4 }}>Academic Calendar</div>
-      <p style={{ margin: "0 0 14px", fontSize: 13, color: C.gray }}>
-        Holidays, school events, and exam windows for planning attendance and date sheets.
-      </p>
-      <div className="psms-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-        <Inp label="Title" value={title} onChange={setTitle} placeholder="e.g. Summer vacation" width="100%" />
-        <Sel label="Type" value={type} onChange={setType} options={CALENDAR_EVENT_TYPES.map((t) => ({ value: t, label: t }))} width="100%" />
-        <Inp label="Start date" type="date" value={date} onChange={setDate} width="100%" />
-        <Inp label="End date" type="date" value={endDate} onChange={setEndDate} width="100%" />
-        <Inp label="Notes" value={notes} onChange={setNotes} placeholder="Optional" width="100%" />
-      </div>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
-        <Btn
-          onClick={() => {
-            if (!title.trim() || !date) {
-              alert("Title and start date are required.");
-              return;
-            }
-            setSettings((prev) => ({
-              ...prev,
-              academicCalendar: addCalendarEvent(prev.academicCalendar, { title, date, endDate, type, notes }),
-            }));
-            setTitle("");
-            setNotes("");
-            setEndDate("");
-          }}
-        >
-          Add Event
-        </Btn>
-      </div>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-          <thead>
-            <tr style={{ background: "#1e3a5f", color: "#fff" }}>
-              {["Date", "Title", "Type", "Notes", ""].map((h) => (
-                <th key={h || "a"} style={{ padding: "8px 10px", textAlign: "left" }}>{h}</th>
+    <Card className="shadow-none">
+      <CardContent className="p-4">
+        <CardTitle className="text-base mb-1">Academic Calendar</CardTitle>
+        <CardDescription className="mb-3.5">
+          Holidays, school events, and exam windows for planning attendance and date sheets.
+        </CardDescription>
+        <div className="grid grid-cols-2 gap-2.5 mb-3">
+          <div className="flex flex-col gap-1.5">
+            <Label>Title</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Summer vacation" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Type</Label>
+            <NativeSelect value={type} onChange={(e) => setType(e.target.value)} size="sm" className="w-full">
+              {CALENDAR_EVENT_TYPES.map((t) => (
+                <NativeSelectOption key={t} value={t}>{t}</NativeSelectOption>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {calendar.length === 0 ? (
-              <tr>
-                <td colSpan={5} style={{ padding: 16, textAlign: "center", color: C.gray }}>No calendar entries yet.</td>
-              </tr>
-            ) : (
-              calendar.map((e, i) => (
-                <tr key={e.id} style={{ background: i % 2 ? "#fff" : "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                  <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
-                    {e.date}{e.endDate && e.endDate !== e.date ? ` → ${e.endDate}` : ""}
-                  </td>
-                  <td style={{ padding: "8px 10px", fontWeight: 600 }}>{e.title}</td>
-                  <td style={{ padding: "8px 10px" }}>{e.type}</td>
-                  <td style={{ padding: "8px 10px", color: "#64748b" }}>{e.notes || "—"}</td>
-                  <td style={{ padding: "8px 10px" }}>
-                    <Btn
-                      small
-                      danger
-                      onClick={() =>
-                        setSettings((prev) => ({
-                          ...prev,
-                          academicCalendar: removeCalendarEvent(prev.academicCalendar, e.id),
-                        }))
-                      }
-                    >
-                      Remove
-                    </Btn>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+            </NativeSelect>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Start date</Label>
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>End date</Label>
+            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1.5 col-span-2">
+            <Label>Notes</Label>
+            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
+          </div>
+        </div>
+        <div className="flex justify-end mb-4">
+          <Button
+            size="sm"
+            onClick={() => {
+              if (!title.trim() || !date) {
+                alert("Title and start date are required.");
+                return;
+              }
+              setSettings((prev) => ({
+                ...prev,
+                academicCalendar: addCalendarEvent(prev.academicCalendar, { title, date, endDate, type, notes }),
+              }));
+              setTitle("");
+              setNotes("");
+              setEndDate("");
+            }}
+          >
+            Add Event
+          </Button>
+        </div>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {["Date", "Title", "Type", "Notes", ""].map((h) => (
+                  <TableHead key={h || "action"} className="bg-muted text-foreground">{h}</TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {calendar.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-4">
+                    No calendar entries yet.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                calendar.map((e, i) => (
+                  <TableRow key={e.id} className={i % 2 !== 0 ? "" : "bg-muted/20"}>
+                    <TableCell className="whitespace-nowrap">
+                      {e.date}{e.endDate && e.endDate !== e.date ? ` → ${e.endDate}` : ""}
+                    </TableCell>
+                    <TableCell className="font-semibold">{e.title}</TableCell>
+                    <TableCell>{e.type}</TableCell>
+                    <TableCell className="text-muted-foreground">{e.notes || "—"}</TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() =>
+                          setSettings((prev) => ({
+                            ...prev,
+                            academicCalendar: removeCalendarEvent(prev.academicCalendar, e.id),
+                          }))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -413,84 +481,122 @@ export function AcademicPeriodsPanel({ settings, setSettings }) {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ ...panel, padding: 16 }}>
-        <div style={{ fontWeight: 700, color: C.navy, marginBottom: 12 }}>School Hours</div>
-        {[
-          { key: "mondayToThursday", label: "Monday – Thursday" },
-          { key: "friday", label: "Friday" },
-          { key: "saturday", label: "Saturday" },
-        ].map(({ key, label }) => (
-          <div key={key} style={{ display: "grid", gridTemplateColumns: "160px 1fr 1fr", gap: 10, marginBottom: 10, alignItems: "end" }}>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
-            <Inp
-              label="Start"
-              type="time"
-              value={settings.schoolHours?.[key]?.start || ""}
-              onChange={(v) => setHour(key, "start", v)}
-              width="100%"
-            />
-            <Inp
-              label="End"
-              type="time"
-              value={settings.schoolHours?.[key]?.end || ""}
-              onChange={(v) => setHour(key, "end", v)}
-              width="100%"
-            />
-          </div>
-        ))}
-      </div>
-      <div style={{ ...panel, padding: 16 }}>
-        <div style={{ fontWeight: 700, color: C.navy, marginBottom: 12 }}>Period lengths</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+    <div className="flex flex-col gap-3.5">
+      <Card className="shadow-none">
+        <CardContent className="p-4">
+          <CardTitle className="mb-3">School Hours</CardTitle>
           {[
-            ["assemblyTime", "Assembly (min)"],
-            ["firstPeriodTime", "Period 1 (min)"],
-            ["otherPeriodTime", "Other periods (min)"],
-            ["periodsPerDay", "Periods per day"],
-          ].map(([key, label]) => (
-            <Inp
-              key={key}
-              label={label}
-              type="number"
-              value={settings[key] ?? ""}
-              onChange={(v) => setSettings((s) => ({ ...s, [key]: v === "" ? "" : +v }))}
-              width="100%"
-            />
+            { key: "mondayToThursday", label: "Monday – Thursday" },
+            { key: "friday", label: "Friday" },
+            { key: "saturday", label: "Saturday" },
+          ].map(({ key, label }) => (
+            <div key={key} className="grid grid-cols-[160px_1fr_1fr] gap-2.5 mb-2.5 items-end">
+              <div className="text-sm font-semibold">{label}</div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Start</Label>
+                <Input
+                  type="time"
+                  value={settings.schoolHours?.[key]?.start || ""}
+                  onChange={(e) => setHour(key, "start", e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>End</Label>
+                <Input
+                  type="time"
+                  value={settings.schoolHours?.[key]?.end || ""}
+                  onChange={(e) => setHour(key, "end", e.target.value)}
+                />
+              </div>
+            </div>
           ))}
-        </div>
-      </div>
-      <div style={{ ...panel, padding: 16 }}>
-        <div style={{ fontWeight: 700, color: C.navy, marginBottom: 12 }}>Breaks</div>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
-          <input
-            type="checkbox"
-            checked={!!settings.breakRequired}
-            onChange={(e) => setSettings((s) => ({ ...s, breakRequired: e.target.checked }))}
-          />
-          Break required (Mon–Thu / Sat)
-        </label>
-        {settings.breakRequired && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-            <Inp label="After period #" type="number" value={settings.breakAfterPeriod ?? ""} onChange={(v) => setSettings((s) => ({ ...s, breakAfterPeriod: +v }))} width="100%" />
-            <Inp label="Duration (min)" type="number" value={settings.breakDuration ?? ""} onChange={(v) => setSettings((s) => ({ ...s, breakDuration: +v }))} width="100%" />
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-none">
+        <CardContent className="p-4">
+          <CardTitle className="mb-3">Period lengths</CardTitle>
+          <div className="grid grid-cols-2 gap-2.5">
+            {[
+              ["assemblyTime", "Assembly (min)"],
+              ["firstPeriodTime", "Period 1 (min)"],
+              ["otherPeriodTime", "Other periods (min)"],
+              ["periodsPerDay", "Periods per day"],
+            ].map(([key, label]) => (
+              <div key={key} className="flex flex-col gap-1.5">
+                <Label>{label}</Label>
+                <Input
+                  type="number"
+                  value={settings[key] ?? ""}
+                  onChange={(e) => setSettings((s) => ({ ...s, [key]: e.target.value === "" ? "" : +e.target.value }))}
+                />
+              </div>
+            ))}
           </div>
-        )}
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
-          <input
-            type="checkbox"
-            checked={!!settings.fridayBreak}
-            onChange={(e) => setSettings((s) => ({ ...s, fridayBreak: e.target.checked }))}
-          />
-          Friday break required
-        </label>
-        {settings.fridayBreak && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <Inp label="Friday after period #" type="number" value={settings.fridayBreakAfter ?? ""} onChange={(v) => setSettings((s) => ({ ...s, fridayBreakAfter: +v }))} width="100%" />
-            <Inp label="Friday duration (min)" type="number" value={settings.fridayBreakDuration ?? ""} onChange={(v) => setSettings((s) => ({ ...s, fridayBreakDuration: +v }))} width="100%" />
-          </div>
-        )}
-      </div>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-none">
+        <CardContent className="p-4">
+          <CardTitle className="mb-3">Breaks</CardTitle>
+          <label className="flex items-center gap-2 text-sm font-semibold mb-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!settings.breakRequired}
+              onChange={(e) => setSettings((s) => ({ ...s, breakRequired: e.target.checked }))}
+            />
+            Break required (Mon–Thu / Sat)
+          </label>
+          {settings.breakRequired && (
+            <div className="grid grid-cols-2 gap-2.5 mb-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>After period #</Label>
+                <Input
+                  type="number"
+                  value={settings.breakAfterPeriod ?? ""}
+                  onChange={(e) => setSettings((s) => ({ ...s, breakAfterPeriod: +e.target.value }))}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Duration (min)</Label>
+                <Input
+                  type="number"
+                  value={settings.breakDuration ?? ""}
+                  onChange={(e) => setSettings((s) => ({ ...s, breakDuration: +e.target.value }))}
+                />
+              </div>
+            </div>
+          )}
+          <label className="flex items-center gap-2 text-sm font-semibold mb-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!settings.fridayBreak}
+              onChange={(e) => setSettings((s) => ({ ...s, fridayBreak: e.target.checked }))}
+            />
+            Friday break required
+          </label>
+          {settings.fridayBreak && (
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="flex flex-col gap-1.5">
+                <Label>Friday after period #</Label>
+                <Input
+                  type="number"
+                  value={settings.fridayBreakAfter ?? ""}
+                  onChange={(e) => setSettings((s) => ({ ...s, fridayBreakAfter: +e.target.value }))}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Friday duration (min)</Label>
+                <Input
+                  type="number"
+                  value={settings.fridayBreakDuration ?? ""}
+                  onChange={(e) => setSettings((s) => ({ ...s, fridayBreakDuration: +e.target.value }))}
+                />
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -506,90 +612,111 @@ export function AcademicSchemePanel({ settings, setSettings }) {
   const units = getSchemeUnits(settings.schemeOfStudies, classId, subject);
 
   return (
-    <div style={{ ...panel, padding: 16 }}>
-      <div style={{ fontWeight: 700, color: C.navy, fontSize: 15, marginBottom: 4 }}>Scheme of Studies</div>
-      <p style={{ margin: "0 0 14px", fontSize: 13, color: C.gray }}>
-        Outline units and topics for each class subject (foundation for lesson planning).
-      </p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-        <Sel
-          label="Class"
-          value={classId}
-          onChange={(v) => {
-            setClassId(v);
-            const nextSubs = (settings.classSubjectsExam || settings.classSubjects || {})[v] || [];
-            setSubject(nextSubs[0] || "");
-          }}
-          options={classes.map((c) => ({ value: c.id, label: formatClassDisplay(c) }))}
-          width={180}
-        />
-        <Sel
-          label="Subject"
-          value={subject}
-          onChange={setSubject}
-          options={subjects.map((s) => ({ value: s, label: s }))}
-          width={180}
-        />
-      </div>
-      {classId && subject ? (
-        <>
-          <div className="psms-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-            <Inp label="Unit / chapter" value={unit} onChange={setUnit} placeholder="e.g. Unit 1 — Algebra" width="100%" />
-            <Inp label="Periods" type="number" value={periods} onChange={setPeriods} placeholder="e.g. 8" width="100%" />
-            <Inp label="Topics" value={topics} onChange={setTopics} placeholder="Short topic list" width="100%" />
-          </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
-            <Btn
-              onClick={() => {
-                if (!unit.trim()) {
-                  alert("Enter a unit title.");
-                  return;
-                }
-                setSettings((prev) => ({
-                  ...prev,
-                  schemeOfStudies: addSchemeUnit(prev.schemeOfStudies, classId, subject, { unit, topics, periods }),
-                }));
-                setUnit("");
-                setTopics("");
-                setPeriods("");
+    <Card className="shadow-none">
+      <CardContent className="p-4">
+        <CardTitle className="text-base mb-1">Scheme of Studies</CardTitle>
+        <CardDescription className="mb-3.5">
+          Outline units and topics for each class subject (foundation for lesson planning).
+        </CardDescription>
+        <div className="flex flex-wrap gap-2.5 mb-3.5">
+          <div className="flex flex-col gap-1.5">
+            <Label>Class</Label>
+            <NativeSelect
+              value={classId}
+              onChange={(e) => {
+                setClassId(e.target.value);
+                const nextSubs = (settings.classSubjectsExam || settings.classSubjects || {})[e.target.value] || [];
+                setSubject(nextSubs[0] || "");
               }}
+              size="sm"
+              className="w-44"
             >
-              Add Unit
-            </Btn>
-          </div>
-          {units.length === 0 ? (
-            <div style={{ padding: 16, textAlign: "center", color: C.gray, border: "1px dashed #cbd5e1", borderRadius: 8 }}>
-              No units for this subject yet.
-            </div>
-          ) : (
-            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
-              {units.map((u) => (
-                <li key={u.id} style={{ padding: "10px 12px", border: "1px solid #e2e8f0", borderRadius: 8, display: "flex", justifyContent: "space-between", gap: 10 }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>{u.unit}</div>
-                    {u.topics ? <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{u.topics}</div> : null}
-                    {u.periods ? <div style={{ fontSize: 11, color: C.gray, marginTop: 2 }}>{u.periods} periods</div> : null}
-                  </div>
-                  <Btn
-                    small
-                    danger
-                    onClick={() =>
-                      setSettings((prev) => ({
-                        ...prev,
-                        schemeOfStudies: removeSchemeUnit(prev.schemeOfStudies, classId, subject, u.id),
-                      }))
-                    }
-                  >
-                    Remove
-                  </Btn>
-                </li>
+              {classes.map((c) => (
+                <NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>
               ))}
-            </ul>
-          )}
-        </>
-      ) : (
-        <div style={{ padding: 16, textAlign: "center", color: C.gray }}>Select a class with exam subjects first.</div>
-      )}
-    </div>
+            </NativeSelect>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Subject</Label>
+            <NativeSelect value={subject} onChange={(e) => setSubject(e.target.value)} size="sm" className="w-44">
+              {subjects.map((s) => (
+                <NativeSelectOption key={s} value={s}>{s}</NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </div>
+        </div>
+        {classId && subject ? (
+          <>
+            <div className="grid grid-cols-2 gap-2.5 mb-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>Unit / chapter</Label>
+                <Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="e.g. Unit 1 — Algebra" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Periods</Label>
+                <Input type="number" value={periods} onChange={(e) => setPeriods(e.target.value)} placeholder="e.g. 8" />
+              </div>
+              <div className="flex flex-col gap-1.5 col-span-2">
+                <Label>Topics</Label>
+                <Input value={topics} onChange={(e) => setTopics(e.target.value)} placeholder="Short topic list" />
+              </div>
+            </div>
+            <div className="flex justify-end mb-3.5">
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (!unit.trim()) {
+                    alert("Enter a unit title.");
+                    return;
+                  }
+                  setSettings((prev) => ({
+                    ...prev,
+                    schemeOfStudies: addSchemeUnit(prev.schemeOfStudies, classId, subject, { unit, topics, periods }),
+                  }));
+                  setUnit("");
+                  setTopics("");
+                  setPeriods("");
+                }}
+              >
+                Add Unit
+              </Button>
+            </div>
+            {units.length === 0 ? (
+              <div className="p-4 text-center text-muted-foreground border border-dashed border-border rounded-lg">
+                No units for this subject yet.
+              </div>
+            ) : (
+              <ul className="m-0 p-0 list-none grid gap-2">
+                {units.map((u) => (
+                  <li key={u.id} className="p-3 border border-border rounded-lg flex justify-between gap-2.5">
+                    <div>
+                      <div className="font-bold text-sm">{u.unit}</div>
+                      {u.topics ? <div className="text-xs text-muted-foreground mt-0.5">{u.topics}</div> : null}
+                      {u.periods ? <div className="text-[11px] text-muted-foreground mt-0.5">{u.periods} periods</div> : null}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          schemeOfStudies: removeSchemeUnit(prev.schemeOfStudies, classId, subject, u.id),
+                        }))
+                      }
+                    >
+                      Remove
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        ) : (
+          <div className="p-4 text-center text-muted-foreground">
+            Select a class with exam subjects first.
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

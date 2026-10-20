@@ -36,9 +36,12 @@ import { APP_BRAND_LOGO_URL } from "./branding.js";
 import { yieldToMain } from "./yieldToMain.js";
 import { UI } from "./uiTokens.js";
 import { C, schoolOrBrandLogo, APP_BRAND_LOGO, genId } from "./shared/theme";
-import { Btn, Sel, Inp, SchoolHeader } from "./components/AppControls";
 import { AppDashboardShell } from "./components/AppDashboardShell";
 import { Button } from "./components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "./components/ui/card";
+import { Badge } from "./components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
+import { Separator } from "./components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./components/ui/dialog";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
@@ -161,11 +164,13 @@ class ExaminationErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: 24, background: "#fef2f2", borderRadius: 8, border: "1px solid rgb(128, 77, 77)", maxWidth: 560 }}>
-          <h3 style={{ margin: "0 0 8px", color: "#b91c1c" }}>Something went wrong on the Examination page</h3>
-          <p style={{ margin: 0, fontSize: 13, color: "#7f1d1d" }}>{String(this.state.error?.message || this.state.error)}</p>
-          <button type="button" onClick={() => this.setState({ hasError: false, error: null })} style={{ marginTop: 12, padding: "8px 16px", background: "#b91c1c", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>Try again</button>
-        </div>
+        <Card className="max-w-[560px] border-red-300 bg-red-50">
+          <CardContent className="p-6">
+            <h3 className="text-red-700 font-semibold text-base mb-2">Something went wrong on the Examination page</h3>
+            <p className="text-red-900 text-[13px]">{String(this.state.error?.message || this.state.error)}</p>
+            <Button variant="destructive" size="sm" className="mt-4" onClick={() => this.setState({ hasError: false, error: null })}>Try again</Button>
+          </CardContent>
+        </Card>
       );
     }
     return this.props.children;
@@ -182,33 +187,29 @@ class AppErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: 24, background: "#fef2f2", borderRadius: 8, border: "1px solid rgb(185, 28, 28)", maxWidth: 600, margin: "20px auto" }}>
-          <h3 style={{ margin: "0 0 8px", color: "#b91c1c" }}>Something went wrong</h3>
-          <p style={{ margin: "0 0 12px", fontSize: 13, color: "#7f1d1d" }}>
-            {String(this.state.error?.message || this.state.error)}
-          </p>
-          <details style={{ marginBottom: 12 }}>
-            <summary style={{ cursor: "pointer", fontSize: 12, color: "#7f1d1d" }}>Error Details</summary>
-            <pre style={{ fontSize: 11, color: "#7f1d1d", marginTop: 8, whiteSpace: "pre-wrap", overflow: "auto" }}>
-              {this.state.error?.stack}
-              {this.state.errorInfo?.componentStack}
-            </pre>
-          </details>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            style={{ marginRight: 8, padding: "8px 16px", background: "#b91c1c", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
-          >
-            Reload Page
-          </button>
-          <button
-            type="button"
-            onClick={() => this.setState({ hasError: false, error: null, errorInfo: null })}
-            style={{ padding: "8px 16px", background: "#6b7280", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
-          >
-            Try again
-          </button>
-        </div>
+        <Card className="max-w-[600px] mx-auto mt-5 border-red-300 bg-red-50">
+          <CardContent className="p-6">
+            <h3 className="text-red-700 font-semibold text-base mb-2">Something went wrong</h3>
+            <p className="text-red-900 text-[13px] mb-3">
+              {String(this.state.error?.message || this.state.error)}
+            </p>
+            <details className="mb-4">
+              <summary className="cursor-pointer text-xs text-red-700">Error Details</summary>
+              <pre className="text-[11px] text-red-800 mt-2 whitespace-pre-wrap overflow-auto">
+                {this.state.error?.stack}
+                {this.state.errorInfo?.componentStack}
+              </pre>
+            </details>
+            <div className="flex gap-2">
+              <Button variant="destructive" size="sm" onClick={() => window.location.reload()}>
+                Reload Page
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => this.setState({ hasError: false, error: null, errorInfo: null })}>
+                Try again
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       );
     }
     return this.props.children;
@@ -483,9 +484,6 @@ function AuthScreen({ onSignIn, setActiveSchoolId }) {
   const [loading, setLoading] = useState(false);
   const [accountsReady, setAccountsReady] = useState(() => !getIsSupabaseConfigured());
   const [cloudConfigured, setCloudConfigured] = useState(() => getIsSupabaseConfigured());
-  const inp = { width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, boxSizing: "border-box", fontFamily: "inherit", outline: "none" };
-  const lbl = { display: "block", marginBottom: 4, fontSize: 13, fontWeight: 600, color: "#374151" };
-
   useEffect(() => {
     let cancelled = false;
     const readyUp = async () => {
@@ -565,77 +563,81 @@ function AuthScreen({ onSignIn, setActiveSchoolId }) {
 
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)", padding: 16, fontFamily: UI.fontApp }}>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" style={{ fontFamily: UI.fontApp }}>
       {panel === "user" ? (
-        <div style={{ width: "100%", maxWidth: 440, background: "#fff", borderRadius: 16, boxShadow: "0 25px 50px -12px rgba(0,0,0,0.45)", overflow: "hidden" }}>
+        <Card className="w-full max-w-[440px] overflow-hidden shadow-2xl rounded-2xl">
           {/* Header */}
-          <div style={{ background: "var(--color-navy,#1a3a6b)", color: "#fff", padding: "20px 24px", display: "flex", alignItems: "center", gap: 12 }}>
-            <img src={APP_BRAND_LOGO} alt="" style={{ width: 80, height: 80, objectFit: "contain", flexShrink: 0, borderRadius: 8, background: "rgba(255,255,255,0.1)", padding: 4 }} />
+          <div className="flex items-center gap-3 px-6 py-5 text-white" style={{ background: "var(--color-navy,#1a3a6b)" }}>
+            <img src={APP_BRAND_LOGO} alt="" className="w-20 h-20 object-contain shrink-0 rounded-lg bg-white/10 p-1" />
             <div>
-              <div style={{ fontWeight: 700, fontSize: 17 }}>Punjab-SMS</div>
-              <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>Sign in with your account</div>
+              <div className="font-bold text-[17px]">Punjab-SMS</div>
+              <div className="text-xs opacity-80 mt-0.5">Sign in with your account</div>
             </div>
           </div>
-          <div style={{ padding: 24 }}>
-            {error && <div style={{ padding: "10px 12px", marginBottom: 16, background: "#fef2f2", color: "#b91c1c", borderRadius: 8, fontSize: 13, border: "1px solid #fecaca" }}>{error}</div>}
-            <form onSubmit={handleSignIn}>
+          <CardContent className="p-6">
+            {error && (
+              <div className="mb-4 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[13px]">{error}</div>
+            )}
+            <form onSubmit={handleSignIn} className="space-y-4">
               {!accountsReady && (
-                <div style={{ padding: "8px 12px", marginBottom: 12, background: "#eff6ff", color: "#1d4ed8", borderRadius: 8, fontSize: 12, border: "1px solid #bfdbfe" }}>
+                <div className="px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs">
                   Syncing accounts from cloud…
                 </div>
               )}
-              <div style={{ marginBottom: 14 }}>
-                <label style={lbl}>Email</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required style={inp} disabled={!accountsReady} />
+              <div className="space-y-1.5">
+                <Label htmlFor="login-email">Email</Label>
+                <Input id="login-email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required disabled={!accountsReady} />
               </div>
-              <div style={{ marginBottom: 20 }}>
-                <label style={lbl}>Password</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required style={inp} disabled={!accountsReady} />
+              <div className="space-y-1.5">
+                <Label htmlFor="login-password">Password</Label>
+                <Input id="login-password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required disabled={!accountsReady} />
               </div>
-              <button type="submit" disabled={loading || !accountsReady} style={{ width: "100%", padding: "12px 16px", border: "none", borderRadius: 8, background: "var(--color-navy,#1a3a6b)", color: "#fff", fontWeight: 700, fontSize: 15, cursor: (loading || !accountsReady) ? "not-allowed" : "pointer", opacity: (loading || !accountsReady) ? 0.7 : 1 }}>
+              <Button type="submit" className="w-full" disabled={loading || !accountsReady}>
                 {loading ? "Signing in…" : "Sign In"}
-              </button>
+              </Button>
             </form>
-            <div style={{ marginTop: 16, padding: "10px 12px", background: cloudConfigured ? "#eff6ff" : "#fff7ed", borderRadius: 8, fontSize: 12, color: cloudConfigured ? "#1d4ed8" : "#9a3412", textAlign: "center", border: `1px solid ${cloudConfigured ? "#bfdbfe" : "#fed7aa"}` }}>
+            <div className={`mt-4 px-3 py-2.5 rounded-lg text-xs text-center border ${cloudConfigured ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-orange-50 border-orange-200 text-orange-700"}`}>
               {cloudConfigured
                 ? "☁ Worldwide cloud — school logins created by admin work on any device with internet."
                 : "⚠ Cloud OFF — open this app from the main server URL (or deploy with Supabase keys) so logins work worldwide."}
             </div>
-            <div style={{ marginTop: 12, textAlign: "center" }}>
+            <div className="mt-3 text-center">
               <button type="button" onClick={() => { setPanel("admin"); setError(""); }}
-                style={{ background: "none", border: "none", color: "#94a3b8", fontSize: 12, cursor: "pointer", padding: "6px 8px", borderRadius: 6 }}>
+                className="text-slate-400 hover:text-slate-600 text-xs bg-transparent border-none cursor-pointer px-2 py-1.5 rounded-md">
                 🔐 Administrator Login
               </button>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       ) : (
-        <div style={{ width: "100%", maxWidth: 400, background: "#fff", borderRadius: 16, boxShadow: "0 25px 50px -12px rgba(0,0,0,0.45)", overflow: "hidden" }}>
-          <div style={{ background: "#1e293b", color: "#fff", padding: "20px 24px" }}>
+        <Card className="w-full max-w-[400px] overflow-hidden shadow-2xl rounded-2xl">
+          <div className="bg-slate-800 text-white px-6 py-5">
             <button type="button" onClick={() => { setPanel("user"); setError(""); }}
-              style={{ background: "none", border: "none", color: "#94a3b8", fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 12, display: "flex", alignItems: "center", gap: 4 }}>
+              className="flex items-center gap-1 text-slate-400 hover:text-slate-200 text-[13px] mb-3 bg-transparent border-none cursor-pointer">
               ← Back to User Login
             </button>
-            <div style={{ fontWeight: 700, fontSize: 17 }}>Administrator Login</div>
-            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>Restricted access — authorised personnel only</div>
+            <div className="font-bold text-[17px]">Administrator Login</div>
+            <div className="text-xs opacity-70 mt-1">Restricted access — authorised personnel only</div>
           </div>
-          <div style={{ padding: 24 }}>
-            {error && <div style={{ padding: "10px 12px", marginBottom: 16, background: "#fef2f2", color: "#b91c1c", borderRadius: 8, fontSize: 13, border: "1px solid #fecaca" }}>{error}</div>}
-            <form onSubmit={handleAdminLogin}>
-              <div style={{ marginBottom: 14 }}>
-                <label style={lbl}>Admin Email</label>
-                <input type="email" value={adminEmail} onChange={e => setAdminEmail(e.target.value)} placeholder="admin email" required style={inp} />
+          <CardContent className="p-6">
+            {error && (
+              <div className="mb-4 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[13px]">{error}</div>
+            )}
+            <form onSubmit={handleAdminLogin} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-email">Admin Email</Label>
+                <Input id="admin-email" type="email" value={adminEmail} onChange={e => setAdminEmail(e.target.value)} placeholder="admin email" required />
               </div>
-              <div style={{ marginBottom: 20 }}>
-                <label style={lbl}>Admin Password</label>
-                <input type="password" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} placeholder="••••••••" required style={inp} />
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-password">Admin Password</Label>
+                <Input id="admin-password" type="password" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} placeholder="••••••••" required />
               </div>
-              <button type="submit" style={{ width: "100%", padding: "12px 16px", border: "none", borderRadius: 8, background: "#1e293b", color: "#fff", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
+              <Button type="submit" className="w-full bg-slate-800 hover:bg-slate-700">
                 Login as Administrator
-              </button>
+              </Button>
             </form>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
@@ -954,362 +956,377 @@ function AdminPage({ schools, setSchools, setSchoolStatus, onSignOut, onResetAll
     refreshUsers();
   };
 
-  const inp2 = { width: "100%", padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, boxSizing: "border-box" };
-  const lbl2 = { fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 };
-
   return (
-    <div style={{ minHeight: "100vh", background: "#f1f5f9", display: "flex", flexDirection: "column", fontFamily: UI.fontApp }}>
+    <div className="min-h-screen bg-slate-100 flex flex-col" style={{ fontFamily: UI.fontApp }}>
       {/* Dark header */}
-      <header style={{ background: "#1e293b", color: "#fff", padding: "12px 20px", display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-        <img src={APP_BRAND_LOGO} alt="" style={{ width: 72, height: 72, objectFit: "contain", borderRadius: 8, background: "rgba(255,255,255,0.1)", padding: 4, flexShrink: 0 }} />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: 16 }}>Admin Panel</div>
-          <div style={{ fontSize: 12, opacity: 0.65, marginTop: 1 }}>Punjab-SMS — Full Control</div>
+      <header className="bg-slate-800 text-white px-5 py-3 flex items-center gap-3.5 shrink-0">
+        <img src={APP_BRAND_LOGO} alt="" className="w-[72px] h-[72px] object-contain rounded-lg bg-white/10 p-1 shrink-0" />
+        <div className="flex-1">
+          <div className="font-bold text-base">Admin Panel</div>
+          <div className="text-xs opacity-65 mt-px">Punjab-SMS — Full Control</div>
         </div>
-        <div
+        <Badge
           title={cloudMsg || (cloudOk ? "Cloud connected — school logins sync to every device" : "Cloud not connected — logins stay on this device only")}
-          style={{
-            fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 999,
-            background: cloudOk ? "rgba(34,197,94,0.2)" : "rgba(248,113,113,0.2)",
-            color: cloudOk ? "#86efac" : "#fecaca",
-            border: `1px solid ${cloudOk ? "rgba(134,239,172,0.4)" : "rgba(254,202,202,0.4)"}`,
-            whiteSpace: "nowrap",
-          }}
+          className={`text-[11px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap border ${cloudOk ? "bg-green-500/20 text-green-300 border-green-400/40" : "bg-red-400/20 text-red-300 border-red-300/40"}`}
         >
           {usersSyncing ? "☁ Syncing…" : cloudOk ? "☁ Cloud ON" : "☁ Cloud OFF"}
-        </div>
-        <button
-          type="button"
+        </Badge>
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => pullUsersFromCloud()}
           disabled={usersSyncing}
-          style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.25)", background: "rgba(59,130,246,0.35)", color: "#fff", fontWeight: 600, fontSize: 12, cursor: usersSyncing ? "not-allowed" : "pointer", whiteSpace: "nowrap", opacity: usersSyncing ? 0.7 : 1 }}
+          className="border-white/25 bg-blue-500/35 text-white hover:bg-blue-500/50 hover:text-white whitespace-nowrap"
         >
           {usersSyncing ? "Syncing…" : "Refresh from cloud"}
-        </button>
-        <div style={{ fontSize: 12, opacity: 0.7, textAlign: "right", lineHeight: 1.5, marginRight: 8 }}>
+        </Button>
+        <div className="text-xs opacity-70 text-right leading-snug mr-2 tabular-nums">
           <div>{headerNow.toLocaleDateString("en-PK", { weekday: "short", day: "numeric", month: "short" })}</div>
-          <div style={{ fontVariantNumeric: "tabular-nums", fontWeight: 700 }}>{headerNow.toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</div>
+          <div className="font-bold">{headerNow.toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</div>
         </div>
-        <button type="button" onClick={onSignOut} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}>Sign Out</button>
+        <Button variant="outline" size="sm" onClick={onSignOut} className="border-white/20 bg-white/8 text-white hover:bg-white/15 hover:text-white whitespace-nowrap">Sign Out</Button>
       </header>
       {cloudMsg && (
-        <div style={{ background: cloudOk ? "#ecfdf5" : "#fff7ed", color: cloudOk ? "#166534" : "#9a3412", padding: "8px 20px", fontSize: 12, fontWeight: 600, borderBottom: `1px solid ${cloudOk ? "#bbf7d0" : "#fed7aa"}` }}>
+        <div className={`px-5 py-2 text-xs font-semibold border-b ${cloudOk ? "bg-emerald-50 text-emerald-800 border-emerald-200" : "bg-orange-50 text-orange-800 border-orange-200"}`}>
           {cloudMsg}
         </div>
       )}
       {/* Tab bar */}
-      <div style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", display: "flex", padding: "0 20px" }}>
-        {[["users","👥 User Management"],["schools","🏫 School Accounts"],["danger","⚠️ Danger Zone"]].map(([t,label]) => (
-          <button key={t} type="button" onClick={() => setAdminTab(t)}
-            style={{ padding: "12px 18px", border: "none", background: "transparent", color: adminTab === t ? "#1e293b" : "#64748b", fontWeight: adminTab === t ? 700 : 500, fontSize: 14, cursor: "pointer", borderBottom: `3px solid ${adminTab === t ? "#1e293b" : "transparent"}`, marginBottom: -1 }}>
-            {label}
-          </button>
-        ))}
+      <div className="bg-white border-b border-slate-200 px-5">
+        <Tabs value={adminTab} onValueChange={setAdminTab}>
+          <TabsList className="bg-transparent border-0 rounded-none h-auto p-0 gap-0">
+            {[["users","👥 User Management"],["schools","🏫 School Accounts"],["danger","⚠️ Danger Zone"]].map(([t,label]) => (
+              <TabsTrigger
+                key={t}
+                value={t}
+                className="rounded-none border-b-[3px] data-[state=active]:border-slate-800 data-[state=active]:text-slate-800 data-[state=active]:font-bold data-[state=inactive]:border-transparent data-[state=inactive]:text-slate-500 bg-transparent px-4 py-3 text-sm font-medium shadow-none -mb-px"
+              >
+                {label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
-      <div style={{ flex: 1, padding: 20, overflow: "auto" }}>
-      <div style={{ maxWidth: 900, margin: "0 auto" }}>
+      <div className="flex-1 p-5 overflow-auto">
+      <div className="max-w-[900px] mx-auto">
 
         {/* ── TAB: USER MANAGEMENT ── */}
         {adminTab === "users" && (<>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-            <button
-              type="button"
+          <div className="flex justify-end mb-3">
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => pullUsersFromCloud()}
               disabled={usersSyncing}
-              style={{ padding: "6px 12px", fontSize: 12, fontWeight: 600, border: "1px solid #93c5fd", borderRadius: 6, background: "#eff6ff", color: "#1d4ed8", cursor: usersSyncing ? "not-allowed" : "pointer" }}
+              className="border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100"
             >
               {usersSyncing ? "Syncing logins…" : "☁ Refresh logins from cloud"}
-            </button>
+            </Button>
           </div>
           {/* Self-signup users */}
-          <section style={{ background: "#fff", borderRadius: 12, padding: 20, marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
-            <h2 style={{ margin: "0 0 4px", fontSize: 15, color: "#1e293b" }}>Self-Signup Users</h2>
-            <p style={{ margin: "0 0 14px", fontSize: 13, color: C.gray }}>Users who registered on their own. You can view their passwords, block/unblock, change password, or delete.</p>
-            {usersList.filter(u => u.userType === "local").length === 0 ? (
-              <p style={{ fontSize: 13, color: C.gray, margin: 0 }}>No self-signup users yet.</p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {usersList.filter(u => u.userType === "local").map(u => (
-                  <div key={u.id} style={{ padding: "12px 14px", background: u.blocked ? "#fef9f9" : "#f8fafc", borderRadius: 8, border: `1px solid ${u.blocked ? "#fecaca" : "#e2e8f0"}` }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                      <div style={{ flex: 1, minWidth: 160 }}>
-                        <div style={{ fontWeight: 700, color: "#1e293b", fontSize: 14 }}>{u.name || "—"}</div>
-                        <div style={{ fontSize: 12, color: C.gray }}>{u.email}</div>
-                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Password: <strong style={{ fontFamily: "monospace" }}>{u.password}</strong>{u.blocked && <span style={{ marginLeft: 8, color: "#dc2626", fontWeight: 700 }}>BLOCKED</span>}</div>
-                      </div>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        <button type="button" onClick={() => { setEditUserId(editUserId === u.id ? null : u.id); setEditNewPw(""); setEditPwError(""); }}
-                          style={{ padding: "5px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", cursor: "pointer" }}>Change PW</button>
-                        <button type="button" onClick={() => handleToggleBlock(u.id)}
-                          style={{ padding: "5px 10px", fontSize: 12, border: `1px solid ${u.blocked ? "#16a34a" : "#d97706"}`, borderRadius: 6, background: "#fff", color: u.blocked ? "#16a34a" : "#d97706", cursor: "pointer" }}>
-                          {u.blocked ? "Unblock" : "Block"}
-                        </button>
-                        <button type="button" onClick={() => { if (window.confirm(`Delete user "${u.name || u.email}"?`)) handleDeleteUser(u.id); }}
-                          style={{ padding: "5px 10px", fontSize: 12, border: "1px solid #dc2626", borderRadius: 6, background: "#fff", color: "#dc2626", cursor: "pointer" }}>Delete</button>
-                      </div>
-                    </div>
-                    {editUserId === u.id && (
-                      <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        <input type="text" value={editNewPw} onChange={e => { setEditNewPw(e.target.value); setEditPwError(""); }} placeholder="New password (min 4)" style={{ ...inp2, width: "auto", flex: "1 1 160px" }} />
-                        <button type="button" onClick={() => handleChangePassword(u.id)} style={{ padding: "7px 14px", border: "none", borderRadius: 6, background: "#16a34a", color: "#fff", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>Save</button>
-                        <button type="button" onClick={() => { setEditUserId(null); setEditNewPw(""); setEditPwError(""); }} style={{ padding: "7px 10px", border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", fontSize: 12, cursor: "pointer" }}>Cancel</button>
-                        {editPwError && <span style={{ fontSize: 12, color: "#dc2626" }}>{editPwError}</span>}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* School account users */}
-          <section style={{ background: "#fff", borderRadius: 12, padding: 20, marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
-            <h2 style={{ margin: "0 0 4px", fontSize: 15, color: "#1e293b" }}>School Account Users</h2>
-            <p style={{ margin: "0 0 14px", fontSize: 13, color: C.gray }}>All school users — principals, operators, and teachers. Principals and school operators can edit/delete marks, students, and staff.</p>
-            {usersList.filter(u => u.userType === "school" || u.userType === "admin-created" || u.userType === "principal" || u.userType === "teacher").length === 0 ? (
-              <p style={{ fontSize: 13, color: C.gray, margin: 0 }}>No school account users yet.</p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {usersList.filter(u => u.userType === "school" || u.userType === "admin-created" || u.userType === "principal" || u.userType === "teacher").map(u => {
-                  const schoolName = (schools || []).find(s => s.id === u.schoolId)?.settings?.schoolName || (schools || []).find(s => s.id === u.schoolId)?.name || (u.schoolId ? u.schoolId.slice(0,8)+"…" : "—");
-                  const roleLabel = u.userType==="principal"?"Principal":u.userType==="teacher"?"Teacher":u.userType==="school"?"School Operator":"Admin-Created";
-                  const roleBg = u.userType==="principal"?"#f0fdf4":u.userType==="teacher"?"#fefce8":u.userType==="school"?"#eff6ff":"#f5f3ff";
-                  const roleColor = u.userType==="principal"?"#166534":u.userType==="teacher"?"#854d0e":u.userType==="school"?"#1e40af":"#5b21b6";
-                  return (
-                    <div key={u.id} style={{ padding: "12px 14px", background: u.blocked ? "#fef9f9" : "#f8fafc", borderRadius: 8, border: `1px solid ${u.blocked ? "#fecaca" : "#e2e8f0"}` }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                        <div style={{ flex: 1, minWidth: 160 }}>
-                          <div style={{ fontWeight: 700, color: "#1e293b", fontSize: 14 }}>{u.name || "—"} <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: roleBg, color: roleColor, marginLeft: 4 }}>{roleLabel}</span></div>
-                          <div style={{ fontSize: 12, color: C.gray }}>{u.email} · {schoolName}</div>
-                          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Password: <strong style={{ fontFamily: "monospace" }}>{u.password}</strong>{u.blocked && <span style={{ marginLeft: 8, color: "#dc2626", fontWeight: 700 }}>BLOCKED</span>}</div>
+          <Card className="mb-5">
+            <CardHeader className="pb-1">
+              <CardTitle className="text-[15px] text-slate-800">Self-Signup Users</CardTitle>
+              <CardDescription className="text-[13px]">Users who registered on their own. You can view their passwords, block/unblock, change password, or delete.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {usersList.filter(u => u.userType === "local").length === 0 ? (
+                <p className="text-[13px] text-slate-500 m-0">No self-signup users yet.</p>
+              ) : (
+                <div className="flex flex-col gap-2.5">
+                  {usersList.filter(u => u.userType === "local").map(u => (
+                    <div key={u.id} className={`px-3.5 py-3 rounded-lg border ${u.blocked ? "bg-red-50 border-red-200" : "bg-slate-50 border-slate-200"}`}>
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <div className="flex-1 min-w-[160px]">
+                          <div className="font-bold text-slate-800 text-sm">{u.name || "—"}</div>
+                          <div className="text-xs text-slate-500">{u.email}</div>
+                          <div className="text-[11px] text-slate-400 mt-0.5">Password: <strong className="font-mono">{u.password}</strong>{u.blocked && <span className="ml-2 text-red-600 font-bold">BLOCKED</span>}</div>
                         </div>
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                          <button type="button" onClick={() => { setEditUserId(editUserId === u.id ? null : u.id); setEditNewPw(""); setEditPwError(""); }}
-                            style={{ padding: "5px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", cursor: "pointer" }}>Change PW</button>
-                          <button type="button" onClick={() => handleToggleBlock(u.id)}
-                            style={{ padding: "5px 10px", fontSize: 12, border: `1px solid ${u.blocked ? "#16a34a" : "#d97706"}`, borderRadius: 6, background: "#fff", color: u.blocked ? "#16a34a" : "#d97706", cursor: "pointer" }}>
+                        <div className="flex gap-1.5 flex-wrap">
+                          <Button variant="outline" size="sm" onClick={() => { setEditUserId(editUserId === u.id ? null : u.id); setEditNewPw(""); setEditPwError(""); }}>Change PW</Button>
+                          <Button variant="outline" size="sm" onClick={() => handleToggleBlock(u.id)} className={u.blocked ? "border-green-600 text-green-700 hover:bg-green-50" : "border-amber-500 text-amber-700 hover:bg-amber-50"}>
                             {u.blocked ? "Unblock" : "Block"}
-                          </button>
-                          <button type="button" onClick={() => { if (window.confirm(`Delete user "${u.name || u.email}"?`)) handleDeleteUser(u.id); }}
-                            style={{ padding: "5px 10px", fontSize: 12, border: "1px solid #dc2626", borderRadius: 6, background: "#fff", color: "#dc2626", cursor: "pointer" }}>Delete</button>
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => { if (window.confirm(`Delete user "${u.name || u.email}"?`)) handleDeleteUser(u.id); }} className="border-red-400 text-red-600 hover:bg-red-50">Delete</Button>
                         </div>
                       </div>
                       {editUserId === u.id && (
-                        <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                          <input type="text" value={editNewPw} onChange={e => { setEditNewPw(e.target.value); setEditPwError(""); }} placeholder="New password (min 4)" style={{ ...inp2, width: "auto", flex: "1 1 160px" }} />
-                          <button type="button" onClick={() => handleChangePassword(u.id)} style={{ padding: "7px 14px", border: "none", borderRadius: 6, background: "#16a34a", color: "#fff", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>Save</button>
-                          <button type="button" onClick={() => { setEditUserId(null); setEditNewPw(""); setEditPwError(""); }} style={{ padding: "7px 10px", border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", fontSize: 12, cursor: "pointer" }}>Cancel</button>
-                          {editPwError && <span style={{ fontSize: 12, color: "#dc2626" }}>{editPwError}</span>}
+                        <div className="mt-2.5 flex gap-2 items-center flex-wrap">
+                          <Input type="text" value={editNewPw} onChange={e => { setEditNewPw(e.target.value); setEditPwError(""); }} placeholder="New password (min 4)" className="w-auto flex-[1_1_160px]" />
+                          <Button size="sm" onClick={() => handleChangePassword(u.id)} className="bg-green-600 hover:bg-green-700 text-white">Save</Button>
+                          <Button variant="outline" size="sm" onClick={() => { setEditUserId(null); setEditNewPw(""); setEditPwError(""); }}>Cancel</Button>
+                          {editPwError && <span className="text-[12px] text-red-600">{editPwError}</span>}
                         </div>
                       )}
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* School account users */}
+          <Card className="mb-5">
+            <CardHeader className="pb-1">
+              <CardTitle className="text-[15px] text-slate-800">School Account Users</CardTitle>
+              <CardDescription className="text-[13px]">All school users — principals, operators, and teachers. Principals and school operators can edit/delete marks, students, and staff.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {usersList.filter(u => u.userType === "school" || u.userType === "admin-created" || u.userType === "principal" || u.userType === "teacher").length === 0 ? (
+                <p className="text-[13px] text-slate-500 m-0">No school account users yet.</p>
+              ) : (
+                <div className="flex flex-col gap-2.5">
+                  {usersList.filter(u => u.userType === "school" || u.userType === "admin-created" || u.userType === "principal" || u.userType === "teacher").map(u => {
+                    const schoolName = (schools || []).find(s => s.id === u.schoolId)?.settings?.schoolName || (schools || []).find(s => s.id === u.schoolId)?.name || (u.schoolId ? u.schoolId.slice(0,8)+"…" : "—");
+                    const roleLabel = u.userType==="principal"?"Principal":u.userType==="teacher"?"Teacher":u.userType==="school"?"School Operator":"Admin-Created";
+                    const roleCls = u.userType==="principal"?"bg-green-50 text-green-800":u.userType==="teacher"?"bg-yellow-50 text-yellow-800":u.userType==="school"?"bg-blue-50 text-blue-800":"bg-purple-50 text-purple-800";
+                    return (
+                      <div key={u.id} className={`px-3.5 py-3 rounded-lg border ${u.blocked ? "bg-red-50 border-red-200" : "bg-slate-50 border-slate-200"}`}>
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <div className="flex-1 min-w-[160px]">
+                            <div className="font-bold text-slate-800 text-sm">{u.name || "—"} <span className={`text-[11px] px-1.5 py-0.5 rounded ${roleCls} ml-1`}>{roleLabel}</span></div>
+                            <div className="text-xs text-slate-500">{u.email} · {schoolName}</div>
+                            <div className="text-[11px] text-slate-400 mt-0.5">Password: <strong className="font-mono">{u.password}</strong>{u.blocked && <span className="ml-2 text-red-600 font-bold">BLOCKED</span>}</div>
+                          </div>
+                          <div className="flex gap-1.5 flex-wrap">
+                            <Button variant="outline" size="sm" onClick={() => { setEditUserId(editUserId === u.id ? null : u.id); setEditNewPw(""); setEditPwError(""); }}>Change PW</Button>
+                            <Button variant="outline" size="sm" onClick={() => handleToggleBlock(u.id)} className={u.blocked ? "border-green-600 text-green-700 hover:bg-green-50" : "border-amber-500 text-amber-700 hover:bg-amber-50"}>
+                              {u.blocked ? "Unblock" : "Block"}
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => { if (window.confirm(`Delete user "${u.name || u.email}"?`)) handleDeleteUser(u.id); }} className="border-red-400 text-red-600 hover:bg-red-50">Delete</Button>
+                          </div>
+                        </div>
+                        {editUserId === u.id && (
+                          <div className="mt-2.5 flex gap-2 items-center flex-wrap">
+                            <Input type="text" value={editNewPw} onChange={e => { setEditNewPw(e.target.value); setEditPwError(""); }} placeholder="New password (min 4)" className="w-auto flex-[1_1_160px]" />
+                            <Button size="sm" onClick={() => handleChangePassword(u.id)} className="bg-green-600 hover:bg-green-700 text-white">Save</Button>
+                            <Button variant="outline" size="sm" onClick={() => { setEditUserId(null); setEditNewPw(""); setEditPwError(""); }}>Cancel</Button>
+                            {editPwError && <span className="text-[12px] text-red-600">{editPwError}</span>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
         </>)}
 
         {/* ── TAB: SCHOOL ACCOUNTS ── */}
         {adminTab === "schools" && (<>
           {/* Create new school */}
-          <section style={{ background: "#fff", borderRadius: 12, padding: 20, marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
-            <h2 style={{ margin: "0 0 4px", fontSize: 15, color: "#1e293b" }}>Create New School Account</h2>
-            <p style={{ margin: "0 0 14px", fontSize: 13, color: C.gray }}>
-              {isSupabaseConfigured
-                ? "Creates the school workspace and a principal login synced to the cloud — works on any device worldwide."
-                : "Creates both the school data workspace and a user account on this device."}
-            </p>
-            <form onSubmit={handleCreateSchool} style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 420 }}>
-              <div><label style={lbl2}>School Name</label><input type="text" value={csName} onChange={e => setCsName(e.target.value)} placeholder="e.g. PSMS Lahore" style={inp2} /></div>
-              <div><label style={lbl2}>Principal / Headmaster Name</label><input type="text" value={csAdminName} onChange={e => setCsAdminName(e.target.value)} placeholder="e.g. Mr. Ahmed Khan" style={inp2} /></div>
-              <div><label style={lbl2}>Login Email</label><input type="email" value={csEmail} onChange={e => setCsEmail(e.target.value)} placeholder="school@example.edu" style={inp2} /></div>
-              <div><label style={lbl2}>Login Password</label><input type="password" value={csPassword} onChange={e => setCsPassword(e.target.value)} placeholder="Min 4 characters" minLength={4} style={inp2} /></div>
-              {csError && <div style={{ padding: "8px 10px", background: "#fef2f2", color: "#b91c1c", borderRadius: 6, fontSize: 12 }}>{csError}</div>}
-              {csSuccess && <div style={{ padding: "8px 10px", background: "#f0fdf4", color: "#166534", borderRadius: 6, fontSize: 12 }}>{csSuccess}</div>}
-              <button type="submit" style={{ padding: "10px 16px", borderRadius: 8, border: "none", background: "#1e293b", color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer", alignSelf: "flex-start" }}>Create School & Principal Account</button>
-            </form>
-          </section>
+          <Card className="mb-5">
+            <CardHeader className="pb-1">
+              <CardTitle className="text-[15px] text-slate-800">Create New School Account</CardTitle>
+              <CardDescription className="text-[13px]">
+                {isSupabaseConfigured
+                  ? "Creates the school workspace and a principal login synced to the cloud — works on any device worldwide."
+                  : "Creates both the school data workspace and a user account on this device."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleCreateSchool} className="flex flex-col gap-3 max-w-[420px]">
+                <div className="space-y-1.5"><Label>School Name</Label><Input type="text" value={csName} onChange={e => setCsName(e.target.value)} placeholder="e.g. PSMS Lahore" /></div>
+                <div className="space-y-1.5"><Label>Principal / Headmaster Name</Label><Input type="text" value={csAdminName} onChange={e => setCsAdminName(e.target.value)} placeholder="e.g. Mr. Ahmed Khan" /></div>
+                <div className="space-y-1.5"><Label>Login Email</Label><Input type="email" value={csEmail} onChange={e => setCsEmail(e.target.value)} placeholder="school@example.edu" /></div>
+                <div className="space-y-1.5"><Label>Login Password</Label><Input type="password" value={csPassword} onChange={e => setCsPassword(e.target.value)} placeholder="Min 4 characters" minLength={4} /></div>
+                {csError && <div className="px-3 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs">{csError}</div>}
+                {csSuccess && <div className="px-3 py-2 bg-green-50 border border-green-200 text-green-700 rounded-lg text-xs">{csSuccess}</div>}
+                <Button type="submit" className="self-start">Create School &amp; Principal Account</Button>
+              </form>
+            </CardContent>
+          </Card>
 
           {/* All schools list */}
-          <section style={{ background: "#fff", borderRadius: 12, padding: 20, marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
-            <h2 style={{ margin: "0 0 4px", fontSize: 15, color: "#1e293b" }}>All Schools</h2>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
-              <p style={{ margin: 0, fontSize: 13, color: C.gray, flex: "1 1 220px" }}>
-                Create Login saves to the worldwide cloud. Any device can sign in with that email/password.
-              </p>
-              {isSupabaseConfigured && (
-                <button
-                  type="button"
-                  onClick={() => pullUsersFromCloud()}
-                  disabled={usersSyncing}
-                  style={{ padding: "6px 12px", fontSize: 12, fontWeight: 600, border: "1px solid #93c5fd", borderRadius: 6, background: "#eff6ff", color: "#1d4ed8", cursor: usersSyncing ? "not-allowed" : "pointer" }}
-                >
-                  {usersSyncing ? "Syncing…" : "☁ Refresh logins"}
-                </button>
-              )}
-            </div>
-            {(!schools || schools.length === 0) ? (
-              <p style={{ margin: 0, fontSize: 13, color: C.gray }}>No schools registered yet.</p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {schools.map(s => {
-                  const sName = s.settings?.schoolName || s.name || s.id;
-                  const status = s.status || "active";
-                  const schoolEmail = String(s.settings?.schoolEmail || "").trim().toLowerCase();
-                  const linkedUsers = usersList.filter(u => {
-                    const em = String(u.email || "").toLowerCase();
-                    return u.schoolId === s.id || (schoolEmail && em === schoolEmail);
-                  });
-                  const hasLogin = linkedUsers.length > 0;
-                  return (
-                    <div key={s.id} style={{ padding: "12px 14px", background: status === "deleted" ? "#fef2f2" : "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                        <div style={{ flex: "1 1 180px" }}>
-                          <strong style={{ color: "#1e293b" }}>{sName}</strong>
-                          <span style={{ marginLeft: 8, fontSize: 11, padding: "2px 7px", borderRadius: 4, background: status === "deleted" ? "#fecaca" : status === "stopped" ? "#fef3c7" : "#d1fae5", color: status === "deleted" ? "#b91c1c" : status === "stopped" ? "#92400e" : "#065f46" }}>
-                            {status === "deleted" ? "Deleted" : status === "stopped" ? "Stopped" : "Active"}
-                          </span>
-                          {hasLogin && (
-                            <span style={{ marginLeft: 8, fontSize: 11, padding: "2px 7px", borderRadius: 4, background: "#dbeafe", color: "#1d4ed8" }}>
-                              Login: {linkedUsers.map(u => u.email).join(", ")}
+          <Card className="mb-5">
+            <CardHeader className="pb-1">
+              <div className="flex items-center justify-between gap-2.5 flex-wrap">
+                <div>
+                  <CardTitle className="text-[15px] text-slate-800">All Schools</CardTitle>
+                  <CardDescription className="text-[13px] mt-0.5">Create Login saves to the worldwide cloud. Any device can sign in with that email/password.</CardDescription>
+                </div>
+                {isSupabaseConfigured && (
+                  <Button variant="outline" size="sm" onClick={() => pullUsersFromCloud()} disabled={usersSyncing} className="border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 shrink-0">
+                    {usersSyncing ? "Syncing…" : "☁ Refresh logins"}
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {(!schools || schools.length === 0) ? (
+                <p className="text-[13px] text-slate-500 m-0">No schools registered yet.</p>
+              ) : (
+                <div className="flex flex-col gap-2.5">
+                  {schools.map(s => {
+                    const sName = s.settings?.schoolName || s.name || s.id;
+                    const status = s.status || "active";
+                    const schoolEmail = String(s.settings?.schoolEmail || "").trim().toLowerCase();
+                    const linkedUsers = usersList.filter(u => {
+                      const em = String(u.email || "").toLowerCase();
+                      return u.schoolId === s.id || (schoolEmail && em === schoolEmail);
+                    });
+                    const hasLogin = linkedUsers.length > 0;
+                    return (
+                      <div key={s.id} className={`px-3.5 py-3 rounded-lg border ${status === "deleted" ? "bg-red-50 border-red-200" : "bg-slate-50 border-slate-200"}`}>
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <div className="flex-[1_1_180px]">
+                            <strong className="text-slate-800">{sName}</strong>
+                            <span className={`ml-2 text-[11px] px-1.5 py-0.5 rounded ${status === "deleted" ? "bg-red-100 text-red-700" : status === "stopped" ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-800"}`}>
+                              {status === "deleted" ? "Deleted" : status === "stopped" ? "Stopped" : "Active"}
                             </span>
-                          )}
-                          {!hasLogin && status !== "deleted" && (
-                            <span style={{ marginLeft: 8, fontSize: 11, padding: "2px 7px", borderRadius: 4, background: "#fee2e2", color: "#991b1b" }}>No login account</span>
-                          )}
-                        </div>
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                          <button type="button" onClick={() => setViewDetailsId(viewDetailsId === s.id ? null : s.id)} style={{ padding: "5px 10px", fontSize: 12, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", cursor: "pointer" }}>Details</button>
-                          {!hasLogin && status !== "deleted" && (
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                const cloud = await ensureCloudReady();
-                                if (!cloud?.ok) {
-                                  alert("Cloud is OFF.\n\nSchool logins only work worldwide when Cloud is ON.\n\nOpen this Admin from the main app URL with internet, click Refresh from cloud, then try again.");
-                                  return;
-                                }
-                                const emailDefault = String(s.settings?.schoolEmail || "").trim().toLowerCase();
-                                const email = window.prompt("Login email for this school (works worldwide):", emailDefault || "");
-                                if (email == null) return;
-                                const emailNorm = String(email).trim().toLowerCase();
-                                if (!emailNorm) { alert("Email is required."); return; }
-                                const pw = window.prompt("Temporary password (min 4 characters):", "1234");
-                                if (pw == null) return;
-                                const plainPw = String(pw).trim();
-                                if (plainPw.length < 4) { alert("Password must be at least 4 characters."); return; }
-                                const existingCloud = await findAuthUserByEmailFromCloud(emailNorm);
-                                if (existingCloud) {
-                                  alert("This email already exists in the worldwide cloud.\n\nUse that email/password to sign in from any device.");
-                                  await pullUsersFromCloud();
-                                  return;
-                                }
-                                const list = await hydrateAuthUsersMirror();
-                                if (list.some(u => String(u.email || "").toLowerCase() === emailNorm)) {
-                                  // Local has it but cloud didn't — push to cloud so it works worldwide
-                                  const localUser = list.find(u => String(u.email || "").toLowerCase() === emailNorm);
-                                  if (localUser) {
-                                    await upsertAuthUserToCloud(localUser);
-                                    const v = await findAuthUserByEmailFromCloud(emailNorm);
-                                    await pullUsersFromCloud();
-                                    alert(worldwideLoginNote(emailNorm, "(existing password)", { cloudOk: !!v }));
+                            {hasLogin && (
+                              <span className="ml-2 text-[11px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                                Login: {linkedUsers.map(u => u.email).join(", ")}
+                              </span>
+                            )}
+                            {!hasLogin && status !== "deleted" && (
+                              <span className="ml-2 text-[11px] px-1.5 py-0.5 rounded bg-red-100 text-red-700">No login account</span>
+                            )}
+                          </div>
+                          <div className="flex gap-1.5 flex-wrap">
+                            <Button variant="outline" size="sm" onClick={() => setViewDetailsId(viewDetailsId === s.id ? null : s.id)}>Details</Button>
+                            {!hasLogin && status !== "deleted" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold"
+                                onClick={async () => {
+                                  const cloud = await ensureCloudReady();
+                                  if (!cloud?.ok) {
+                                    alert("Cloud is OFF.\n\nSchool logins only work worldwide when Cloud is ON.\n\nOpen this Admin from the main app URL with internet, click Refresh from cloud, then try again.");
                                     return;
                                   }
-                                  alert("A user with this email already exists.");
-                                  return;
-                                }
-                                try {
-                                  const schoolSync = await saveSchoolsToCloud(schools, s.id);
-                                  if (schoolSync?.ok === false) throw schoolSync.error || new Error("School cloud save failed");
-                                } catch (err) {
-                                  console.warn("School cloud save failed", err);
-                                  alert("Could not sync school to cloud. Check internet, then try Create Login again.");
-                                  return;
-                                }
-                                const pwHash = await hashPassword(plainPw);
-                                const newUser = {
-                                  id: genId(),
-                                  email: emailNorm,
-                                  password: pwHash,
-                                  schoolId: s.id,
-                                  name: s.settings?.principalName || sName,
-                                  userType: "principal",
-                                };
-                                // Cloud first — source of truth for the whole world
-                                const upsert = await upsertAuthUserToCloud(newUser);
-                                let verify = await findAuthUserByEmailFromCloud(emailNorm);
-                                if ((!upsert || upsert.ok === false || !verify)) {
-                                  // One retry
-                                  await upsertAuthUserToCloud(newUser);
-                                  verify = await findAuthUserByEmailFromCloud(emailNorm);
-                                }
-                                const ok = !!verify;
-                                if (!ok) {
-                                  alert("Cloud save failed. Login was NOT created for other devices.\n\nCheck internet, confirm Cloud ON, then try again.");
-                                  return;
-                                }
-                                await saveAuthUsers([...list, newUser]);
-                                await pullUsersFromCloud();
-                                alert(worldwideLoginNote(emailNorm, plainPw, { cloudOk: true }));
-                              }}
-                              style={{ padding: "5px 10px", fontSize: 12, border: "1px solid #1d4ed8", borderRadius: 6, background: "#eff6ff", color: "#1d4ed8", cursor: "pointer", fontWeight: 600 }}
-                            >
-                              Create Login
-                            </button>
-                          )}
-                          {status !== "deleted" && <button type="button" onClick={() => { if(window.confirm(`Delete school "${sName}"?`)) setSchoolStatus(s.id, "deleted"); }} style={{ padding: "5px 10px", fontSize: 12, border: "1px solid #dc2626", borderRadius: 6, background: "#fff", color: "#dc2626", cursor: "pointer" }}>Delete</button>}
-                          {status === "active" && <button type="button" onClick={() => setSchoolStatus(s.id, "stopped")} style={{ padding: "5px 10px", fontSize: 12, border: "1px solid #d97706", borderRadius: 6, background: "#fff", color: "#d97706", cursor: "pointer" }}>Stop</button>}
-                          {status === "stopped" && <button type="button" onClick={() => setSchoolStatus(s.id, "active")} style={{ padding: "5px 10px", fontSize: 12, border: "1px solid #16a34a", borderRadius: 6, background: "#fff", color: "#16a34a", cursor: "pointer" }}>Start</button>}
-                          {status === "deleted" && <button type="button" onClick={() => setSchoolStatus(s.id, "active")} style={{ padding: "5px 10px", fontSize: 12, border: "none", borderRadius: 6, background: "#16a34a", color: "#fff", cursor: "pointer" }}>Restore</button>}
+                                  const emailDefault = String(s.settings?.schoolEmail || "").trim().toLowerCase();
+                                  const email = window.prompt("Login email for this school (works worldwide):", emailDefault || "");
+                                  if (email == null) return;
+                                  const emailNorm = String(email).trim().toLowerCase();
+                                  if (!emailNorm) { alert("Email is required."); return; }
+                                  const pw = window.prompt("Temporary password (min 4 characters):", "1234");
+                                  if (pw == null) return;
+                                  const plainPw = String(pw).trim();
+                                  if (plainPw.length < 4) { alert("Password must be at least 4 characters."); return; }
+                                  const existingCloud = await findAuthUserByEmailFromCloud(emailNorm);
+                                  if (existingCloud) {
+                                    alert("This email already exists in the worldwide cloud.\n\nUse that email/password to sign in from any device.");
+                                    await pullUsersFromCloud();
+                                    return;
+                                  }
+                                  const list = await hydrateAuthUsersMirror();
+                                  if (list.some(u => String(u.email || "").toLowerCase() === emailNorm)) {
+                                    // Local has it but cloud didn't — push to cloud so it works worldwide
+                                    const localUser = list.find(u => String(u.email || "").toLowerCase() === emailNorm);
+                                    if (localUser) {
+                                      await upsertAuthUserToCloud(localUser);
+                                      const v = await findAuthUserByEmailFromCloud(emailNorm);
+                                      await pullUsersFromCloud();
+                                      alert(worldwideLoginNote(emailNorm, "(existing password)", { cloudOk: !!v }));
+                                      return;
+                                    }
+                                    alert("A user with this email already exists.");
+                                    return;
+                                  }
+                                  try {
+                                    const schoolSync = await saveSchoolsToCloud(schools, s.id);
+                                    if (schoolSync?.ok === false) throw schoolSync.error || new Error("School cloud save failed");
+                                  } catch (err) {
+                                    console.warn("School cloud save failed", err);
+                                    alert("Could not sync school to cloud. Check internet, then try Create Login again.");
+                                    return;
+                                  }
+                                  const pwHash = await hashPassword(plainPw);
+                                  const newUser = {
+                                    id: genId(),
+                                    email: emailNorm,
+                                    password: pwHash,
+                                    schoolId: s.id,
+                                    name: s.settings?.principalName || sName,
+                                    userType: "principal",
+                                  };
+                                  // Cloud first — source of truth for the whole world
+                                  const upsert = await upsertAuthUserToCloud(newUser);
+                                  let verify = await findAuthUserByEmailFromCloud(emailNorm);
+                                  if ((!upsert || upsert.ok === false || !verify)) {
+                                    // One retry
+                                    await upsertAuthUserToCloud(newUser);
+                                    verify = await findAuthUserByEmailFromCloud(emailNorm);
+                                  }
+                                  const ok = !!verify;
+                                  if (!ok) {
+                                    alert("Cloud save failed. Login was NOT created for other devices.\n\nCheck internet, confirm Cloud ON, then try again.");
+                                    return;
+                                  }
+                                  await saveAuthUsers([...list, newUser]);
+                                  await pullUsersFromCloud();
+                                  alert(worldwideLoginNote(emailNorm, plainPw, { cloudOk: true }));
+                                }}
+                              >
+                                Create Login
+                              </Button>
+                            )}
+                            {status !== "deleted" && <Button variant="outline" size="sm" onClick={() => { if(window.confirm(`Delete school "${sName}"?`)) setSchoolStatus(s.id, "deleted"); }} className="border-red-400 text-red-600 hover:bg-red-50">Delete</Button>}
+                            {status === "active" && <Button variant="outline" size="sm" onClick={() => setSchoolStatus(s.id, "stopped")} className="border-amber-500 text-amber-700 hover:bg-amber-50">Stop</Button>}
+                            {status === "stopped" && <Button variant="outline" size="sm" onClick={() => setSchoolStatus(s.id, "active")} className="border-green-600 text-green-700 hover:bg-green-50">Start</Button>}
+                            {status === "deleted" && <Button size="sm" onClick={() => setSchoolStatus(s.id, "active")} className="bg-green-600 hover:bg-green-700 text-white">Restore</Button>}
+                          </div>
                         </div>
+                        {viewDetailsId === s.id && (
+                          <div className="mt-2.5 p-2.5 bg-white rounded-md border border-slate-200 text-xs text-slate-700 flex flex-col gap-1">
+                            <div><strong>ID:</strong> <span className="font-mono">{s.id}</span></div>
+                            <div><strong>School Name:</strong> {s.settings?.schoolName || "—"}</div>
+                            <div><strong>School Code:</strong> {s.settings?.schoolCode || "—"}</div>
+                            <div><strong>Email:</strong> {s.settings?.schoolEmail || "—"}</div>
+                            <div><strong>Principal:</strong> {s.settings?.principalName || "—"}</div>
+                            <div><strong>Login accounts:</strong> {hasLogin ? linkedUsers.map(u => u.email).join(", ") : "None — create a login to sign in"}</div>
+                            <div><strong>Classes:</strong> {(s.settings?.classes || []).length} · <strong>Students:</strong> {(s.students || []).length} · <strong>Staff:</strong> {(s.staffProfiles || []).length}</div>
+                          </div>
+                        )}
                       </div>
-                      {viewDetailsId === s.id && (
-                        <div style={{ marginTop: 10, padding: 10, background: "#fff", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 12, color: "#374151", display: "flex", flexDirection: "column", gap: 3 }}>
-                          <div><strong>ID:</strong> <span style={{ fontFamily: "monospace" }}>{s.id}</span></div>
-                          <div><strong>School Name:</strong> {s.settings?.schoolName || "—"}</div>
-                          <div><strong>School Code:</strong> {s.settings?.schoolCode || "—"}</div>
-                          <div><strong>Email:</strong> {s.settings?.schoolEmail || "—"}</div>
-                          <div><strong>Principal:</strong> {s.settings?.principalName || "—"}</div>
-                          <div><strong>Login accounts:</strong> {hasLogin ? linkedUsers.map(u => u.email).join(", ") : "None — create a login to sign in"}</div>
-                          <div><strong>Classes:</strong> {(s.settings?.classes || []).length} · <strong>Students:</strong> {(s.students || []).length} · <strong>Staff:</strong> {(s.staffProfiles || []).length}</div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </>)}
 
         {/* ── TAB: DANGER ZONE ── */}
         {adminTab === "danger" && (<>
           {/* Reset a single school */}
-          <section style={{ background: "#fff", borderRadius: 12, padding: 24, marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", border: "1px solid #fecaca" }}>
-            <h2 style={{ margin: "0 0 8px", fontSize: 16, color: "#b91c1c" }}>Reset a School</h2>
-            <p style={{ margin: "0 0 8px", fontSize: 13, color: "#7f1d1d" }}>Permanently deletes all data for a single school — classes, students, staff, timetable, exam marks, settings. The school record remains but is wiped clean. Cannot be undone.</p>
-            {resetSchoolMsg && <p style={{ margin: "8px 0 0", fontSize: 13, color: resetSchoolMsg.startsWith("Reset failed") ? "#b91c1c" : "#166534" }}>{resetSchoolMsg}</p>}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
-              {(schools || []).filter(s => s.status !== "deleted").map(s => (
-                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "#fef2f2", borderRadius: 8 }}>
-                  <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{s.settings?.schoolName || s.name || s.id}</span>
-                  <button type="button" disabled={resetSchoolBusyId===s.id} onClick={() => { handleResetSchool(s); }} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#dc2626", color: "#fff", fontWeight: 700, fontSize: 12, cursor: resetSchoolBusyId===s.id?"not-allowed":"pointer", opacity: resetSchoolBusyId===s.id?0.7:1, flexShrink: 0 }}>
-                    {resetSchoolBusyId===s.id?"Resetting...":"Reset School"}
-                  </button>
-                </div>
-              ))}
-              {(schools || []).filter(s => s.status !== "deleted").length === 0 && <p style={{ margin: 0, fontSize: 13, color: "#7f1d1d" }}>No active schools.</p>}
-            </div>
-          </section>
+          <Card className="mb-5 border-red-200">
+            <CardHeader className="pb-1">
+              <CardTitle className="text-base text-red-700">Reset a School</CardTitle>
+              <CardDescription className="text-[13px] text-red-800">Permanently deletes all data for a single school — classes, students, staff, timetable, exam marks, settings. The school record remains but is wiped clean. Cannot be undone.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {resetSchoolMsg && (
+                <p className={`text-[13px] mb-3 ${resetSchoolMsg.startsWith("Reset failed") ? "text-red-700" : "text-green-700"}`}>{resetSchoolMsg}</p>
+              )}
+              <div className="flex flex-col gap-2">
+                {(schools || []).filter(s => s.status !== "deleted").map(s => (
+                  <div key={s.id} className="flex items-center gap-3 px-3.5 py-2.5 bg-red-50 rounded-lg">
+                    <span className="flex-1 text-[13px] font-semibold text-slate-800">{s.settings?.schoolName || s.name || s.id}</span>
+                    <Button variant="destructive" size="sm" disabled={resetSchoolBusyId===s.id} onClick={() => { handleResetSchool(s); }} className="shrink-0">
+                      {resetSchoolBusyId===s.id ? "Resetting..." : "Reset School"}
+                    </Button>
+                  </div>
+                ))}
+                {(schools || []).filter(s => s.status !== "deleted").length === 0 && <p className="text-[13px] text-red-800 m-0">No active schools.</p>}
+              </div>
+            </CardContent>
+          </Card>
           {/* Full system reset */}
-          <section style={{ background: "#fff", borderRadius: 12, padding: 24, marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", border: "1px solid #fecaca" }}>
-            <h2 style={{ margin: "0 0 8px", fontSize: 16, color: "#b91c1c" }}>Full System Reset</h2>
-            <p style={{ margin: "0 0 8px", fontSize: 13, color: "#7f1d1d" }}>Removes all schools, all user accounts, and all data from this device. The app restarts as new with School 1. You will be signed out.</p>
-            <p style={{ margin: "0 0 18px", fontSize: 13, color: "#7f1d1d", fontWeight: 600 }}>This action cannot be undone.</p>
-            <button type="button" onClick={onResetAll} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: "#7f1d1d", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Reset Everything</button>
-          </section>
+          <Card className="mb-5 border-red-200">
+            <CardHeader className="pb-1">
+              <CardTitle className="text-base text-red-700">Full System Reset</CardTitle>
+              <CardDescription className="text-[13px] text-red-800">Removes all schools, all user accounts, and all data from this device. The app restarts as new with School 1. You will be signed out.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-[13px] text-red-800 font-semibold mb-4">This action cannot be undone.</p>
+              <Button variant="destructive" onClick={onResetAll} className="bg-red-900 hover:bg-red-800">Reset Everything</Button>
+            </CardContent>
+          </Card>
         </>)}
 
       </div>

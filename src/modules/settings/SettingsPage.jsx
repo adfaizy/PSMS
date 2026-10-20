@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ModulePageShell } from "@/components/ModulePageShell";
 import { cn } from "@/lib/utils";
 import * as H from "@/shared/helpers";
 
@@ -192,7 +193,16 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
   const classesAndStaffExcelRef=useRef();
   const studentImportRef=useRef();
   const sessionInputRef=useRef();
-  const tabs=[{id:"general",label:"General"},{id:"school",label:"School"},{id:"classes",label:"Classes & Subjects"},{id:"staffProfiles",label:"Staff Profiles"},{id:"common",label:"Common Teachers"},{id:"time",label:"Time & Periods"},{id:"awardList",label:"Award List"},...(isPrincipal?[{id:"teachers",label:"👩‍🏫 Teacher Accounts"}]:[])];
+  const tabs=[
+    {id:"general",l:"General",label:"General"},
+    {id:"school",l:"School",label:"School"},
+    {id:"classes",l:"Classes & Subjects",label:"Classes & Subjects"},
+    {id:"staffProfiles",l:"Staff Profiles",label:"Staff Profiles"},
+    {id:"common",l:"Common Teachers",label:"Common Teachers"},
+    {id:"time",l:"Time & Periods",label:"Time & Periods"},
+    {id:"awardList",l:"Award List",label:"Award List"},
+    ...(isPrincipal?[{id:"teachers",l:"Teacher Accounts",label:"Teacher Accounts"}]:[]),
+  ];
   // ── Teacher management state (principals only) ──
   const [tcStaffId,setTcStaffId]=useState("");
   const [tcName,setTcName]=useState("");
@@ -1480,20 +1490,15 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
     setBarSubtitle(t?.label||"");
   },[tab,setBarSubtitle]);
   return (
-  <div className="psms-page mx-auto max-w-[1100px] space-y-5 w-full min-w-0">
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 className="m-0 text-2xl font-bold tracking-tight text-primary">Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{tabs.find(t=>t.id===tab)?.label}</p>
-      </div>
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="h-auto flex-wrap">
-          {tabs.map((t) => (
-            <TabsTrigger key={t.id} value={t.id}>{t.label}</TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-    </div>
+  <ModulePageShell
+    title="Settings"
+    description={tabs.find((t) => t.id === tab)?.label}
+    tabs={tabs}
+    tab={tab}
+    onTabChange={setTab}
+    bareContent
+    maxWidthClassName="max-w-[1100px]"
+  >
     <input ref={settingsExcelRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={importFromExcel}/>
     <input ref={studentImportRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={importStudentsFromExcel}/>
 
@@ -2199,6 +2204,6 @@ export function SettingsPage({settings,setSettings,setSchools,students,setStuden
       </Card>
     )}
 
-  </div>
+  </ModulePageShell>
   );
 }

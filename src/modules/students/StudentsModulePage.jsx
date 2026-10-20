@@ -11,7 +11,7 @@ import {
   AlumniPanel,
 } from "./StudentToolPanels.jsx";
 import { STUDENTS_TABS, summarizeStudentDirectory } from "./studentsCore.js";
-import { C } from "@/shared/theme";
+import { ModulePageShell } from "@/components/ModulePageShell";
 
 function initialStudentsTab() {
   const intent = consumeNavIntent();
@@ -43,70 +43,13 @@ export function StudentsModulePage({
   const summary = summarizeStudentDirectory(students, settings?.classes);
 
   return (
-    <div
-      className="psms-page"
-      style={{
-        maxWidth: 1200,
-        margin: "0 auto",
-        display: "flex",
-        flexDirection: "column",
-        gap: 16,
-        width: "100%",
-        minWidth: 0,
-        boxSizing: "border-box",
-      }}
+    <ModulePageShell
+      title="Student Management"
+      description={`${summary.active} active · ${summary.alumni} former · ${summary.total} total`}
+      tabs={STUDENTS_TABS}
+      tab={tab}
+      onTabChange={setTab}
     >
-      <div
-        className="no-print"
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-        }}
-      >
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 18, color: C.navy }}>Student Management</div>
-          <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>
-            {summary.active} active · {summary.alumni} former · {summary.total} total
-          </div>
-        </div>
-        <div
-          style={{
-            display: "inline-flex",
-            flexWrap: "wrap",
-            background: "#e8f5e9",
-            borderRadius: 10,
-            padding: 4,
-            gap: 4,
-            border: "1px solid #c8e6c9",
-            maxWidth: "100%",
-          }}
-        >
-          {STUDENTS_TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              style={{
-                border: "none",
-                cursor: "pointer",
-                borderRadius: 8,
-                padding: "8px 12px",
-                fontSize: 12,
-                fontWeight: 700,
-                background: tab === t.id ? "#1B5E20" : "transparent",
-                color: tab === t.id ? "#fff" : "#1B5E20",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {t.l}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {tab === "admission" && (
         <AdmissionPanel
           settings={settings}
@@ -117,25 +60,15 @@ export function StudentsModulePage({
       )}
 
       {tab === "directory" && (
-        <div
-          style={{
-            background: "#fff",
-            border: "1px solid #e5e7eb",
-            borderRadius: 12,
-            boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
-            padding: 12,
-          }}
-        >
-          <StudentsPage
-            settings={settings}
-            students={students}
-            setStudents={setStudents}
-            embedded
-            currentSession={currentSession}
-            currentUser={currentUser}
-            activeSchoolId={activeSchoolId}
-          />
-        </div>
+        <StudentsPage
+          settings={settings}
+          students={students}
+          setStudents={setStudents}
+          embedded
+          currentSession={currentSession}
+          currentUser={currentUser}
+          activeSchoolId={activeSchoolId}
+        />
       )}
 
       {tab === "promotion" && (
@@ -166,6 +99,6 @@ export function StudentsModulePage({
       {tab === "alumni" && (
         <AlumniPanel settings={settings} students={students} setStudents={setStudents} />
       )}
-    </div>
+    </ModulePageShell>
   );
 }

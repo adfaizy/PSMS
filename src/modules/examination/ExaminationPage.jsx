@@ -9,12 +9,18 @@ import QRCode from "qrcode";
 import { X, Plus, Edit2, Trash2, Upload, Download, Menu, Settings, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import * as feeCore from "@/modules/fee/feeCore";
 import { feeService, systemSettingsService, dashboardService } from "@/services";
-import { UI } from "@/uiTokens.js";
+// UI token import removed — using shadcn + Tailwind directly
 import signImg from "@/assets/sign.png";
 import { yieldToMain } from "@/yieldToMain.js";
 import { C, schoolOrBrandLogo, APP_BRAND_LOGO, genId } from "@/shared/theme";
-import { Btn, Sel, Inp, SchoolHeader } from "@/components/AppControls";
+import { SchoolHeader } from "@/components/AppControls";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Card, CardContent } from "@/components/ui/card";
 import { consumeNavIntent } from "@/lib/navIntent.js";
+import { ModulePageShell } from "@/components/ModulePageShell";
 import * as H from "@/shared/helpers";
 
 const {
@@ -39,6 +45,7 @@ const {
   readStudentPhotoAsJpeg,
   isStudentPhotoFile,
   isDisplayablePhotoSrc,
+  normalizeStudentPhotoFile,
   STUDENT_PHOTO_EXT_RE,
 } = H;
 
@@ -48,7 +55,6 @@ const jsPDF =
     : jsPDFModule?.jsPDF ?? jsPDFModule?.default;
 
 const EXAM_TABS = [
-  { id: "admission", l: "Admission" },
   { id: "record", l: "Student Records" },
   { id: "marks", l: "Marks Entry" },
   { id: "consolidated", l: "Consolidated Sheet" },
@@ -358,114 +364,15 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
     };
   },[settingsProp]);
   const students=Array.isArray(studentsProp)?studentsProp:defaultStudents;
-  const [tab,setTab]=useState("admission");
+  const [tab,setTab]=useState("marks");
   useEffect(()=>{
     const intent=consumeNavIntent();
     if(!intent||intent.page&&intent.page!=="examination") return;
     const allowed=new Set(EXAM_TABS.map(t=>t.id));
+    // Admission moved to Students module
+    if(intent.tab==="admission"){ setTab("record"); return; }
     if(intent.tab&&allowed.has(intent.tab)) setTab(intent.tab);
   },[]);
-  const admissionEmpty={admissionNo:"",rollNo:"",name:"",fatherName:"",classId:settings.classes[0]?.id||"",dob:"",bayForm:"",fatherCnic:"",whatsapp:"",photo:null};
-  const [admissionForm,setAdmissionForm]=useState(admissionEmpty);
-  const admissionPhotoGalleryRef=useRef(null);
-  const admissionPhotoCameraRef=useRef(null);
-  const [admissionPhotoBusy,setAdmissionPhotoBusy]=useState(false);
-  const [admissionPhotoStatus,setAdmissionPhotoStatus]=useState("");
-  const [admissionSaving,setAdmissionSaving]=useState(false);
-  const admissionSaveLockRef=useRef(false);
-  // Warm AI background-removal model while user is on Admission tab
-  useEffect(()=>{
-    if(tab!=="admission") return;
-    void preloadStudentPhotoAi();
-  },[tab]);
-  const suggestedNextAdm=useMemo(()=>nextAdmissionNo(students),[students]);
-  const suggestedNextRoll=useMemo(()=>nextRollNoForClass(students,settings.classes,admissionForm.classId,settings.commonTeachers),[students,settings.classes,admissionForm.classId,settings.commonTeachers]);
-  const formatDobAf=(v)=>{ const d=String(v||"").replace(/\D/g,"").slice(0,8); if(d.length<=2) return d; if(d.length<=4) return d.slice(0,2)+"/"+d.slice(2); return d.slice(0,2)+"/"+d.slice(2,4)+"/"+d.slice(4); };
-  const formatCnicAf=(v)=>{ const d=(v||"").replace(/\D/g,"").slice(0,13); if(d.length<=5) return d; if(d.length<=12) return d.slice(0,5)+"-"+d.slice(5); return d.slice(0,5)+"-"+d.slice(5,12)+"-"+d.slice(12); };
-  const formatWhatsappAf=(v)=>{ const d=(v||"").replace(/\D/g,"").slice(0,11); if(d.length<=4) return d; return d.slice(0,4)+"-"+d.slice(4); };
-  const toWorldwidePhoto=async (dataUrl, studentId)=>{
-    if(!dataUrl||!isDisplayablePhotoSrc(dataUrl)) return dataUrl;
-    if(/^https?:\/\//i.test(dataUrl)) return dataUrl;
-    try{
-      const { uploadDataUrlPhoto }=await import("../../lib/photoStorage.js");
-      const prefix=`${activeSchoolId||"school"}/students/${studentId||"new"}`;
-      return await uploadDataUrlPhoto(dataUrl, prefix);
-    }catch(err){
-      console.warn("Photo cloud upload skipped", err);
-      return dataUrl;
-    }
-  };
-  const handleAdmissionPhotoFile=async (f)=>{
-    if(!f) return;
-    if(!isStudentPhotoFile(f)){
-      alert("Please choose an image file (any format: JPG, PNG, WEBP, HEIC, etc.).");
-      return;
-    }
-    setAdmissionPhotoBusy(true);
-    setAdmissionPhotoStatus("Preparing…");
-    try{
-      const data=await processStudentPhotoWithBackground(f,{
-        onProgress:(msg)=>setAdmissionPhotoStatus(String(msg||"Processing…")),
-      });
-      if(!data){ alert("Could not process this photo. Try another image."); return; }
-      setAdmissionPhotoStatus("Uploading…");
-      const worldwide=await toWorldwidePhoto(data, admissionForm.id||"admission");
-      setAdmissionForm(x=>({...x,photo:worldwide}));
-    }catch(err){
-      console.error("Admission photo failed",err);
-      alert("Photo upload failed: "+(err?.message||String(err)));
-    }finally{
-      setAdmissionPhotoBusy(false);
-      setAdmissionPhotoStatus("");
-    }
-  };
-  const saveAdmission=async ()=>{
-    if(admissionSaveLockRef.current||admissionSaving) return;
-    if(!(admissionForm.name||"").trim()){ alert("Please enter Student Name."); return; }
-    admissionSaveLockRef.current=true;
-    setAdmissionSaving(true);
-    try{
-      const name=toProperCase(admissionForm.name||"");
-      const fatherName=toProperCase(admissionForm.fatherName||"");
-      let admissionNo=(admissionForm.admissionNo||"").trim();
-      let rollNo=(admissionForm.rollNo||"").trim();
-      if(!admissionNo) admissionNo=nextAdmissionNo(students);
-      if(!rollNo) rollNo=nextRollNoForClass(students,settings.classes,admissionForm.classId,settings.commonTeachers);
-      const dupAdm=findStudentByAdmissionNo(students,admissionNo,null);
-      if(dupAdm){
-        alert("This admission number is already assigned to:\nClass: "+getClassLabel(settings,dupAdm.classId)+"\nRoll: "+(dupAdm.rollNo||"—")+"\nName: "+(dupAdm.name||"")+"\nFather: "+(dupAdm.fatherName||""));
-        return;
-      }
-      const dupRoll=findStudentByRollInClass(students,settings.classes,admissionForm.classId,rollNo,null,settings.commonTeachers);
-      if(dupRoll){
-        alert("This roll number is already used in this class by:\nName: "+(dupRoll.name||"")+"\nFather: "+(dupRoll.fatherName||"")+"\nAdm#: "+(dupRoll.admissionNo||"—"));
-        return;
-      }
-      const id=genId();
-      let photo=admissionForm.photo||null;
-      if(photo&&String(photo).startsWith("data:image")) photo=await toWorldwidePhoto(photo, id);
-      const payload={
-        ...admissionForm,
-        name,
-        fatherName,
-        admissionNo,
-        rollNo,
-        id,
-        photo,
-        personalInfoLockSession: null,
-        personalInfoHistory: [],
-      };
-      setStudents(s=>[...s,payload]);
-      setAdmissionForm(admissionEmpty);
-      alert("Student admitted successfully. Open Student Records to review the entry.");
-    }catch(err){
-      console.error("Admission save failed", err);
-      alert("Could not admit student: "+(err?.message||String(err)));
-    }finally{
-      admissionSaveLockRef.current=false;
-      setAdmissionSaving(false);
-    }
-  };
   const [selCls,setSelCls]=useState(settings.classes[0]?.id||"");
   const [promotionTargetByStudent,setPromotionTargetByStudent]=useState({});
   const [exam,setExam]=useState("1st Term");
@@ -1313,160 +1220,43 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
   },[tab,setBarSubtitle]);
 
   const ctrlW = 180;
-  const panel = {
-    background: "#fff",
-    border: "1px solid #e2e8f0",
-    borderRadius: 12,
-    boxShadow: "0 1px 3px rgba(15,23,42,0.06)",
-  };
-  const toolbar = {
-    background: "#fff",
-    border: "1px solid #e2e8f0",
-    borderRadius: 12,
-    boxShadow: "0 1px 3px rgba(15,23,42,0.06)",
-    display: "flex",
-    flexWrap: "wrap",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    gap: 12,
-    padding: "14px 16px",
-    marginBottom: 14,
-  };
-  const thBase = {
-    padding: "9px 10px",
-    whiteSpace: "nowrap",
-    fontWeight: 700,
-    fontSize: 12,
-    color: "#fff",
-    background: "#1B5E20",
-    position: "sticky",
-    top: 0,
-    zIndex: 3,
-  };
+  // shadcn-equivalent class strings replacing inline style objects
+  const panelCls = "rounded-xl ring-1 ring-foreground/10 bg-card overflow-hidden";
+  const toolbarCls = "flex flex-wrap items-end justify-between gap-3 p-4 rounded-xl ring-1 ring-foreground/10 bg-card mb-3.5";
+  // thBase replaced inline below with thCls helper
+  const thCls = (align = "left") =>
+    `bg-muted h-9 px-2.5 align-middle text-xs font-semibold whitespace-nowrap text-foreground sticky top-0 z-[3] text-${align}`;
 
   return (
-    <div className="psms-page" style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16, width: "100%", minWidth: 0, boxSizing: "border-box" }}>
-      <div className="no-print psms-toolbar" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-start", gap: 10 }}>
-        <div style={{ display: "inline-flex", flexWrap: "wrap", background: "#e8f5e9", borderRadius: 10, padding: 4, gap: 4, border: "1px solid #c8e6c9", maxWidth: "100%" }}>
-          {EXAM_TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              style={{
-                border: "none",
-                cursor: "pointer",
-                borderRadius: 8,
-                padding: "8px 12px",
-                fontSize: 12,
-                fontWeight: 700,
-                background: tab === t.id ? "#1B5E20" : "transparent",
-                color: tab === t.id ? "#fff" : "#1B5E20",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {t.l}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {tab === "admission" && (
-        <div style={{ maxWidth: 720, margin: "0 auto" }}>
-          <SchoolHeader settings={settings} subtitle="STUDENT ADMISSION" />
-          <div style={{ ...panel, padding: 20, marginTop: 12 }}>
-            <div className="psms-photo-form-row" style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 14, flexWrap: "wrap" }}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                <div style={{ width: 80, height: 100, border: "2px dashed #d1d5db", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", background: "#fafafa" }}>
-                  {admissionPhotoBusy ? (
-                    <span style={{ fontSize: 10, color: C.gray, textAlign: "center", padding: 4, lineHeight: 1.3 }}>
-                      {admissionPhotoStatus || "AI processing…"}
-                    </span>
-                  ) : isDisplayablePhotoSrc(admissionForm.photo) ? (
-                    <img src={admissionForm.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  ) : (
-                    <span style={{ fontSize: 10, color: C.gray, textAlign: "center" }}>Photo</span>
-                  )}
-                </div>
-                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "center" }}>
-                  <Btn type="button" small outline onClick={() => admissionPhotoGalleryRef.current?.click()} disabled={admissionPhotoBusy}>
-                    Select Image
-                  </Btn>
-                  <Btn type="button" small outline onClick={() => admissionPhotoCameraRef.current?.click()} disabled={admissionPhotoBusy}>
-                    Capture Photo
-                  </Btn>
-                  {admissionForm.photo && !admissionPhotoBusy && (
-                    <Btn type="button" small danger onClick={() => setAdmissionForm((x) => ({ ...x, photo: null }))}>
-                      Clear Photo
-                    </Btn>
-                  )}
-                </div>
-                <input
-                  ref={admissionPhotoGalleryRef}
-                  type="file"
-                  accept="image/*"
-                  style={{ display: "none" }}
-                  onChange={async (e) => {
-                    const f = e.target.files?.[0];
-                    e.target.value = "";
-                    if (!f) return;
-                    await handleAdmissionPhotoFile(f);
-                  }}
-                />
-                <input
-                  ref={admissionPhotoCameraRef}
-                  type="file"
-                  accept="image/*"
-                  capture="user"
-                  style={{ display: "none" }}
-                  onChange={async (e) => {
-                    const f = e.target.files?.[0];
-                    e.target.value = "";
-                    if (!f) return;
-                    await handleAdmissionPhotoFile(f);
-                  }}
-                />
-              </div>
-              <div className="psms-grid-2" style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, minWidth: 0 }}>
-                <Inp label="Admission No" value={admissionForm.admissionNo} onChange={(v) => setAdmissionForm((x) => ({ ...x, admissionNo: v }))} placeholder={"Next: " + suggestedNextAdm} width="100%" />
-                <Inp label="Roll No" value={admissionForm.rollNo} onChange={(v) => setAdmissionForm((x) => ({ ...x, rollNo: v }))} placeholder={"Next in class: " + suggestedNextRoll} width="100%" />
-                <Inp label="Student Name" value={admissionForm.name} onChange={(v) => setAdmissionForm((x) => ({ ...x, name: toProperCaseNameInput(v) }))} width="100%" />
-                <Inp label="Father's Name" value={admissionForm.fatherName} onChange={(v) => setAdmissionForm((x) => ({ ...x, fatherName: toProperCaseNameInput(v) }))} width="100%" />
-                <Inp label="Form B / Bay Form" value={admissionForm.bayForm} onChange={(v) => setAdmissionForm((x) => ({ ...x, bayForm: formatCnicAf(v) }))} placeholder="00000-0000000-0" width="100%" />
-                <Inp label="Date of Birth" value={admissionForm.dob} onChange={(v) => setAdmissionForm((x) => ({ ...x, dob: formatDobAf(v) }))} placeholder="dd/mm/yyyy" width="100%" />
-                <Inp label="WhatsApp No" value={admissionForm.whatsapp} onChange={(v) => setAdmissionForm((x) => ({ ...x, whatsapp: formatWhatsappAf(v) }))} placeholder="0000-0000000" width="100%" />
-                <Sel label="Class" value={admissionForm.classId} onChange={(v) => setAdmissionForm((x) => ({ ...x, classId: v }))} options={settings.classes.map((c) => ({ value: c.id, label: formatClassDisplay(c) }))} width="100%" />
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <Btn onClick={() => void saveAdmission()} disabled={admissionSaving || admissionPhotoBusy}>
-                {admissionSaving ? "Processing…" : "Admit Student"}
-              </Btn>
-            </div>
-          </div>
-        </div>
-      )}
-
+    <ModulePageShell
+      title="Examination"
+      description="Marks, result cards, consolidated sheet, and date sheet"
+      tabs={EXAM_TABS}
+      tab={tab}
+      onTabChange={setTab}
+      bareContent
+      maxWidthClassName="max-w-[1400px]"
+    >
       {tab === "record" && (
-        <div style={{ ...panel, padding: 12 }}>
+        <div className={panelCls} style={{ padding: 12 }}>
           <StudentsPage settings={settings} students={students} setStudents={setStudents} embedded currentSession={currentSession} currentUser={currentUser} activeSchoolId={activeSchoolId} />
         </div>
       )}
 
       {tab === "marks" && (
         <div>
-          <div style={toolbar}>
+          <div className={toolbarCls}>
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
-              <Sel label="Exam" value={exam} onChange={setExam} options={exams} width={ctrlW} />
-              <Sel label="Class" value={selCls} onChange={setSelCls} options={settings.classes.map((c) => ({ value: c.id, label: formatClassDisplay(c) }))} width={ctrlW} />
+              <div className="flex flex-col gap-1.5"><Label className="text-xs">Exam</Label><NativeSelect size="sm" value={exam} onChange={(e) => setExam(e.target.value)} style={{ width: ctrlW }}>{exams.map((e) => <NativeSelectOption key={e} value={e}>{e}</NativeSelectOption>)}</NativeSelect></div>
+              <div className="flex flex-col gap-1.5"><Label className="text-xs">Class</Label><NativeSelect size="sm" value={selCls} onChange={(e) => setSelCls(e.target.value)} style={{ width: ctrlW }}>{settings.classes.map((c) => <NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>)}</NativeSelect></div>
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              <Btn small outline onClick={() => void exportMarksTemplateExcel()}>
+              <Button size="sm" variant="outline" onClick={() => void exportMarksTemplateExcel()}>
                 Export Template
-              </Btn>
-              <Btn
-                small
-                outline
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={() => {
                   const inp = document.createElement("input");
                   inp.type = "file";
@@ -1482,45 +1272,39 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                 disabled={!setExamMarks}
               >
                 Import Marks
-              </Btn>
-              <Btn small outline onClick={() => exportMarksPdf().catch(() => alert("PDF export failed."))}>
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => exportMarksPdf().catch(() => alert("PDF export failed."))}>
                 Export PDF
-              </Btn>
+              </Button>
             </div>
           </div>
-          <div style={{ ...panel, overflow: "hidden" }}>
-            <div style={{ padding: "12px 16px", borderBottom: "1px solid #e2e8f0", background: "#f1f8f3", display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-              <div style={{ fontWeight: 700, color: "#1B5E20", fontSize: 15 }}>
+          <div className={panelCls}>
+            <div className="px-4 py-3 border-b bg-muted/30 flex justify-between gap-2 flex-wrap">
+              <div className="font-semibold text-sm">
                 Enter Marks — {exam} · {getClassLabel(settings, selCls)}
               </div>
-              <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 600 }}>{cs(selCls).length} students · {subjs(selCls).length} subjects</div>
+              <div className="text-xs text-muted-foreground font-medium">{cs(selCls).length} students · {subjs(selCls).length} subjects</div>
             </div>
             <div ref={marksTableRef} style={{ overflowX: "auto", maxHeight: "70vh" }}>
               <table style={{ borderCollapse: "collapse", fontSize: 12, width: "100%" }}>
                 <thead>
                   <tr>
                     {["Adm#", "Roll#", "Student Name", "Father's Name", ...subjs(selCls), "Total"].map((h, hi) => (
-                      <th
-                        key={h}
-                        style={{
-                          ...thBase,
-                          textAlign: hi < 4 ? "left" : "center",
-                        }}
-                      >
+                      <th key={h} className={thCls(hi < 4 ? "left" : "center")}>
                         {h}
                       </th>
                     ))}
                   </tr>
-                  <tr style={{ background: "#e8f5e9" }}>
-                    <th colSpan={4} style={{ padding: "5px 8px", fontWeight: 700, fontSize: 11, color: "#000", position: "sticky", top: 34, zIndex: 2, background: "#e8f5e9", textAlign: "right" }}>
+                  <tr className="bg-muted/50">
+                    <th colSpan={4} className="bg-muted/50 p-1.5 text-xs font-bold sticky z-[2] text-right" style={{ top: 34 }}>
                       Total Marks →
                     </th>
                     {subjs(selCls).map((s) => (
-                      <td key={s} style={{ padding: "3px 3px", position: "sticky", top: 34, zIndex: 2, background: "#e8f5e9", textAlign: "center" }}>
-                        <MarksInput initialValue={gtm(exam, selCls, s)} onSave={(v) => stm(exam, selCls, s, v)} rowIdx={-1} colIdx={-1} totalRows={0} totalCols={0} inputStyle={{ border: "1.5px solid #1B5E20", background: "#dcfce7" }} />
+                      <td key={s} className="bg-muted/50 sticky text-center z-[2]" style={{ padding: "3px", top: 34 }}>
+                        <MarksInput initialValue={gtm(exam, selCls, s)} onSave={(v) => stm(exam, selCls, s, v)} rowIdx={-1} colIdx={-1} totalRows={0} totalCols={0} inputStyle={{ border: "1.5px solid hsl(var(--ring))", background: "hsl(var(--muted))" }} />
                       </td>
                     ))}
-                    <td style={{ position: "sticky", top: 34, zIndex: 2, background: "#e8f5e9" }} />
+                    <td className="bg-muted/50 sticky z-[2]" style={{ top: 34 }} />
                   </tr>
                 </thead>
                 <tbody>
@@ -1563,15 +1347,15 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
 
       {tab === "consolidated" && (
         <div>
-          <div style={toolbar}>
+          <div className={toolbarCls}>
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
-              <Sel label="Exam" value={exam} onChange={setExam} options={exams} width={ctrlW} />
-              <Sel label="Class" value={selCls} onChange={setSelCls} options={settings.classes.map((c) => ({ value: c.id, label: formatClassDisplay(c) }))} width={ctrlW} />
+              <div className="flex flex-col gap-1.5"><Label className="text-xs">Exam</Label><NativeSelect size="sm" value={exam} onChange={(e) => setExam(e.target.value)} style={{ width: ctrlW }}>{exams.map((e) => <NativeSelectOption key={e} value={e}>{e}</NativeSelectOption>)}</NativeSelect></div>
+              <div className="flex flex-col gap-1.5"><Label className="text-xs">Class</Label><NativeSelect size="sm" value={selCls} onChange={(e) => setSelCls(e.target.value)} style={{ width: ctrlW }}>{settings.classes.map((c) => <NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>)}</NativeSelect></div>
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              <Btn
-                small
-                outline
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={() => {
                   const { headers, rows } = getTableDataFromElement(consolidatedTableRef.current);
                   if (!headers.length && !rows.length) {
@@ -1584,12 +1368,12 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                 }}
               >
                 Export PDF
-              </Btn>
+              </Button>
             </div>
           </div>
-          <div style={{ ...panel, overflow: "hidden" }}>
-            <div style={{ padding: "12px 16px", borderBottom: "1px solid #e2e8f0", background: "#f1f8f3" }}>
-              <div style={{ fontWeight: 700, color: "#1B5E20", fontSize: 15 }}>
+          <div className={panelCls}>
+            <div className="px-4 py-3 border-b bg-muted/30">
+              <div className="font-semibold text-sm">
                 Consolidated Sheet — {exam} · {getClassLabel(settings, selCls)}
               </div>
             </div>
@@ -1598,21 +1382,21 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                 <thead>
                   <tr>
                     {["Photo", "Adm#", "Roll#", "Student Name", "Father's Name", ...subjs(selCls), "Total", "%", "Status", "Grade", "Position"].map((h, hi) => (
-                      <th key={h} style={{ ...thBase, textAlign: hi < 5 ? (hi === 0 ? "center" : "left") : "center" }}>
+                      <th key={h} className={thCls(hi < 5 ? (hi === 0 ? "center" : "left") : "center")}>
                         {h}
                       </th>
                     ))}
                   </tr>
-                  <tr style={{ background: "#e8f5e9" }}>
-                    <th colSpan={5} style={{ padding: "5px 8px", fontWeight: 700, fontSize: 11, textAlign: "right", color: "#000", position: "sticky", top: 34, zIndex: 2, background: "#e8f5e9" }}>
+                  <tr className="bg-muted/50">
+                    <th colSpan={5} className="bg-muted/50 p-1.5 text-xs font-bold sticky z-[2] text-right" style={{ top: 34 }}>
                       Total Marks →
                     </th>
                     {subjs(selCls).map((s) => (
-                      <td key={s} style={{ padding: "5px 8px", textAlign: "center", fontWeight: 700, color: "#000", position: "sticky", top: 34, zIndex: 2, background: "#e8f5e9", fontVariantNumeric: "tabular-nums" }}>
+                      <td key={s} className="bg-muted/50 sticky text-center font-bold tabular-nums z-[2] p-1.5 text-xs" style={{ top: 34 }}>
                         {gtm(exam, selCls, s) || "—"}
                       </td>
                     ))}
-                    <th colSpan={5} style={{ position: "sticky", top: 34, zIndex: 2, background: "#e8f5e9" }} />
+                    <th colSpan={5} className="bg-muted/50 sticky z-[2]" style={{ top: 34 }} />
                   </tr>
                 </thead>
                 <tbody>
@@ -1626,12 +1410,12 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                       const { s, obt, tot, pct } = row;
                       const pctNum = parseFloat(pct);
                       const passFail = Number.isNaN(pctNum) ? "—" : pctNum >= passThreshold ? "Pass" : "Fail";
-                      const passFailColor = Number.isNaN(pctNum) ? C.gray : pctNum >= passThreshold ? C.green : C.red;
+                      const passFailColor = Number.isNaN(pctNum) ? "#9ca3af" : pctNum >= passThreshold ? "#15803d" : "#dc2626";
                       return (
                         <tr key={s.id} style={{ background: i % 2 === 0 ? "#f8fafc" : "#fff" }}>
                           <td style={{ padding: 4, verticalAlign: "middle", textAlign: "center" }}>
                             <div style={{ width: 36, height: 44, border: "1px solid #d1d5db", borderRadius: 4, display: "inline-flex", alignItems: "center", justifyContent: "center", overflow: "hidden", background: "#f3f4f6" }}>
-                              {isDisplayablePhotoSrc(s.photo) ? <img src={s.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 9, color: C.gray }}>Photo</span>}
+                              {isDisplayablePhotoSrc(s.photo) ? <img src={s.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 9, color: "#9ca3af" }}>Photo</span>}
                             </div>
                           </td>
                           <td style={{ padding: "5px 8px", fontVariantNumeric: "tabular-nums" }}>{s.admissionNo}</td>
@@ -1648,7 +1432,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                           </td>
                           <td style={{ padding: "5px 8px", textAlign: "center", fontVariantNumeric: "tabular-nums" }}>{pct}%</td>
                           <td style={{ padding: "5px 8px", textAlign: "center", fontWeight: 700, color: passFailColor }}>{passFail}</td>
-                          <td style={{ padding: "5px 8px", textAlign: "center", fontWeight: 700, color: parseFloat(pct) >= passThreshold ? C.green : C.red }}>{grade(pct)}</td>
+                          <td style={{ padding: "5px 8px", textAlign: "center", fontWeight: 700, color: parseFloat(pct) >= passThreshold ? "#15803d" : "#dc2626" }}>{grade(pct)}</td>
                           <td style={{ padding: "5px 8px", textAlign: "center", fontWeight: 700 }}>
                             <div>{pos}</div>
                             {passFail === "Pass" && (
@@ -1674,13 +1458,15 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                                   }
                                   return null;
                                 })()}
-                                <button
+                                <Button
                                   type="button"
+                                  size="sm"
+                                  variant="outline"
                                   onClick={() => promoteStudentToNextClass(s)}
-                                  style={{ padding: "2px 7px", fontSize: 11, border: "1px solid #86efac", borderRadius: 4, background: "#f0fdf4", color: "#166534", cursor: "pointer", fontWeight: 700 }}
+                                  className="text-[11px] h-6 px-2"
                                 >
                                   Promote Student
-                                </button>
+                                </Button>
                               </div>
                             )}
                           </td>
@@ -1698,39 +1484,26 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
       {tab === "card" && (
         <div>
           <div
-            className="no-print result-card-toolbar"
-            style={{
-              ...panel,
-              display: "flex",
-              flexWrap: "nowrap",
-              alignItems: "flex-end",
-              gap: 10,
-              padding: "12px 14px",
-              marginBottom: 14,
-              overflowX: "auto",
-              WebkitOverflowScrolling: "touch",
-            }}
+            className={`no-print result-card-toolbar ${panelCls} flex items-end gap-2.5 p-3 mb-3.5 overflow-x-auto`}
+            style={{ flexWrap: "nowrap", WebkitOverflowScrolling: "touch" }}
           >
-            <Sel
-              label="Class"
-              value={rcCls}
-              onChange={setRcCls}
-              options={settings.classes.map((c) => ({ value: c.id, label: formatClassDisplay(c) }))}
-              width={140}
-              selectClassName="!h-9 !min-h-9 !py-1.5 !text-sm"
-            />
-            <Sel
-              label="Exam"
-              value={rcExam}
-              onChange={setRcExam}
-              options={[{ value: "overall", label: "Overall (All Terms)" }, ...exams.map((e) => ({ value: e, label: e }))]}
-              width={140}
-              selectClassName="!h-9 !min-h-9 !py-1.5 !text-sm"
-            />
-            <div style={{ display: "flex", flexDirection: "column", gap: 3, flexShrink: 0 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: C.gray, textTransform: "uppercase", letterSpacing: 0.4 }}>Pass %</label>
-              <div style={{ display: "flex", alignItems: "center", gap: 4, height: 36 }}>
-                <input
+            <div className="flex flex-col gap-1.5 shrink-0">
+              <Label className="text-xs">Class</Label>
+              <NativeSelect value={rcCls} onChange={(e) => setRcCls(e.target.value)} style={{ width: 140 }}>
+                {settings.classes.map((c) => <NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>)}
+              </NativeSelect>
+            </div>
+            <div className="flex flex-col gap-1.5 shrink-0">
+              <Label className="text-xs">Exam</Label>
+              <NativeSelect value={rcExam} onChange={(e) => setRcExam(e.target.value)} style={{ width: 140 }}>
+                <NativeSelectOption value="overall">Overall (All Terms)</NativeSelectOption>
+                {exams.map((e) => <NativeSelectOption key={e} value={e}>{e}</NativeSelectOption>)}
+              </NativeSelect>
+            </div>
+            <div className="flex flex-col gap-1.5 shrink-0">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Pass %</Label>
+              <div className="flex items-center gap-1.5 h-8">
+                <Input
                   type="number"
                   min={0}
                   max={100}
@@ -1740,147 +1513,81 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                     const v = Number(e.target.value);
                     if (!isNaN(v) && v >= 0 && v <= 100 && setSettings) setSettings((s) => ({ ...s, passPercent: v }));
                   }}
-                  style={{
-                    height: 36,
-                    width: 72,
-                    padding: "0 10px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 6,
-                    fontSize: 13,
-                    background: "#fff",
-                    boxSizing: "border-box",
-                  }}
+                  className="h-8 w-16 text-center"
                 />
-                <span style={{ fontSize: 13, color: C.gray, fontWeight: 600 }}>%</span>
+                <span className="text-sm text-muted-foreground font-semibold">%</span>
               </div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 3, flexShrink: 0 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: C.gray, textTransform: "uppercase", letterSpacing: 0.4 }}>Roll No</label>
-              <div style={{ display: "flex", alignItems: "center", gap: 4, height: 36 }}>
-                <button
+            <div className="flex flex-col gap-1.5 shrink-0">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Roll No</Label>
+              <div className="flex items-center gap-1 h-8">
+                <Button
                   type="button"
+                  size="icon-sm"
+                  variant="outline"
                   aria-label="Previous roll"
                   onClick={() => {
                     const list = cs(rcCls);
-                    const rolls = list
-                      .map((s) => parseInt(s.rollNo, 10))
-                      .filter((n) => !isNaN(n))
-                      .sort((a, b) => a - b);
-                    if (!rolls.length) {
-                      setRcRoll("");
-                      return;
-                    }
-                    const min = rolls[0];
-                    const max = rolls[rolls.length - 1];
+                    const rolls = list.map((s) => parseInt(s.rollNo, 10)).filter((n) => !isNaN(n)).sort((a, b) => a - b);
+                    if (!rolls.length) { setRcRoll(""); return; }
                     const cur = parseInt(rcRoll || "", 10);
-                    if (isNaN(cur)) {
-                      setRcRoll(String(max));
-                      return;
-                    }
-                    setRcRoll(String(Math.max(min, cur - 1)));
-                  }}
-                  style={{
-                    height: 36,
-                    width: 36,
-                    border: "1px solid #d1d5db",
-                    background: "#fff",
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    fontSize: 14,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
+                    if (isNaN(cur)) { setRcRoll(String(rolls[rolls.length - 1])); return; }
+                    setRcRoll(String(Math.max(rolls[0], cur - 1)));
                   }}
                 >
                   ←
-                </button>
-                <input
+                </Button>
+                <Input
                   type="text"
-                  className="result-card-roll-input"
+                  className="result-card-roll-input h-8 w-12 text-center"
                   value={rcRoll}
                   onChange={(e) => setRcRoll(e.target.value)}
                   placeholder="#"
-                  size={3}
                   inputMode="numeric"
-                  style={{
-                    height: 36,
-                    padding: "0 2px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 6,
-                    fontSize: 13,
-                    background: "#fff",
-                    boxSizing: "border-box",
-                    textAlign: "center",
-                  }}
                 />
-                <button
+                <Button
                   type="button"
+                  size="icon-sm"
+                  variant="outline"
                   aria-label="Next roll"
                   onClick={() => {
                     const list = cs(rcCls);
-                    const rolls = list
-                      .map((s) => parseInt(s.rollNo, 10))
-                      .filter((n) => !isNaN(n))
-                      .sort((a, b) => a - b);
-                    if (!rolls.length) {
-                      setRcRoll("");
-                      return;
-                    }
-                    const min = rolls[0];
-                    const max = rolls[rolls.length - 1];
+                    const rolls = list.map((s) => parseInt(s.rollNo, 10)).filter((n) => !isNaN(n)).sort((a, b) => a - b);
+                    if (!rolls.length) { setRcRoll(""); return; }
                     const cur = parseInt(rcRoll || "", 10);
-                    if (isNaN(cur)) {
-                      setRcRoll(String(min));
-                      return;
-                    }
-                    setRcRoll(String(Math.min(max, cur + 1)));
-                  }}
-                  style={{
-                    height: 36,
-                    width: 36,
-                    border: "1px solid #d1d5db",
-                    background: "#fff",
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    fontSize: 14,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
+                    if (isNaN(cur)) { setRcRoll(String(rolls[0])); return; }
+                    setRcRoll(String(Math.min(rolls[rolls.length - 1], cur + 1)));
                   }}
                 >
                   →
-                </button>
+                </Button>
               </div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 3, flexShrink: 0, marginLeft: "auto" }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: "transparent", textTransform: "uppercase", letterSpacing: 0.4, userSelect: "none" }}>Actions</label>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, height: 36 }}>
-                <Btn
-                  small
-                  outline
+            <div className="flex flex-col gap-1.5 shrink-0 ml-auto">
+              <Label className="text-xs invisible select-none">Actions</Label>
+              <div className="flex items-center gap-1.5 h-8">
+                <Button
+                  size="sm"
+                  variant="outline"
                   disabled={singlePdfBusy || classPdfBusy || !String(rcRoll || "").trim()}
                   onClick={() => void exportSingleResultCardPdf()}
-                  style={{ height: 36, minHeight: 36, padding: "0 12px", display: "inline-flex", alignItems: "center" }}
                 >
                   {singlePdfBusy ? "Exporting…" : "Export PDF"}
-                </Btn>
-                <Btn
-                  small
+                </Button>
+                <Button
+                  size="sm"
                   disabled={classPdfBusy || singlePdfBusy}
                   onClick={requestClassPdfExport}
-                  style={{ height: 36, minHeight: 36, padding: "0 12px", display: "inline-flex", alignItems: "center" }}
                 >
                   {classPdfBusy ? "Exporting…" : "Export Class PDF"}
-                </Btn>
+                </Button>
               </div>
             </div>
           </div>
           {rcRoll &&
             (() => {
               const st = cs(rcCls).find((s) => s.rollNo === rcRoll);
-              if (!st) return <div style={{ color: C.red, padding: 16 }}>Student not found for Roll No: {rcRoll}</div>;
+              if (!st) return <div className="text-destructive p-4">Student not found for Roll No: {rcRoll}</div>;
               return <div className="result-card-print-area">{renderResultCard(st, rcCls, rcExam, resultCardRef)}</div>;
             })()}
           {classPdfExportList?.length ? (
@@ -1893,52 +1600,50 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
 
       {tab === "datesheet" && (
         <div>
-          <div className="no-print" style={toolbar}>
+          <div className={`no-print ${toolbarCls}`}>
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
-              <Sel label="Exam" value={exam} onChange={setExam} options={exams} width={ctrlW} />
+              <div className="flex flex-col gap-1.5"><Label className="text-xs">Exam</Label><NativeSelect size="sm" value={exam} onChange={(e) => setExam(e.target.value)} style={{ width: ctrlW }}>{exams.map((e) => <NativeSelectOption key={e} value={e}>{e}</NativeSelectOption>)}</NativeSelect></div>
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              <Btn onClick={() => setDsDates((rows) => [...rows, { id: genId(), date: new Date().toISOString().split("T")[0] }])}>Add Date</Btn>
-              <Btn outline danger disabled={dsDates.length <= 1} onClick={() => setDsDates((rows) => (rows.length > 1 ? rows.slice(0, -1) : rows))}>
+              <Button size="sm" onClick={() => setDsDates((rows) => [...rows, { id: genId(), date: new Date().toISOString().split("T")[0] }])}>Add Date</Button>
+              <Button size="sm" variant="destructive" disabled={dsDates.length <= 1} onClick={() => setDsDates((rows) => (rows.length > 1 ? rows.slice(0, -1) : rows))}>
                 Remove Date
-              </Btn>
-              <Btn outline onClick={() => setDsCols((cols) => [...cols, { id: genId(), classId: "" }])}>
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setDsCols((cols) => [...cols, { id: genId(), classId: "" }])}>
                 Add Class Column
-              </Btn>
-              <Btn outline danger disabled={dsCols.length <= 1} onClick={() => setDsCols((cols) => (cols.length > 1 ? cols.slice(0, -1) : cols))}>
+              </Button>
+              <Button size="sm" variant="destructive" disabled={dsCols.length <= 1} onClick={() => setDsCols((cols) => (cols.length > 1 ? cols.slice(0, -1) : cols))}>
                 Remove Class Column
-              </Btn>
+              </Button>
             </div>
           </div>
-          <div style={{ ...panel, overflow: "hidden" }}>
-            <div style={{ padding: "12px 16px", borderBottom: "1px solid #e2e8f0", background: "#f1f8f3" }}>
-              <div style={{ fontWeight: 700, color: "#1B5E20", fontSize: 15 }}>Date Sheet — {exam}</div>
+          <div className={panelCls}>
+            <div className="px-4 py-3 border-b bg-muted/30">
+              <div className="font-semibold text-sm">Date Sheet — {exam}</div>
             </div>
-            <div ref={datesheetTableRef} style={{ overflowX: "auto", maxHeight: "70vh", background: "#fff", padding: 12 }}>
+            <div ref={datesheetTableRef} style={{ overflowX: "auto", maxHeight: "70vh", padding: 12 }}>
               <table className="datesheet-table" style={{ borderCollapse: "collapse", fontSize: 12, minWidth: 0, margin: "0 auto", width: "100%" }}>
                 <thead>
-                  <tr style={{ background: "#1B5E20", color: "#fff", textAlign: "center" }}>
-                    <th style={{ padding: "8px 6px", border: "1px solid #14532d", minWidth: 90, textAlign: "center", position: "sticky", top: 0, zIndex: 3, background: "#1B5E20" }}>Date</th>
-                    <th style={{ padding: "8px 6px", border: "1px solid #14532d", minWidth: 90, textAlign: "center", position: "sticky", top: 0, zIndex: 3, background: "#1B5E20" }}>Day</th>
+                  <tr>
+                    <th className={thCls("center")} style={{ minWidth: 90 }}>Date</th>
+                    <th className={thCls("center")} style={{ minWidth: 90 }}>Day</th>
                     {dsCols.map((col) => {
                       const usedIds = dsCols.filter((c) => c.id !== col.id).map((c) => c.classId).filter(Boolean);
                       return (
-                        <th key={col.id} style={{ padding: "8px 6px", border: "1px solid #14532d", minWidth: 110, textAlign: "center", position: "sticky", top: 0, zIndex: 3, background: "#1B5E20" }}>
+                        <th key={col.id} className={thCls("center")} style={{ minWidth: 110 }}>
                           <select
                             value={col.classId}
                             onChange={(e) => {
                               const v = e.target.value;
                               setDsCols((cols) => cols.map((c) => (c.id === col.id ? { ...c, classId: v } : c)));
                             }}
-                            style={{ width: "100%", padding: "4px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 11, textAlign: "center" }}
+                            style={{ width: "100%", padding: "4px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 11, textAlign: "center", background: "transparent", color: "inherit" }}
                           >
                             <option value="">— Select class —</option>
                             {settings.classes
                               .filter((cls) => !usedIds.includes(cls.id) || cls.id === col.classId)
                               .map((cls) => (
-                                <option key={cls.id} value={cls.id}>
-                                  {formatClassDisplay(cls)}
-                                </option>
+                                <option key={cls.id} value={cls.id}>{formatClassDisplay(cls)}</option>
                               ))}
                           </select>
                         </th>
@@ -1981,9 +1686,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                               >
                                 <option value="">---</option>
                                 {options.map((s) => (
-                                  <option key={s} value={s}>
-                                    {s}
-                                  </option>
+                                  <option key={s} value={s}>{s}</option>
                                 ))}
                               </select>
                             </td>
@@ -1995,20 +1698,20 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
                 </tbody>
               </table>
             </div>
-            <div style={{ padding: 16, borderTop: "1px solid #e2e8f0" }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: C.gray, display: "block", marginBottom: 4 }}>Note / Instructions</label>
+            <div className="p-4 border-t">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground block mb-1.5">Note / Instructions</Label>
               <textarea
                 value={dsNote}
                 onChange={(e) => setDsNote(e.target.value)}
                 rows={3}
-                style={{ width: "100%", padding: "8px 10px", border: "1.5px solid #d1d5db", borderRadius: 6, fontSize: 12, resize: "vertical", boxSizing: "border-box" }}
+                className="w-full px-3 py-2 border rounded-lg text-sm resize-y bg-background border-input outline-none focus:ring-2 focus:ring-ring/50 box-border"
                 placeholder="Write important instructions for students (e.g. reporting time, allowed materials, etc.)"
               />
             </div>
           </div>
         </div>
       )}
-    </div>
+    </ModulePageShell>
   );
 }
 
@@ -2512,24 +2215,54 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
   const editingStudent=editingId?students.find(st=>st.id===editingId):null;
   const personalLocked=!!(editingStudent?.personalInfoLockSession&&editingStudent.personalInfoLockSession===currentSession);
   const isPromotedStudent=(st)=>!!(st?.personalInfoLockSession||st?.promotionInfo?.promotedAt);
-  const openAdd=()=>{ setEditingId(null); setForm(emptyForm); photoFileRef.current=null; setShowAdd(true); };
+  const openAdd=()=>{
+    setEditingId(null);
+    const classId=settings.classes[0]?.id||"";
+    setForm({
+      ...emptyForm,
+      classId,
+      admissionNo:nextAdmissionNo(students),
+      rollNo:nextRollNoForClass(students,settings.classes,classId,settings.commonTeachers),
+    });
+    photoFileRef.current=null;
+    setShowAdd(true);
+  };
+  const onAddFormClassChange=(classId)=>{
+    if(editingId){ setForm(x=>({...x,classId})); return; }
+    setForm(x=>({
+      ...x,
+      classId,
+      admissionNo:nextAdmissionNo(students),
+      rollNo:nextRollNoForClass(students,settings.classes,classId,settings.commonTeachers),
+    }));
+  };
   const openEdit=(s)=>{ setEditingId(s.id); setForm({admissionNo:s.admissionNo||"",rollNo:s.rollNo||"",name:toProperCase(s.name||""),fatherName:toProperCase(s.fatherName||""),classId:s.classId||"",dob:formatDob(s.dob||""),bayForm:s.bayForm||"",fatherCnic:s.fatherCnic||"",whatsapp:s.whatsapp||"",photo:s.photo||null}); photoFileRef.current=null; setShowAdd(true); };
-  const handleStudentPhotoFile=async (f)=>{
-    if(!f) return;
+  const handleStudentPhotoFile=async (raw)=>{
+    if(!raw) return;
+    const f=normalizeStudentPhotoFile(raw)||raw;
     if(!isStudentPhotoFile(f)){
       alert("Please choose an image file (any format: JPG, PNG, WEBP, HEIC, etc.).");
       return;
     }
+    photoFileRef.current=f;
     setPhotoBusy(true);
     setPhotoStatus("Preparing…");
     try{
-      const data=await processStudentPhotoWithBackground(f,{
-        onProgress:(msg)=>setPhotoStatus(String(msg||"Processing…")),
-      });
-      if(!data){ alert("Could not process this photo. Try another image."); return; }
+      let data=null;
+      try{
+        data=await processStudentPhotoWithBackground(f,{
+          onProgress:(msg)=>setPhotoStatus(String(msg||"Processing…")),
+        });
+      }catch(err){
+        console.warn("AI photo failed, using plain JPEG",err);
+        setPhotoStatus("Saving photo…");
+        data=await readStudentPhotoAsJpeg(f);
+      }
+      if(!data||!isDisplayablePhotoSrc(data)){ alert("Could not process this photo. Try another image."); return; }
+      setForm(x=>({...x,photo:data}));
       setPhotoStatus("Uploading…");
       const worldwide=await toWorldwidePhoto(data, editingId||form.id||"record");
-      setForm(x=>({...x,photo:worldwide}));
+      if(worldwide&&worldwide!==data) setForm(x=>({...x,photo:worldwide}));
     }catch(err){
       console.error("Student photo failed",err);
       alert("Photo upload failed: "+(err?.message||String(err)));
@@ -2540,11 +2273,12 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
   };
   const save=async()=>{
     if(!(form.name||"").trim()){ alert("Please enter Student Name."); return; }
+    if(!form.classId){ alert("Please select a class first."); return; }
     let admissionNo=(form.admissionNo||"").trim();
     let rollNo=(form.rollNo||"").trim();
     if(!editingId){
-      if(!admissionNo) admissionNo=nextAdmissionNo(students);
-      if(!rollNo) rollNo=nextRollNoForClass(students,settings.classes,form.classId,settings.commonTeachers);
+      admissionNo=nextAdmissionNo(students);
+      rollNo=nextRollNoForClass(students,settings.classes,form.classId,settings.commonTeachers);
     }else{
       if(!admissionNo){ alert("Please enter Admission No."); return; }
     }
@@ -2704,41 +2438,35 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
   return <div>
     {embedded&&<div className="print-only" style={{display:"none",marginBottom:10}}><SchoolHeader settings={settings} subtitle={printSubtitle}/></div>}
     <div className="no-print students-record-toolbar" style={{display:"flex",gap:12,marginBottom:14,flexWrap:"wrap",alignItems:"flex-end"}}>
-      <Sel
-        label="Filter by Class"
-        value={filterCls}
-        onChange={setFilterCls}
-        options={[{value:"all",label:"All Classes"},...settings.classes.map(c=>({value:c.id,label:formatClassDisplay(c)}))]}
-        selectClassName="!h-9 !min-h-9 !py-1.5 !text-sm"
-        width={180}
-      />
-      <Inp
-        label="Search"
-        value={search}
-        onChange={setSearch}
-        placeholder="Name or Adm No…"
-        width={200}
-        className="students-record-search"
-        inputClassName="!h-9 !min-h-9"
-      />
+      <div className="flex flex-col gap-1.5" style={{width:180}}>
+        <Label className="text-xs">Filter by Class</Label>
+        <NativeSelect value={filterCls} onChange={e=>setFilterCls(e.target.value)} className="!h-9 !min-h-9 !py-1.5 !text-sm">
+          <NativeSelectOption value="all">All Classes</NativeSelectOption>
+          {settings.classes.map(c=><NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>)}
+        </NativeSelect>
+      </div>
+      <div className="flex flex-col gap-1.5 students-record-search" style={{width:200}}>
+        <Label className="text-xs">Search</Label>
+        <Input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Name or Adm No…" className="!h-9 !min-h-9"/>
+      </div>
       <div style={{marginLeft:"auto",display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-        <Btn
+        <Button
           onClick={openAdd}
           className="!h-9 !min-h-9 !px-3 !text-sm"
           style={{ height: 36, minHeight: 36 }}
         >
           Add Student
-        </Btn>
-        <Btn
-          outline
+        </Button>
+        <Button
+          variant="outline"
           onClick={()=>void doExportStudents("pdf").catch(()=>alert("PDF export failed."))}
           className="!h-9 !min-h-9 !px-3 !text-sm"
           style={{ height: 36, minHeight: 36 }}
         >
           Export PDF
-        </Btn>
-        <Btn
-          outline
+        </Button>
+        <Button
+          variant="outline"
           onClick={async ()=>{
             const classes=settings.classes||[];
             if(!classes.length){ alert("No classes found for this school login."); return; }
@@ -2765,9 +2493,9 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
           title="Create Photos/<Class>/ folders on the local workstation"
         >
           Create Photo Folders
-        </Btn>
-        <Btn
-          outline
+        </Button>
+        <Button
+          variant="outline"
           onClick={async ()=>{
             const classes=settings.classes||[];
             if(!classes.length){ alert("No classes found for this school login."); return; }
@@ -2800,7 +2528,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
           title="Import photos from Photos folder (PC) or select images (mobile)"
         >
           Import Photos
-        </Btn>
+        </Button>
         <span style={{fontSize:11,color:C.gray,whiteSpace:"nowrap"}} title="Workstation: watches Photos/<Class>/. Mobile: use Import Photos.">
           {autoPhotoSyncStatus==="syncing"?"Importing…":autoPhotoSyncStatus==="picker"?"Select images to import":"Folder watch active"}
         </span>
@@ -2869,7 +2597,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
               </select>
             )}
           </td>
-          <td style={{padding:"5px 10px"}}><div style={{display:"flex",flexDirection:"column",gap:4}}><Btn small outline onClick={()=>openEdit(s)}>Edit</Btn><Btn small danger disabled={isPromotedStudent(s)} onClick={()=>{if(isPromotedStudent(s)) return; if(!confirm("Delete this student record?")) return; setStudents(x=>x.filter(st=>st.id!==s.id));}}>{isPromotedStudent(s)?"Promoted":"Delete"}</Btn></div></td>
+          <td style={{padding:"5px 10px"}}><div style={{display:"flex",flexDirection:"column",gap:4}}><Button variant="outline" size="sm" onClick={()=>openEdit(s)}>Edit</Button><Button variant="destructive" size="sm" disabled={isPromotedStudent(s)} onClick={()=>{if(isPromotedStudent(s)) return; if(!confirm("Delete this student record?")) return; setStudents(x=>x.filter(st=>st.id!==s.id));}}>{isPromotedStudent(s)?"Promoted":"Delete"}</Button></div></td>
         </tr>)}
         {filtered.length===0&&<tr><td colSpan={10} style={{padding:20,textAlign:"center",color:C.gray}}>No students found</td></tr>}
         </tbody>
@@ -2888,24 +2616,47 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
                 {photoBusy?<span style={{fontSize:10,color:C.gray,textAlign:"center",padding:4,lineHeight:1.3}}>{photoStatus||"AI processing…"}</span>:isDisplayablePhotoSrc(form.photo)?<img src={form.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:10,color:C.gray,textAlign:"center"}}>Photo</span>}
               </div>
               <div style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"center"}}>
-                <Btn type="button" small outline onClick={()=>photoGalleryRef.current?.click()} disabled={photoBusy}>Select Image</Btn>
-                <Btn type="button" small outline onClick={()=>photoCameraRef.current?.click()} disabled={photoBusy}>Capture Photo</Btn>
+                <Button type="button" variant="outline" size="sm" onClick={()=>photoGalleryRef.current?.click()} disabled={photoBusy}>Select Image</Button>
+                <Button type="button" variant="outline" size="sm" onClick={()=>photoCameraRef.current?.click()} disabled={photoBusy}>Capture Photo</Button>
                 {form.photo&&!photoBusy&&(
-                  <Btn type="button" small danger onClick={()=>setForm(x=>({...x,photo:null}))}>Clear Photo</Btn>
+                  <Button type="button" variant="destructive" size="sm" onClick={()=>setForm(x=>({...x,photo:null}))}>Clear Photo</Button>
                 )}
               </div>
-              <input ref={photoGalleryRef} type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];e.target.value="";if(!f)return;photoFileRef.current=f;await handleStudentPhotoFile(f);}}/>
-              <input ref={photoCameraRef} type="file" accept="image/*" capture="user" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];e.target.value="";if(!f)return;photoFileRef.current=f;await handleStudentPhotoFile(f);}}/>
+              <input ref={photoGalleryRef} type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];e.target.value="";if(!f)return;await handleStudentPhotoFile(f);}}/>
+              <input ref={photoCameraRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];e.target.value="";if(!f)return;await handleStudentPhotoFile(f);}}/>
             </div>
             <div className="psms-grid-2" style={{flex:1,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,minWidth:0}}>
-              <Inp label="Admission No" value={form.admissionNo} onChange={v=>setForm(x=>({...x,admissionNo:v}))} placeholder={editingId?"":("Next: "+suggestedFormAdm)}/>
-              <Inp label="Roll No" value={form.rollNo} onChange={v=>setForm(x=>({...x,rollNo:v}))} placeholder={editingId?"":("Next in class: "+suggestedFormRoll)}/>
-              <Inp label="Student Name" value={form.name} onChange={v=>setForm(x=>({...x,name:toProperCaseNameInput(v)}))} disabled={!!editingId&&personalLocked}/>
-              <Inp label="Father's Name" value={form.fatherName} onChange={v=>setForm(x=>({...x,fatherName:toProperCaseNameInput(v)}))} disabled={!!editingId&&personalLocked}/>
-              <Inp label="Bay Form" value={form.bayForm} onChange={v=>setForm(x=>({...x,bayForm:formatCnic(v)}))} placeholder="00000-0000000-0" disabled={!!editingId&&personalLocked}/>
-              <Inp label="Date of Birth" value={form.dob} onChange={v=>setForm(x=>({...x,dob:formatDob(v)}))} placeholder="dd/mm/yyyy" disabled={!!editingId&&personalLocked}/>
-              <Inp label="WhatsApp No" value={form.whatsapp} onChange={v=>setForm(x=>({...x,whatsapp:formatWhatsapp(v)}))} placeholder="0000-0000000" disabled={!!editingId&&personalLocked}/>
-              <Sel label="Class" value={form.classId} onChange={v=>setForm(x=>({...x,classId:v}))} options={settings.classes.map(c=>({value:c.id,label:formatClassDisplay(c)}))}/>
+              <div className="flex flex-col gap-1.5 sm:col-span-2" style={{gridColumn:"1 / -1"}}>
+                <Label>Class</Label>
+                <NativeSelect value={form.classId} onChange={e=>onAddFormClassChange(e.target.value)}>
+                  {settings.classes.map(c=><NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>)}
+                </NativeSelect>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Admission No{editingId?"":" (auto)"}</Label>
+                <Input
+                  value={form.admissionNo}
+                  onChange={e=>setForm(x=>({...x,admissionNo:e.target.value}))}
+                  readOnly={!editingId}
+                  className={!editingId?"bg-muted/40":undefined}
+                  placeholder={editingId?"":("Next: "+suggestedFormAdm)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Roll No{editingId?"":" (auto)"}</Label>
+                <Input
+                  value={form.rollNo}
+                  onChange={e=>setForm(x=>({...x,rollNo:e.target.value}))}
+                  readOnly={!editingId}
+                  className={!editingId?"bg-muted/40":undefined}
+                  placeholder={editingId?"":("Next in class: "+suggestedFormRoll)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5"><Label>Student Name</Label><Input value={form.name} onChange={e=>setForm(x=>({...x,name:toProperCaseNameInput(e.target.value)}))} disabled={!!editingId&&personalLocked}/></div>
+              <div className="flex flex-col gap-1.5"><Label>Father&apos;s Name</Label><Input value={form.fatherName} onChange={e=>setForm(x=>({...x,fatherName:toProperCaseNameInput(e.target.value)}))} disabled={!!editingId&&personalLocked}/></div>
+              <div className="flex flex-col gap-1.5"><Label>Bay Form</Label><Input value={form.bayForm} onChange={e=>setForm(x=>({...x,bayForm:formatCnic(e.target.value)}))} placeholder="00000-0000000-0" disabled={!!editingId&&personalLocked}/></div>
+              <div className="flex flex-col gap-1.5"><Label>Date of Birth</Label><Input value={form.dob} onChange={e=>setForm(x=>({...x,dob:formatDob(e.target.value)}))} placeholder="dd/mm/yyyy" disabled={!!editingId&&personalLocked}/></div>
+              <div className="flex flex-col gap-1.5" style={{gridColumn:"1 / -1"}}><Label>WhatsApp No</Label><Input value={form.whatsapp} onChange={e=>setForm(x=>({...x,whatsapp:formatWhatsapp(e.target.value)}))} placeholder="0000-0000000" disabled={!!editingId&&personalLocked}/></div>
             </div>
           </div>
           {editingId&&personalLocked&&(
@@ -2934,7 +2685,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
               ):<div style={{fontSize:12,color:C.gray}}>No personal-info changes recorded.</div>}
             </div>
           )}
-          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn outline color={C.gray} onClick={closeModal}>Cancel</Btn><Btn onClick={save}>{editingId?"Update Student":"Save Student"}</Btn></div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Button variant="outline" onClick={closeModal}>Cancel</Button><Button onClick={save}>{editingId?"Update Student":"Save Student"}</Button></div>
         </div>
       </div>
     </div>}

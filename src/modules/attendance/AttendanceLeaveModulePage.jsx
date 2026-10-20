@@ -11,7 +11,7 @@ import {
   AttendanceReportsPanel,
 } from "./AttendanceLeavePanels.jsx";
 import { ATTENDANCE_LEAVE_TABS, summarizeTodayAttendanceLeave } from "./attendanceLeaveCore.js";
-import { C } from "@/shared/theme";
+import { ModulePageShell } from "@/components/ModulePageShell";
 
 function initialAttendanceTab() {
   const intent = consumeNavIntent();
@@ -61,75 +61,15 @@ export function AttendanceLeaveModulePage({
   }, [tab, setBarSubtitle]);
 
   return (
-    <div
-      className="psms-page"
-      style={{
-        maxWidth: 1200,
-        margin: "0 auto",
-        display: "flex",
-        flexDirection: "column",
-        gap: 16,
-        width: "100%",
-        minWidth: 0,
-        boxSizing: "border-box",
-      }}
+    <ModulePageShell
+      title="Attendance & Leave"
+      description={`Students ${snap.students.present}/${snap.students.total} present${
+        canManageStaff ? ` · Staff ${snap.staff.present}/${snap.staff.total}` : ""
+      } · ${snap.leave.pendingStudent + (canManageStaff ? snap.leave.pendingStaff : 0)} leave pending`}
+      tabs={tabs}
+      tab={tab}
+      onTabChange={setTab}
     >
-      <div
-        className="no-print"
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-        }}
-      >
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 18, color: C.navy }}>Attendance & Leave</div>
-          <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>
-            Students {snap.students.present}/{snap.students.total} present
-            {canManageStaff
-              ? ` · Staff ${snap.staff.present}/${snap.staff.total}`
-              : ""}
-            {" · "}
-            {snap.leave.pendingStudent + (canManageStaff ? snap.leave.pendingStaff : 0)} leave pending
-          </div>
-        </div>
-        <div
-          style={{
-            display: "inline-flex",
-            flexWrap: "wrap",
-            background: "#ecfdf5",
-            borderRadius: 10,
-            padding: 4,
-            gap: 4,
-            border: "1px solid #a7f3d0",
-            maxWidth: "100%",
-          }}
-        >
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              style={{
-                border: "none",
-                cursor: "pointer",
-                borderRadius: 8,
-                padding: "8px 12px",
-                fontSize: 12,
-                fontWeight: 700,
-                background: tab === t.id ? "#15803d" : "transparent",
-                color: tab === t.id ? "#fff" : "#15803d",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {t.l}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {tab === "overview" && (
         <AttendanceOverviewPanel
           settings={settings}
@@ -142,23 +82,14 @@ export function AttendanceLeaveModulePage({
       )}
 
       {tab === "students" && (
-        <div
-          style={{
-            background: "#fff",
-            border: "1px solid #e5e7eb",
-            borderRadius: 12,
-            boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
-            padding: 12,
-          }}
-        >
-          <AttendancePage
-            settings={settings}
-            students={students}
-            currentSession={currentSession}
-            activeSchoolId={activeSchoolId}
-            setBarSubtitle={null}
-          />
-        </div>
+        <AttendancePage
+          settings={settings}
+          students={students}
+          currentSession={currentSession}
+          activeSchoolId={activeSchoolId}
+          setBarSubtitle={null}
+          embedded={true}
+        />
       )}
 
       {tab === "studentLeave" && (
@@ -185,6 +116,6 @@ export function AttendanceLeaveModulePage({
           activeSchoolId={activeSchoolId}
         />
       )}
-    </div>
+    </ModulePageShell>
   );
 }

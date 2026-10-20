@@ -1,19 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
-import { C, schoolOrBrandLogo } from "@/shared/theme";
+import { schoolOrBrandLogo } from "@/shared/theme";
 
-/** Legacy-compatible button used across PSMS pages (shadcn Button underneath). */
+/** shadcn Button with legacy Btn API (small / danger / outline). */
 export function Btn({ children, onClick, color, small, danger, outline, disabled, style: sx, type, className }) {
   const variant = danger ? "destructive" : outline ? "outline" : "default";
   const size = small ? "sm" : "default";
-  const customColor =
-    !danger && !outline && color
-      ? { background: color, borderColor: color, color: "#fff" }
-      : outline && color
-        ? { borderColor: color, color }
-        : undefined;
   return (
     <Button
       type={type || "button"}
@@ -21,70 +17,67 @@ export function Btn({ children, onClick, color, small, danger, outline, disabled
       disabled={disabled}
       variant={variant}
       size={size}
-      className={cn("font-semibold shadow-sm", className)}
-      style={{ ...customColor, ...sx }}
+      className={cn(className)}
+      style={sx}
     >
       {children}
     </Button>
   );
 }
 
+/** shadcn NativeSelect + Label with legacy Sel API. */
 export function Sel({ label, value, onChange, options, width, className, selectClassName, touchFriendly }) {
   const fullW = width === "100%";
   return (
     <div
-      className={className || undefined}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 3,
-        minWidth: fullW ? 0 : undefined,
-        width: fullW ? "100%" : undefined,
-      }}
+      className={cn(
+        "flex min-w-0 flex-col gap-1.5",
+        fullW && "w-full",
+        className
+      )}
+      style={width && width !== "100%" ? { width } : undefined}
     >
-      {label && <Label>{label}</Label>}
-      <select
-        className={cn(
-          "rounded-md border border-input bg-background px-2.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          touchFriendly ? "min-h-11 py-2.5 text-base" : "h-7 py-1",
-          selectClassName
-        )}
+      {label ? <Label>{label}</Label> : null}
+      <NativeSelect
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        style={{
-          width: width || "auto",
-          maxWidth: "100%",
-          boxSizing: "border-box",
-          cursor: "pointer",
-          ...(touchFriendly ? { WebkitAppearance: "menulist" } : {}),
-        }}
+        size={touchFriendly ? "default" : "sm"}
+        className={cn("w-full max-w-full", fullW && "w-full", selectClassName)}
       >
-        {options.map((o) => (
-          <option key={typeof o === "string" ? o : o.value} value={typeof o === "string" ? o : o.value}>
-            {typeof o === "string" ? o : o.label}
-          </option>
-        ))}
-      </select>
+        {(options || []).map((o) => {
+          const optValue = typeof o === "string" ? o : o.value;
+          const optLabel = typeof o === "string" ? o : o.label;
+          return (
+            <NativeSelectOption key={String(optValue)} value={optValue}>
+              {optLabel}
+            </NativeSelectOption>
+          );
+        })}
+      </NativeSelect>
     </div>
   );
 }
 
+/** shadcn Input + Label with legacy Inp API. */
 export function Inp({ label, value, onChange, type = "text", width, className, inputClassName, ...rest }) {
   return (
-    <div className={cn("flex flex-col gap-1 min-w-0", className)} style={{ width: width || undefined, maxWidth: "100%" }}>
-      {label && <Label>{label}</Label>}
+    <div
+      className={cn("flex min-w-0 flex-col gap-1.5", className)}
+      style={width ? { width, maxWidth: "100%" } : undefined}
+    >
+      {label ? <Label>{label}</Label> : null}
       <Input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={inputClassName}
-        style={{ width: width || "auto", maxWidth: "100%", boxSizing: "border-box" }}
+        className={cn("h-8", inputClassName)}
         {...rest}
       />
     </div>
   );
 }
 
+/** Print/screen school header built from shadcn Card. */
 export function SchoolHeader({ settings, subtitle, rightText, session, printOrder }) {
   const dateStr = new Date().toLocaleDateString("en-PK", {
     weekday: "long",
@@ -93,99 +86,60 @@ export function SchoolHeader({ settings, subtitle, rightText, session, printOrde
     day: "numeric",
   });
   const timeStr = new Date().toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" });
-  const dateTime = rightText ? null : (
+  const meta = rightText ? (
     <>
-      {session && <div style={{ fontWeight: 600 }}>Session: {session}</div>}
-      <div>Date: {dateStr}</div>
-      <div>Time: {timeStr}</div>
+      {String(rightText)
+        .split(" | ")
+        .map((p, i) => (
+          <div key={i} className={cn("text-xs text-muted-foreground", i === 0 && "font-semibold text-foreground")}>
+            {p}
+          </div>
+        ))}
+      {session ? <div className="mt-0.5 text-xs font-semibold text-muted-foreground">Session: {session}</div> : null}
+    </>
+  ) : (
+    <>
+      {session ? <div className="text-xs font-semibold text-muted-foreground">Session: {session}</div> : null}
+      <div className="text-xs text-muted-foreground">Date: {dateStr}</div>
+      <div className="text-xs text-muted-foreground">Time: {timeStr}</div>
     </>
   );
+
   if (printOrder) {
     return (
-      <div
-        className="print-header-universal"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 20,
-          padding: "14px 20px",
-          borderBottom: `2px solid ${C.navy}`,
-          marginBottom: 14,
-          flexWrap: "wrap",
-          background: "#fafbfc",
-        }}
-      >
-        <div style={{ flexShrink: 0 }}>
+      <Card size="sm" className="print-header-universal mb-3.5 shadow-none">
+        <CardContent className="flex flex-wrap items-center gap-5 py-3.5">
           <img
             src={schoolOrBrandLogo(settings.logo)}
-            style={{ width: 112, height: 112, borderRadius: 8, objectFit: "cover", border: `1px solid ${C.navy}` }}
+            className="size-28 shrink-0 rounded-lg border object-cover"
             alt="School logo"
           />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 17, color: C.navy, letterSpacing: "0.02em" }}>
-            {settings.schoolName || "School Name"}
+          <div className="min-w-0 flex-1">
+            <div className="text-[17px] font-bold tracking-wide text-primary">
+              {settings.schoolName || "School Name"}
+            </div>
+            {subtitle ? <div className="mt-1 text-sm font-semibold text-muted-foreground">{subtitle}</div> : null}
           </div>
-          {subtitle && <div style={{ fontSize: 13, color: C.gray, marginTop: 4, fontWeight: 600 }}>{subtitle}</div>}
-        </div>
-        <div style={{ fontSize: 11, color: C.gray, textAlign: "right", lineHeight: 1.5 }}>
-          {rightText ? (
-            <>
-              {String(rightText)
-                .split(" | ")
-                .map((p, i) => (
-                  <div key={i} style={{ fontWeight: i === 0 ? 700 : 500 }}>
-                    {p}
-                  </div>
-                ))}
-              {session && (
-                <div style={{ fontWeight: 600, marginTop: 2 }}>Session: {session}</div>
-              )}
-            </>
-          ) : (
-            dateTime
-          )}
-        </div>
-      </div>
+          <div className="text-right leading-snug">{meta}</div>
+        </CardContent>
+      </Card>
     );
   }
+
   return (
-    <div
-      className="print-header-universal"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 14,
-        padding: "10px 18px",
-        borderBottom: `2px solid ${C.navy}`,
-        marginBottom: 10,
-      }}
-    >
-      <img
-        src={schoolOrBrandLogo(settings.logo)}
-        style={{ width: 96, height: 96, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-        alt=""
-      />
-      <div style={{ flex: 1, textAlign: "center" }}>
-        <div style={{ fontWeight: 700, fontSize: 15, color: C.navy }}>{settings.schoolName}</div>
-        {subtitle && <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>{subtitle}</div>}
-      </div>
-      <div style={{ fontSize: 11, color: C.gray, textAlign: "right" }}>
-        {rightText ? (
-          <>
-            {String(rightText)
-              .split(" | ")
-              .map((p, i) => (
-                <div key={i} style={{ fontWeight: i === 0 ? 700 : 500 }}>
-                  {p}
-                </div>
-              ))}
-            {session && <div style={{ fontWeight: 600, marginTop: 2 }}>Session: {session}</div>}
-          </>
-        ) : (
-          dateTime
-        )}
-      </div>
-    </div>
+    <Card size="sm" className="print-header-universal mb-2.5 shadow-none">
+      <CardContent className="flex items-center gap-3.5 py-2.5">
+        <img
+          src={schoolOrBrandLogo(settings.logo)}
+          className="size-24 shrink-0 rounded-full object-cover"
+          alt=""
+        />
+        <div className="min-w-0 flex-1 text-center">
+          <div className="text-[15px] font-bold text-primary">{settings.schoolName}</div>
+          {subtitle ? <div className="mt-0.5 text-xs text-muted-foreground">{subtitle}</div> : null}
+        </div>
+        <div className="text-right">{meta}</div>
+      </CardContent>
+    </Card>
   );
 }

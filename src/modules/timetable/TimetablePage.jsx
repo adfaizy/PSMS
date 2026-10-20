@@ -9,14 +9,17 @@ import QRCode from "qrcode";
 import { X, Plus, Edit2, Trash2, Upload, Download, Menu, Settings, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import * as feeCore from "@/modules/fee/feeCore";
 import { feeService, systemSettingsService, dashboardService } from "@/services";
-import { UI } from "@/uiTokens.js";
 import signImg from "@/assets/sign.png";
 import { yieldToMain } from "@/yieldToMain.js";
 import { C, schoolOrBrandLogo, APP_BRAND_LOGO, genId } from "@/shared/theme";
-import { Btn, Sel, Inp, SchoolHeader } from "@/components/AppControls";
+import { SchoolHeader } from "@/components/AppControls";
+import { ModulePageShell } from "@/components/ModulePageShell";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import * as H from "@/shared/helpers";
 
@@ -179,38 +182,43 @@ export function AllClassesView({settings,staffProfiles,timetable,setTimetable,da
       // Strict rule: no teacher can be assigned in the same period twice.
       return !teacherBusy(st.name,pi,cid);
     });
-    return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={closeEditor}>
-      <div style={{background:"#fff",borderRadius:10,width:"100%",maxWidth:420,maxHeight:"90vh",overflow:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}} onClick={e=>e.stopPropagation()}>
-        <div style={{background:C.navy,color:"#fff",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{fontWeight:700,fontSize:14}}>Assign Period</span>
-          <button onClick={closeEditor} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>×</button>
-        </div>
-        <div style={{padding:16,fontSize:14}}>
-          <div style={{marginBottom:8,color:"#000"}}>
-            <div><strong>Class:</strong> {cls?formatClassDisplay(cls):""}</div>
-            <div><strong>Period:</strong> {getPeriodLabel(pi,settings)} ({fmtMin(period.start)}–{fmtMin(period.end)})</div>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr",gap:8,marginBottom:12}}>
-            <div>
-              <label style={{fontSize:11,fontWeight:700,color:"#000",display:"block",marginBottom:4}}>Subject</label>
-              <select value={editSubject} onChange={e=>setEditSubject(e.target.value)} style={{width:"100%",padding:"6px 8px",border:"1.5px solid #d1d5db",borderRadius:5,fontSize:13}}>
-                <option value="">— Select subject —</option>
-                {subjectOptions.map(s=>{
-                  const isCommon = !!gradeCommon[(s||"").trim()];
-                  return <option key={s} value={s}>{isCommon?"★ ":""}{s}</option>;
-                })}
-              </select>
+    return (
+      <Dialog open onOpenChange={(open)=>{ if(!open) closeEditor(); }}>
+        <DialogContent className="max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Assign Period</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="space-y-0.5 text-foreground">
+              <div><strong>Class:</strong> {cls?formatClassDisplay(cls):""}</div>
+              <div><strong>Period:</strong> {getPeriodLabel(pi,settings)} ({fmtMin(period.start)}–{fmtMin(period.end)})</div>
             </div>
-            <div>
-              <label style={{fontSize:11,fontWeight:700,color:"#000",display:"block",marginBottom:4}}>Teacher</label>
-              <select value={editTeacher} onChange={e=>setEditTeacher(e.target.value)} disabled={!editSubject} style={{width:"100%",padding:"6px 8px",border:"1.5px solid #d1d5db",borderRadius:5,fontSize:13,background:editSubject?"#fff":"#f3f4f6",opacity:editSubject?1:0.7}}>
-                <option value="">— Select teacher —</option>
-                {teacherOptions.map(st=><option key={st.id} value={st.name}>{st.name}</option>)}
-              </select>
+            <div className="grid gap-2">
+              <div className="grid gap-1.5">
+                <Label className="text-xs font-bold">Subject</Label>
+                <select value={editSubject} onChange={e=>setEditSubject(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
+                  <option value="">— Select subject —</option>
+                  {subjectOptions.map(s=>{
+                    const isCommon=!!gradeCommon[(s||"").trim()];
+                    return <option key={s} value={s}>{isCommon?"★ ":""}{s}</option>;
+                  })}
+                </select>
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="text-xs font-bold">Teacher</Label>
+                <select value={editTeacher} onChange={e=>setEditTeacher(e.target.value)} disabled={!editSubject} className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-muted">
+                  <option value="">— Select teacher —</option>
+                  {teacherOptions.map(st=><option key={st.id} value={st.name}>{st.name}</option>)}
+                </select>
+              </div>
             </div>
           </div>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <button
+          <DialogFooter className="flex-row items-center justify-between gap-2 sm:justify-between">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
               onClick={()=>{
                 if(!editCell) return;
                 const {cid,pi}=editCell;
@@ -219,18 +227,17 @@ export function AllClassesView({settings,staffProfiles,timetable,setTimetable,da
                 setTT(setTimetable,cid,day,pi,{subject:"",teacher:""});
                 setEditCell(null);
               }}
-              style={{background:"none",border:"none",color:C.red,fontSize:12,cursor:"pointer"}}
             >
               Clear
-            </button>
-            <div style={{display:"flex",gap:8}}>
-              <Btn outline color={C.gray} onClick={closeEditor}>Cancel</Btn>
-              <Btn onClick={saveEditor}>Save Period</Btn>
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={closeEditor}>Cancel</Button>
+              <Button size="sm" onClick={saveEditor}>Save Period</Button>
             </div>
-          </div>
-        </div>
-      </div>
-    </div>;
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
   };
 
   return <div style={{overflowX:"auto",border:"1px solid #e2e8f0",borderRadius:10,background:"#fff"}}>
@@ -503,40 +510,44 @@ export function ByClassView({settings,staffProfiles,timetable,setTimetable,selCl
       if(isCurrent) return true;
       return !teacherBusy(st.name,day,pi,selCls);
     });
-    return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={closeEditor}>
-      <div style={{background:"#fff",borderRadius:10,width:"100%",maxWidth:420,maxHeight:"90vh",overflow:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}} onClick={e=>e.stopPropagation()}>
-        <div style={{background:C.navy,color:"#fff",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{fontWeight:700,fontSize:14}}>Assign Period</span>
-          <button type="button" onClick={closeEditor} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>×</button>
-        </div>
-        <div style={{padding:16,fontSize:14}}>
-          <div style={{marginBottom:8,color:"#000"}}>
-            <div><strong>Class:</strong> {cls?formatClassDisplay(cls):""}</div>
-            <div><strong>Day:</strong> {day}</div>
-            <div><strong>Period:</strong> {getPeriodLabel(pi,settings)} ({period?`${fmtMin(period.start)}–${fmtMin(period.end)}`:""})</div>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr",gap:8,marginBottom:12}}>
-            <div>
-              <label style={{fontSize:11,fontWeight:700,color:"#000",display:"block",marginBottom:4}}>Subject</label>
-              <select value={editSubject} onChange={e=>setEditSubject(e.target.value)} style={{width:"100%",padding:"6px 8px",border:"1.5px solid #d1d5db",borderRadius:5,fontSize:13}}>
-                <option value="">— Select subject —</option>
-                {subjectOptions.map(s=>{
-                  const isCommon = !!gradeCommon[(s||"").trim()];
-                  return <option key={s} value={s}>{isCommon?"★ ":""}{s}</option>;
-                })}
-              </select>
+    return (
+      <Dialog open onOpenChange={(open)=>{ if(!open) closeEditor(); }}>
+        <DialogContent className="max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Assign Period</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="space-y-0.5 text-foreground">
+              <div><strong>Class:</strong> {cls?formatClassDisplay(cls):""}</div>
+              <div><strong>Day:</strong> {day}</div>
+              <div><strong>Period:</strong> {getPeriodLabel(pi,settings)} ({period?`${fmtMin(period.start)}–${fmtMin(period.end)}`:""})</div>
             </div>
-            <div>
-              <label style={{fontSize:11,fontWeight:700,color:"#000",display:"block",marginBottom:4}}>Teacher</label>
-              <select value={editTeacher} onChange={e=>setEditTeacher(e.target.value)} disabled={!editSubject} style={{width:"100%",padding:"6px 8px",border:"1.5px solid #d1d5db",borderRadius:5,fontSize:13,background:editSubject?"#fff":"#f3f4f6",opacity:editSubject?1:0.7}}>
-                <option value="">— Select teacher —</option>
-                {teacherOptions.map(st=><option key={st.id} value={st.name}>{st.name}</option>)}
-              </select>
+            <div className="grid gap-2">
+              <div className="grid gap-1.5">
+                <Label className="text-xs font-bold">Subject</Label>
+                <select value={editSubject} onChange={e=>setEditSubject(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
+                  <option value="">— Select subject —</option>
+                  {subjectOptions.map(s=>{
+                    const isCommon=!!gradeCommon[(s||"").trim()];
+                    return <option key={s} value={s}>{isCommon?"★ ":""}{s}</option>;
+                  })}
+                </select>
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="text-xs font-bold">Teacher</Label>
+                <select value={editTeacher} onChange={e=>setEditTeacher(e.target.value)} disabled={!editSubject} className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-muted">
+                  <option value="">— Select teacher —</option>
+                  {teacherOptions.map(st=><option key={st.id} value={st.name}>{st.name}</option>)}
+                </select>
+              </div>
             </div>
           </div>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <button
+          <DialogFooter className="flex-row items-center justify-between gap-2 sm:justify-between">
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
               onClick={()=>{
                 if(!editCell) return;
                 const {day,pi}=editCell;
@@ -545,18 +556,17 @@ export function ByClassView({settings,staffProfiles,timetable,setTimetable,selCl
                 setTTSingleDay(setTimetable,selCls,day,pi,{subject:"",teacher:""});
                 setEditCell(null);
               }}
-              style={{background:"none",border:"none",color:C.red,fontSize:12,cursor:"pointer"}}
             >
               Clear
-            </button>
-            <div style={{display:"flex",gap:8}}>
-              <Btn outline color={C.gray} onClick={closeEditor}>Cancel</Btn>
-              <Btn onClick={saveEditor}>Save Period</Btn>
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={closeEditor}>Cancel</Button>
+              <Button size="sm" onClick={saveEditor}>Save Period</Button>
             </div>
-          </div>
-        </div>
-      </div>
-    </div>;
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
   };
 
   return <div>
@@ -884,8 +894,15 @@ export function TimetablePage({settings,staffProfiles,timetable,setTimetable,cur
     alert("Timetable auto-generated successfully!");
   };
 
-  return <div className="timetable-page timetable-print-area space-y-3" style={{width:"100%",maxWidth:"100%",minWidth:0,boxSizing:"border-box"}}>
-    <Card className="no-print timetable-toolbar border-border/70 shadow-sm">
+  return (
+    <ModulePageShell
+      title="Timetable"
+      description={views.find((x) => x.id === view)?.label || "Class and teacher schedules"}
+      bareContent
+      className="timetable-page timetable-print-area"
+      maxWidthClassName="max-w-none"
+    >
+    <Card className="no-print timetable-toolbar border-border/70 shadow-none">
       <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:flex-wrap sm:items-center">
         <Tabs value={view} onValueChange={setView} className="min-w-0">
           <TabsList className="h-auto flex-wrap">
@@ -921,11 +938,11 @@ export function TimetablePage({settings,staffProfiles,timetable,setTimetable,cur
               )}
             </div>
           )}
-          {view==="byClass"&&<Sel value={byClassCls} onChange={setByClassCls} options={[{value:"__all_classes__",label:"All classes"},...settings.classes.map(c=>({value:c.id,label:formatClassDisplay(c)}))]}/>}
-          {view==="byTeacher"&&<Sel value={byTeacherName} onChange={setByTeacherName} options={[{value:"__all_staff__",label:"All staff"},...teachingStaff.map(st=>({value:st.name,label:st.name}))]}/>}
+          {view==="byClass"&&<select value={byClassCls} onChange={e=>setByClassCls(e.target.value)} className="h-8 rounded-md border border-input bg-background px-2 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">{[{value:"__all_classes__",label:"All classes"},...settings.classes.map(c=>({value:c.id,label:formatClassDisplay(c)}))].map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select>}
+          {view==="byTeacher"&&<select value={byTeacherName} onChange={e=>setByTeacherName(e.target.value)} className="h-8 rounded-md border border-input bg-background px-2 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">{[{value:"__all_staff__",label:"All staff"},...teachingStaff.map(st=>({value:st.name,label:st.name}))].map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select>}
           <Separator orientation="vertical" className="hidden h-6 sm:block" />
-          <Btn small onClick={autoGenerateTimetable}>Generate Timetable</Btn>
-          <Btn small outline onClick={handleTimetablePdf}>Export PDF</Btn>
+          <Button size="sm" onClick={autoGenerateTimetable}>Generate Timetable</Button>
+          <Button size="sm" variant="outline" onClick={handleTimetablePdf}>Export PDF</Button>
         </div>
       </CardContent>
     </Card>
@@ -950,6 +967,7 @@ export function TimetablePage({settings,staffProfiles,timetable,setTimetable,cur
       ))}
     </div>}
     </div>
-  </div>;
+    </ModulePageShell>
+  );
 }
 

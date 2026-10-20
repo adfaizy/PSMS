@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { MessageCircle, Phone, Mail, MessageSquareText, Send, X, Info, Headphones } from "lucide-react";
+import { MessageCircle, Phone, Mail, MessageSquareText, Send, X } from "lucide-react";
 import { APP_BRAND_LOGO_URL } from "./branding.js";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ModulePageShell } from "@/components/ModulePageShell";
 import { cn } from "@/lib/utils";
 import "./AboutUsPage.css";
 
@@ -326,11 +327,27 @@ function DiscussionPanel() {
   );
 }
 
+const ABOUT_TABS = [
+  { id: "overview", l: "Overview" },
+  { id: "contact", l: "Contact" },
+  { id: "discussion", l: "Discussion" },
+];
+
 export function AboutUsPage() {
   const [tab, setTab] = useState("overview");
 
   return (
-    <div className="about-page mx-auto max-w-[920px] space-y-5">
+    <ModulePageShell
+      title="About Punjab-SMS"
+      description="Licensing, support, and product overview"
+      tabs={ABOUT_TABS}
+      tab={tab}
+      onTabChange={setTab}
+      bareContent
+      maxWidthClassName="max-w-[920px]"
+      className="about-page"
+      hideTitle
+    >
       <header className="about-hero">
         <div className="about-hero__inner relative z-[1] grid gap-4 justify-items-start">
           <div className="flex min-w-0 items-center gap-4">
@@ -368,104 +385,85 @@ export function AboutUsPage() {
         </div>
       </header>
 
-      <Tabs value={tab} onValueChange={setTab} className="w-full">
-        <TabsList className="h-auto w-full flex-wrap justify-start gap-1 bg-muted/80 p-1">
-          <TabsTrigger value="overview" className="gap-1.5">
-            <Info className="h-3.5 w-3.5" aria-hidden />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="contact" className="gap-1.5">
-            <Headphones className="h-3.5 w-3.5" aria-hidden />
-            Contact
-          </TabsTrigger>
-          <TabsTrigger value="discussion" className="gap-1.5">
-            <MessageSquareText className="h-3.5 w-3.5" aria-hidden />
-            Discussion
-          </TabsTrigger>
-        </TabsList>
+      {tab === "overview" && (
+        <Card className="border-border/70 shadow-none">
+          <CardHeader>
+            <CardTitle className="text-lg text-primary">About the product</CardTitle>
+            <CardDescription>What PSMS offers schools and administrators</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+            <p className="m-0">
+              PSMS runs on desktop, Android, macOS, and modern browsers — built for reliable school administration across platforms.
+            </p>
+            <p className="m-0">
+              The web app is free for general use. For custom workflows, we design and deploy tailored solutions for web, desktop, mobile, or macOS.
+            </p>
+            <Separator className="my-2" />
+            <div className="flex flex-wrap gap-2" aria-label="Platforms">
+              {["Web", "Desktop", "Android", "macOS", "Local-first"].map((label) => (
+                <Badge key={label} variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/15">
+                  {label}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-wrap gap-2 border-t bg-muted/30 pt-4">
+            <Button type="button" onClick={() => setTab("contact")}>
+              View contact options
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setTab("discussion")}>
+              Open discussion
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
 
-        <TabsContent value="overview" className="mt-4 space-y-4 focus-visible:ring-0">
-          <Card className="border-border/70 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg text-primary">About the product</CardTitle>
-              <CardDescription>What PSMS offers schools and administrators</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm leading-relaxed text-muted-foreground">
-              <p className="m-0">
-                PSMS runs on desktop, Android, macOS, and modern browsers — built for reliable school administration across platforms.
-              </p>
-              <p className="m-0">
-                The web app is free for general use. For custom workflows, we design and deploy tailored solutions for web, desktop, mobile, or macOS.
-              </p>
-              <Separator className="my-2" />
-              <div className="flex flex-wrap gap-2" aria-label="Platforms">
-                {["Web", "Desktop", "Android", "macOS", "Local-first"].map((label) => (
-                  <Badge key={label} variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/15">
-                    {label}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-            <CardFooter className="flex flex-wrap gap-2 border-t bg-muted/30 pt-4">
-              <Button type="button" onClick={() => setTab("contact")}>
-                View contact options
-              </Button>
-              <Button type="button" variant="outline" onClick={() => setTab("discussion")}>
-                Open discussion
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
+      {tab === "contact" && (
+        <Card className="border-border/70 shadow-none">
+          <CardHeader>
+            <CardTitle className="text-lg text-primary">Contact</CardTitle>
+            <CardDescription>WhatsApp and email open with a draft you can edit before sending.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {CONTACT_CHANNELS.map((channel) => {
+                const Icon = channel.icon;
+                return (
+                  <Card key={channel.id} className="border-border/80 shadow-none transition-shadow hover:shadow-md">
+                    <CardHeader className="space-y-3 pb-3">
+                      <div className={cn("flex h-9 w-9 items-center justify-center rounded-lg", channel.iconClass)}>
+                        <Icon className="h-4 w-4" aria-hidden />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base">{channel.title}</CardTitle>
+                        <CardDescription className="mt-1">{channel.description}</CardDescription>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pb-3">
+                      <p className="m-0 break-words text-xs font-semibold tabular-nums text-muted-foreground">{channel.value}</p>
+                    </CardContent>
+                    <CardFooter>
+                      <Button asChild className="w-full" variant={channel.id === "whatsapp" ? "default" : "outline"}>
+                        <a
+                          href={channel.href}
+                          target={channel.external ? "_blank" : undefined}
+                          rel={channel.external ? "noopener noreferrer" : undefined}
+                          aria-label={`${channel.cta}: ${channel.value}`}
+                        >
+                          <Icon aria-hidden />
+                          {channel.cta}
+                        </a>
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-        <TabsContent value="contact" className="mt-4 space-y-4 focus-visible:ring-0">
-          <Card className="border-border/70 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg text-primary">Contact</CardTitle>
-              <CardDescription>WhatsApp and email open with a draft you can edit before sending.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-3 sm:grid-cols-3">
-                {CONTACT_CHANNELS.map((channel) => {
-                  const Icon = channel.icon;
-                  return (
-                    <Card key={channel.id} className="border-border/80 shadow-none transition-shadow hover:shadow-md">
-                      <CardHeader className="space-y-3 pb-3">
-                        <div className={cn("flex h-9 w-9 items-center justify-center rounded-lg", channel.iconClass)}>
-                          <Icon className="h-4 w-4" aria-hidden />
-                        </div>
-                        <div>
-                          <CardTitle className="text-base">{channel.title}</CardTitle>
-                          <CardDescription className="mt-1">{channel.description}</CardDescription>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="pb-3">
-                        <p className="m-0 break-words text-xs font-semibold tabular-nums text-muted-foreground">{channel.value}</p>
-                      </CardContent>
-                      <CardFooter>
-                        <Button asChild className="w-full" variant={channel.id === "whatsapp" ? "default" : "outline"}>
-                          <a
-                            href={channel.href}
-                            target={channel.external ? "_blank" : undefined}
-                            rel={channel.external ? "noopener noreferrer" : undefined}
-                            aria-label={`${channel.cta}: ${channel.value}`}
-                          >
-                            <Icon aria-hidden />
-                            {channel.cta}
-                          </a>
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="discussion" className="mt-4 focus-visible:ring-0">
-          <DiscussionPanel />
-        </TabsContent>
-      </Tabs>
-    </div>
+      {tab === "discussion" && <DiscussionPanel />}
+    </ModulePageShell>
   );
 }

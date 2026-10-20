@@ -1,6 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Btn, Sel, Inp } from "@/components/AppControls";
-import { C } from "@/shared/theme";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { cn } from "@/lib/utils";
 import { feeService } from "@/services";
 import * as H from "@/shared/helpers";
 import { searchStudents } from "@/modules/students/studentsCore.js";
@@ -27,13 +33,6 @@ import {
 
 const { formatClassDisplay } = H;
 
-const panel = {
-  background: "#fff",
-  border: "1px solid #e5e7eb",
-  borderRadius: 12,
-  boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
-};
-
 function useFeeMonth() {
   return useState(() => {
     const now = new Date();
@@ -58,12 +57,7 @@ function useHydratedFees(activeSchoolId) {
   return feeRecords;
 }
 
-export function FeeOverviewPanel({
-  settings,
-  students,
-  activeSchoolId,
-  onGoTab,
-}) {
+export function FeeOverviewPanel({ settings, students, activeSchoolId, onGoTab }) {
   const [period, setPeriod] = useFeeMonth();
   const feeRecords = useHydratedFees(activeSchoolId);
   const [concessions, setConcessions] = useState(() => loadConcessions(activeSchoolId));
@@ -93,53 +87,62 @@ export function FeeOverviewPanel({
   const monthValue = `${period.year}-${String(period.month).padStart(2, "0")}`;
 
   const cards = [
-    { label: "Expected", value: formatCurrency(summary.expected), hint: `${summary.totalStudents} students × ${feeAmount}`, tab: "collection", accent: C.navy },
-    { label: "Collected", value: formatCurrency(summary.collected), hint: `${summary.rate}% · ${summary.paidCount} paid`, tab: "receipts", accent: "#15803d" },
-    { label: "Outstanding dues", value: formatCurrency(summary.pending), hint: `${summary.duesCount} students`, tab: "dues", accent: "#b91c1c" },
-    { label: "Expenses (month)", value: formatCurrency(summary.expenseTotal), hint: `Net ${formatCurrency(summary.net)}`, tab: "expenses", accent: "#b45309" },
+    { label: "Expected", value: formatCurrency(summary.expected), hint: `${summary.totalStudents} students × ${feeAmount}`, tab: "collection", accentClass: "border-t-primary" },
+    { label: "Collected", value: formatCurrency(summary.collected), hint: `${summary.rate}% · ${summary.paidCount} paid`, tab: "receipts", accentClass: "border-t-green-700" },
+    { label: "Outstanding dues", value: formatCurrency(summary.pending), hint: `${summary.duesCount} students`, tab: "dues", accentClass: "border-t-red-700" },
+    { label: "Expenses (month)", value: formatCurrency(summary.expenseTotal), hint: `Net ${formatCurrency(summary.net)}`, tab: "expenses", accentClass: "border-t-amber-600" },
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ ...panel, padding: 16, display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end", justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontWeight: 700, color: C.navy, fontSize: 15 }}>Fee & Finance Overview</div>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: C.gray }}>
-            Monthly fee {formatCurrency(feeAmount)} per student · {summary.concessionCount} concessions active
-          </p>
-        </div>
-        <Inp
-          label="Month"
-          type="month"
-          value={monthValue}
-          onChange={(v) => {
-            const [year, month] = String(v).split("-").map(Number);
-            if (year && month) setPeriod({ year, month });
-          }}
-          width={160}
-        />
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+    <div className="flex flex-col gap-3.5">
+      <Card className="shadow-none">
+        <CardContent className="p-4 flex flex-wrap gap-3 items-end justify-between">
+          <div>
+            <CardTitle className="text-base">Fee & Finance Overview</CardTitle>
+            <CardDescription className="mt-1">
+              Monthly fee {formatCurrency(feeAmount)} per student · {summary.concessionCount} concessions active
+            </CardDescription>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Month</Label>
+            <Input
+              type="month"
+              value={monthValue}
+              onChange={(e) => {
+                const [year, month] = String(e.target.value).split("-").map(Number);
+                if (year && month) setPeriod({ year, month });
+              }}
+              className="w-40"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
         {cards.map((c) => (
           <button
             key={c.label}
             type="button"
             onClick={() => onGoTab?.(c.tab)}
-            style={{ ...panel, padding: 14, textAlign: "left", cursor: "pointer", borderTop: `3px solid ${c.accent}` }}
+            className={cn(
+              "rounded-xl border bg-card p-3.5 text-left cursor-pointer shadow-none hover:bg-accent/50 transition-colors border-t-4",
+              c.accentClass,
+            )}
           >
-            <div style={{ fontSize: 20, fontWeight: 800, color: c.accent }}>{c.value}</div>
-            <div style={{ fontSize: 12, fontWeight: 700, marginTop: 4 }}>{c.label}</div>
-            <div style={{ fontSize: 11, color: C.gray, marginTop: 2 }}>{c.hint}</div>
+            <div className="text-xl font-extrabold">{c.value}</div>
+            <div className="text-xs font-bold mt-1">{c.label}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">{c.hint}</div>
           </button>
         ))}
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-        <Btn small onClick={() => onGoTab?.("collection")}>Open Collection</Btn>
-        <Btn small outline onClick={() => onGoTab?.("dues")}>View Dues</Btn>
-        <Btn small outline onClick={() => onGoTab?.("receipts")}>Receipts</Btn>
-        <Btn small outline onClick={() => onGoTab?.("concessions")}>Concessions</Btn>
-        <Btn small outline onClick={() => onGoTab?.("expenses")}>Expenses</Btn>
-        <Btn small outline onClick={() => onGoTab?.("reports")}>Reports</Btn>
+
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" onClick={() => onGoTab?.("collection")}>Open Collection</Button>
+        <Button size="sm" variant="outline" onClick={() => onGoTab?.("dues")}>View Dues</Button>
+        <Button size="sm" variant="outline" onClick={() => onGoTab?.("receipts")}>Receipts</Button>
+        <Button size="sm" variant="outline" onClick={() => onGoTab?.("concessions")}>Concessions</Button>
+        <Button size="sm" variant="outline" onClick={() => onGoTab?.("expenses")}>Expenses</Button>
+        <Button size="sm" variant="outline" onClick={() => onGoTab?.("reports")}>Reports</Button>
       </div>
     </div>
   );
@@ -174,62 +177,77 @@ export function FeeDuesPanel({ settings, students, activeSchoolId }) {
   const monthValue = `${period.year}-${String(period.month).padStart(2, "0")}`;
 
   return (
-    <div style={{ ...panel, padding: 16 }}>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "space-between", marginBottom: 14 }}>
-        <div>
-          <div style={{ fontWeight: 700, color: C.navy, fontSize: 15 }}>Outstanding Dues</div>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: C.gray }}>
-            {dues.length} unpaid · {formatCurrency(totalDue)} (after concessions)
-          </p>
+    <Card className="shadow-none">
+      <CardContent className="p-4">
+        <div className="flex flex-wrap gap-3 justify-between mb-3.5">
+          <div>
+            <CardTitle className="text-base">Outstanding Dues</CardTitle>
+            <CardDescription className="mt-1">
+              {dues.length} unpaid · {formatCurrency(totalDue)} (after concessions)
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2.5">
+            <div className="flex flex-col gap-1.5">
+              <Label>Class</Label>
+              <NativeSelect
+                value={classId}
+                onChange={(e) => setClassId(e.target.value)}
+                size="sm"
+                className="w-40"
+              >
+                <NativeSelectOption value="all">All classes</NativeSelectOption>
+                {(settings.classes || []).map((c) => (
+                  <NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Month</Label>
+              <Input
+                type="month"
+                value={monthValue}
+                onChange={(e) => {
+                  const [year, month] = String(e.target.value).split("-").map(Number);
+                  if (year && month) setPeriod({ year, month });
+                }}
+                className="w-36"
+              />
+            </div>
+          </div>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-          <Sel
-            label="Class"
-            value={classId}
-            onChange={setClassId}
-            options={[{ value: "all", label: "All classes" }, ...(settings.classes || []).map((c) => ({ value: c.id, label: formatClassDisplay(c) }))]}
-            width={160}
-          />
-          <Inp
-            label="Month"
-            type="month"
-            value={monthValue}
-            onChange={(v) => {
-              const [year, month] = String(v).split("-").map(Number);
-              if (year && month) setPeriod({ year, month });
-            }}
-            width={150}
-          />
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {["Class", "Roll", "Name", "Father", "Due", "Concession"].map((h) => (
+                  <TableHead key={h} className="bg-muted text-foreground">{h}</TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {dues.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-4">
+                    No outstanding dues for this filter.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                dues.map((d, i) => (
+                  <TableRow key={d.studentId} className={i % 2 !== 0 ? "" : "bg-muted/20"}>
+                    <TableCell>{d.classLabel}</TableCell>
+                    <TableCell className="font-bold">{d.rollNo || "—"}</TableCell>
+                    <TableCell className="font-semibold">{d.name}</TableCell>
+                    <TableCell className="text-muted-foreground">{d.fatherName || "—"}</TableCell>
+                    <TableCell className="font-bold">{formatCurrency(d.dueAmount)}</TableCell>
+                    <TableCell className="text-xs">{d.concession ? d.concession.type : "—"}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
-      </div>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-          <thead>
-            <tr style={{ background: "#b91c1c", color: "#fff" }}>
-              {["Class", "Roll", "Name", "Father", "Due", "Concession"].map((h) => (
-                <th key={h} style={{ padding: "8px 10px", textAlign: "left" }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {dues.length === 0 ? (
-              <tr><td colSpan={6} style={{ padding: 16, textAlign: "center", color: C.gray }}>No outstanding dues for this filter.</td></tr>
-            ) : (
-              dues.map((d, i) => (
-                <tr key={d.studentId} style={{ background: i % 2 ? "#fff" : "#fef2f2", borderBottom: "1px solid #fecaca" }}>
-                  <td style={{ padding: "8px 10px" }}>{d.classLabel}</td>
-                  <td style={{ padding: "8px 10px", fontWeight: 700 }}>{d.rollNo || "—"}</td>
-                  <td style={{ padding: "8px 10px", fontWeight: 600 }}>{d.name}</td>
-                  <td style={{ padding: "8px 10px", color: "#64748b" }}>{d.fatherName || "—"}</td>
-                  <td style={{ padding: "8px 10px", fontWeight: 700 }}>{formatCurrency(d.dueAmount)}</td>
-                  <td style={{ padding: "8px 10px", fontSize: 11 }}>{d.concession ? d.concession.type : "—"}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -237,6 +255,7 @@ export function FeeReceiptsPanel({ settings, students, activeSchoolId }) {
   const [period, setPeriod] = useFeeMonth();
   const feeRecords = useHydratedFees(activeSchoolId);
   const [query, setQuery] = useState("");
+
   const receipts = useMemo(() => {
     const list = buildReceiptsList({
       feeRecords,
@@ -256,54 +275,70 @@ export function FeeReceiptsPanel({ settings, students, activeSchoolId }) {
   const monthValue = `${period.year}-${String(period.month).padStart(2, "0")}`;
 
   return (
-    <div style={{ ...panel, padding: 16 }}>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "space-between", marginBottom: 14 }}>
-        <div>
-          <div style={{ fontWeight: 700, color: C.navy, fontSize: 15 }}>Payment Receipts</div>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: C.gray }}>{receipts.length} receipts · {formatCurrency(total)}</p>
+    <Card className="shadow-none">
+      <CardContent className="p-4">
+        <div className="flex flex-wrap gap-3 justify-between mb-3.5">
+          <div>
+            <CardTitle className="text-base">Payment Receipts</CardTitle>
+            <CardDescription className="mt-1">{receipts.length} receipts · {formatCurrency(total)}</CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2.5">
+            <div className="flex flex-col gap-1.5">
+              <Label>Search</Label>
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Name or receipt…"
+                className="w-44"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Month</Label>
+              <Input
+                type="month"
+                value={monthValue}
+                onChange={(e) => {
+                  const [year, month] = String(e.target.value).split("-").map(Number);
+                  if (year && month) setPeriod({ year, month });
+                }}
+                className="w-36"
+              />
+            </div>
+          </div>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-          <Inp label="Search" value={query} onChange={setQuery} placeholder="Name or receipt…" width={180} />
-          <Inp
-            label="Month"
-            type="month"
-            value={monthValue}
-            onChange={(v) => {
-              const [year, month] = String(v).split("-").map(Number);
-              if (year && month) setPeriod({ year, month });
-            }}
-            width={150}
-          />
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {["Receipt", "Date", "Student", "Class", "Roll", "Amount"].map((h) => (
+                  <TableHead key={h} className="bg-muted text-foreground">{h}</TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {receipts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-4">
+                    No payments recorded for this month.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                receipts.map((r, i) => (
+                  <TableRow key={r.id || i} className={i % 2 !== 0 ? "" : "bg-muted/20"}>
+                    <TableCell className="font-mono text-xs">{r.receiptNo}</TableCell>
+                    <TableCell>{r.paidAt ? String(r.paidAt).slice(0, 10) : "—"}</TableCell>
+                    <TableCell className="font-semibold">{r.name}</TableCell>
+                    <TableCell>{r.classLabel}</TableCell>
+                    <TableCell>{r.rollNo || "—"}</TableCell>
+                    <TableCell className="font-bold">{formatCurrency(r.amount)}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
-      </div>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-          <thead>
-            <tr style={{ background: "#15803d", color: "#fff" }}>
-              {["Receipt", "Date", "Student", "Class", "Roll", "Amount"].map((h) => (
-                <th key={h} style={{ padding: "8px 10px", textAlign: "left" }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {receipts.length === 0 ? (
-              <tr><td colSpan={6} style={{ padding: 16, textAlign: "center", color: C.gray }}>No payments recorded for this month.</td></tr>
-            ) : (
-              receipts.map((r, i) => (
-                <tr key={r.id || i} style={{ background: i % 2 ? "#fff" : "#f0fdf4", borderBottom: "1px solid #bbf7d0" }}>
-                  <td style={{ padding: "8px 10px", fontFamily: "monospace", fontSize: 11 }}>{r.receiptNo}</td>
-                  <td style={{ padding: "8px 10px" }}>{r.paidAt ? String(r.paidAt).slice(0, 10) : "—"}</td>
-                  <td style={{ padding: "8px 10px", fontWeight: 600 }}>{r.name}</td>
-                  <td style={{ padding: "8px 10px" }}>{r.classLabel}</td>
-                  <td style={{ padding: "8px 10px" }}>{r.rollNo || "—"}</td>
-                  <td style={{ padding: "8px 10px", fontWeight: 700 }}>{formatCurrency(r.amount)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -332,94 +367,130 @@ export function FeeConcessionsPanel({ settings, students, setSettings, activeSch
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ ...panel, padding: 16 }}>
-        <div style={{ fontWeight: 700, color: C.navy, marginBottom: 4 }}>Fee structure & concessions</div>
-        <p style={{ margin: "0 0 12px", fontSize: 13, color: C.gray }}>
-          Set the default monthly fee and grant discounts/waivers to individual students.
-        </p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end", marginBottom: 16 }}>
-          <Inp
-            label="Monthly fee (Rs)"
-            type="number"
-            value={settings.feeAmount ?? feeAmount}
-            onChange={(v) => setSettings?.((s) => ({ ...s, feeAmount: v === "" ? feeAmount : Number(v) }))}
-            width={140}
-          />
-          <span style={{ fontSize: 12, color: C.gray, paddingBottom: 6 }}>Applies to dues calculations in this module.</span>
-        </div>
-        <div className="psms-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-          <Inp label="Search student" value={query} onChange={setQuery} placeholder="Name…" width="100%" />
-          <Sel
-            label="Student"
-            value={studentId}
-            onChange={setStudentId}
-            options={[{ value: "", label: "Select…" }, ...options.map((s) => ({ value: s.id, label: `${s.name} · Roll ${s.rollNo || "—"}` }))]}
-            width="100%"
-          />
-          <Sel label="Type" value={type} onChange={setType} options={CONCESSION_TYPES.map((t) => ({ value: t, label: t }))} width="100%" />
-          <Sel
-            label="Mode"
-            value={mode}
-            onChange={setMode}
-            options={[
-              { value: "percent", label: "Percent off" },
-              { value: "amount", label: "Fixed amount off" },
-            ]}
-            width="100%"
-          />
-          <Inp label={mode === "percent" ? "Percent" : "Amount (Rs)"} type="number" value={value} onChange={setValue} width="100%" />
-          <Inp label="Reason" value={reason} onChange={setReason} placeholder="Optional" width="100%" />
-        </div>
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <Btn
-            onClick={() => {
-              if (!studentId) {
-                alert("Select a student.");
-                return;
-              }
-              persist(addConcession(list.filter((c) => String(c.studentId) !== String(studentId)), { studentId, type, mode, value, reason }));
-              setReason("");
-            }}
-          >
-            Save Concession
-          </Btn>
-        </div>
-      </div>
-      <div style={{ ...panel, padding: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Active concessions ({list.length})</div>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-            <thead>
-              <tr style={{ background: "#0f172a", color: "#fff" }}>
-                {["Student", "Type", "Discount", "Reason", ""].map((h) => (
-                  <th key={h || "a"} style={{ padding: "8px 10px", textAlign: "left" }}>{h}</th>
+    <div className="flex flex-col gap-3.5">
+      <Card className="shadow-none">
+        <CardContent className="p-4">
+          <CardTitle className="mb-1">Fee structure & concessions</CardTitle>
+          <CardDescription className="mb-3">
+            Set the default monthly fee and grant discounts/waivers to individual students.
+          </CardDescription>
+          <div className="flex flex-wrap gap-2.5 items-end mb-4">
+            <div className="flex flex-col gap-1.5">
+              <Label>Monthly fee (Rs)</Label>
+              <Input
+                type="number"
+                value={settings.feeAmount ?? feeAmount}
+                onChange={(e) =>
+                  setSettings?.((s) => ({ ...s, feeAmount: e.target.value === "" ? feeAmount : Number(e.target.value) }))
+                }
+                className="w-36"
+              />
+            </div>
+            <span className="text-xs text-muted-foreground pb-1.5">Applies to dues calculations in this module.</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5 mb-3">
+            <div className="flex flex-col gap-1.5">
+              <Label>Search student</Label>
+              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name…" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Student</Label>
+              <NativeSelect value={studentId} onChange={(e) => setStudentId(e.target.value)} size="sm" className="w-full">
+                <NativeSelectOption value="">Select…</NativeSelectOption>
+                {options.map((s) => (
+                  <NativeSelectOption key={s.id} value={s.id}>{s.name} · Roll {s.rollNo || "—"}</NativeSelectOption>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {list.length === 0 ? (
-                <tr><td colSpan={5} style={{ padding: 16, textAlign: "center", color: C.gray }}>No concessions yet.</td></tr>
-              ) : (
-                list.map((c, i) => {
-                  const st = students.find((s) => String(s.id) === String(c.studentId));
-                  return (
-                    <tr key={c.id} style={{ background: i % 2 ? "#fff" : "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                      <td style={{ padding: "8px 10px", fontWeight: 600 }}>{st?.name || c.studentId}</td>
-                      <td style={{ padding: "8px 10px" }}>{c.type}</td>
-                      <td style={{ padding: "8px 10px" }}>{c.mode === "percent" ? `${c.value}%` : formatCurrency(c.value)}</td>
-                      <td style={{ padding: "8px 10px", color: "#64748b" }}>{c.reason || "—"}</td>
-                      <td style={{ padding: "8px 10px" }}>
-                        <Btn small danger onClick={() => persist(removeConcession(list, c.id))}>Remove</Btn>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+              </NativeSelect>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Type</Label>
+              <NativeSelect value={type} onChange={(e) => setType(e.target.value)} size="sm" className="w-full">
+                {CONCESSION_TYPES.map((t) => (
+                  <NativeSelectOption key={t} value={t}>{t}</NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Mode</Label>
+              <NativeSelect value={mode} onChange={(e) => setMode(e.target.value)} size="sm" className="w-full">
+                <NativeSelectOption value="percent">Percent off</NativeSelectOption>
+                <NativeSelectOption value="amount">Fixed amount off</NativeSelectOption>
+              </NativeSelect>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>{mode === "percent" ? "Percent" : "Amount (Rs)"}</Label>
+              <Input type="number" value={value} onChange={(e) => setValue(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Reason</Label>
+              <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Optional" />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              onClick={() => {
+                if (!studentId) {
+                  alert("Select a student.");
+                  return;
+                }
+                persist(
+                  addConcession(
+                    list.filter((c) => String(c.studentId) !== String(studentId)),
+                    { studentId, type, mode, value, reason },
+                  ),
+                );
+                setReason("");
+              }}
+            >
+              Save Concession
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-none">
+        <CardContent className="p-4">
+          <div className="font-bold text-sm mb-2">Active concessions ({list.length})</div>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {["Student", "Type", "Discount", "Reason", ""].map((h) => (
+                    <TableHead key={h || "action"} className="bg-muted text-foreground">{h}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {list.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-4">
+                      No concessions yet.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  list.map((c, i) => {
+                    const st = students.find((s) => String(s.id) === String(c.studentId));
+                    return (
+                      <TableRow key={c.id} className={i % 2 !== 0 ? "" : "bg-muted/20"}>
+                        <TableCell className="font-semibold">{st?.name || c.studentId}</TableCell>
+                        <TableCell>{c.type}</TableCell>
+                        <TableCell>{c.mode === "percent" ? `${c.value}%` : formatCurrency(c.value)}</TableCell>
+                        <TableCell className="text-muted-foreground">{c.reason || "—"}</TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="destructive" onClick={() => persist(removeConcession(list, c.id))}>
+                            Remove
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -450,74 +521,103 @@ export function FeeExpensesPanel({ activeSchoolId }) {
   const monthValue = `${period.year}-${String(period.month).padStart(2, "0")}`;
 
   return (
-    <div style={{ ...panel, padding: 16 }}>
-      <div style={{ fontWeight: 700, color: C.navy, fontSize: 15, marginBottom: 4 }}>School Expenses</div>
-      <p style={{ margin: "0 0 12px", fontSize: 13, color: C.gray }}>
-        Track operating costs against fee collection. This month: {formatCurrency(total)}.
-      </p>
-      <div className="psms-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-        <Inp label="Title" value={title} onChange={setTitle} placeholder="e.g. Electricity bill" width="100%" />
-        <Sel label="Category" value={category} onChange={setCategory} options={EXPENSE_CATEGORIES.map((t) => ({ value: t, label: t }))} width="100%" />
-        <Inp label="Amount (Rs)" type="number" value={amount} onChange={setAmount} width="100%" />
-        <Inp label="Date" type="date" value={date} onChange={setDate} width="100%" />
-        <Inp label="Notes" value={notes} onChange={setNotes} placeholder="Optional" width="100%" />
-        <Inp
-          label="Filter month"
-          type="month"
-          value={monthValue}
-          onChange={(v) => {
-            const [year, month] = String(v).split("-").map(Number);
-            if (year && month) setPeriod({ year, month });
-          }}
-          width="100%"
-        />
-      </div>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
-        <Btn
-          onClick={() => {
-            if (!title.trim() || !amount) {
-              alert("Title and amount are required.");
-              return;
-            }
-            persist(addExpense(list, { title, category, amount, date, notes }));
-            setTitle("");
-            setAmount("");
-            setNotes("");
-          }}
-        >
-          Add Expense
-        </Btn>
-      </div>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-          <thead>
-            <tr style={{ background: "#b45309", color: "#fff" }}>
-              {["Date", "Title", "Category", "Amount", "Notes", ""].map((h) => (
-                <th key={h || "a"} style={{ padding: "8px 10px", textAlign: "left" }}>{h}</th>
+    <Card className="shadow-none">
+      <CardContent className="p-4">
+        <CardTitle className="text-base mb-1">School Expenses</CardTitle>
+        <CardDescription className="mb-3">
+          Track operating costs against fee collection. This month: {formatCurrency(total)}.
+        </CardDescription>
+        <div className="grid grid-cols-2 gap-2.5 mb-3">
+          <div className="flex flex-col gap-1.5">
+            <Label>Title</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Electricity bill" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Category</Label>
+            <NativeSelect value={category} onChange={(e) => setCategory(e.target.value)} size="sm" className="w-full">
+              {EXPENSE_CATEGORIES.map((t) => (
+                <NativeSelectOption key={t} value={t}>{t}</NativeSelectOption>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {monthList.length === 0 ? (
-              <tr><td colSpan={6} style={{ padding: 16, textAlign: "center", color: C.gray }}>No expenses in this month.</td></tr>
-            ) : (
-              monthList.map((e, i) => (
-                <tr key={e.id} style={{ background: i % 2 ? "#fff" : "#fffbeb", borderBottom: "1px solid #fde68a" }}>
-                  <td style={{ padding: "8px 10px" }}>{e.date}</td>
-                  <td style={{ padding: "8px 10px", fontWeight: 600 }}>{e.title}</td>
-                  <td style={{ padding: "8px 10px" }}>{e.category}</td>
-                  <td style={{ padding: "8px 10px", fontWeight: 700 }}>{formatCurrency(e.amount)}</td>
-                  <td style={{ padding: "8px 10px", color: "#64748b" }}>{e.notes || "—"}</td>
-                  <td style={{ padding: "8px 10px" }}>
-                    <Btn small danger onClick={() => persist(removeExpense(list, e.id))}>Remove</Btn>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+            </NativeSelect>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Amount (Rs)</Label>
+            <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Date</Label>
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Notes</Label>
+            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Filter month</Label>
+            <Input
+              type="month"
+              value={monthValue}
+              onChange={(e) => {
+                const [year, month] = String(e.target.value).split("-").map(Number);
+                if (year && month) setPeriod({ year, month });
+              }}
+            />
+          </div>
+        </div>
+        <div className="flex justify-end mb-4">
+          <Button
+            size="sm"
+            onClick={() => {
+              if (!title.trim() || !amount) {
+                alert("Title and amount are required.");
+                return;
+              }
+              persist(addExpense(list, { title, category, amount, date, notes }));
+              setTitle("");
+              setAmount("");
+              setNotes("");
+            }}
+          >
+            Add Expense
+          </Button>
+        </div>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {["Date", "Title", "Category", "Amount", "Notes", ""].map((h) => (
+                  <TableHead key={h || "action"} className="bg-muted text-foreground">{h}</TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {monthList.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-4">
+                    No expenses in this month.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                monthList.map((e, i) => (
+                  <TableRow key={e.id} className={i % 2 !== 0 ? "" : "bg-muted/20"}>
+                    <TableCell>{e.date}</TableCell>
+                    <TableCell className="font-semibold">{e.title}</TableCell>
+                    <TableCell>{e.category}</TableCell>
+                    <TableCell className="font-bold">{formatCurrency(e.amount)}</TableCell>
+                    <TableCell className="text-muted-foreground">{e.notes || "—"}</TableCell>
+                    <TableCell>
+                      <Button size="sm" variant="destructive" onClick={() => persist(removeExpense(list, e.id))}>
+                        Remove
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -537,63 +637,84 @@ export function FeeReportsPanel({ settings, students, activeSchoolId }) {
   const yearExpected = trend.reduce((s, m) => s + m.expected, 0);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ ...panel, padding: 16 }}>
-        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
-          <div>
-            <div style={{ fontWeight: 700, color: C.navy }}>Yearly collection trend</div>
-            <p style={{ margin: "4px 0 0", fontSize: 13, color: C.gray }}>
-              {year}: {formatCurrency(yearCollected)} collected of {formatCurrency(yearExpected)} expected
-            </p>
+    <div className="flex flex-col gap-3.5">
+      <Card className="shadow-none">
+        <CardContent className="p-4">
+          <div className="flex flex-wrap justify-between gap-3 mb-3">
+            <div>
+              <CardTitle>Yearly collection trend</CardTitle>
+              <CardDescription className="mt-1">
+                {year}: {formatCurrency(yearCollected)} collected of {formatCurrency(yearExpected)} expected
+              </CardDescription>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Year</Label>
+              <Input
+                type="number"
+                value={year}
+                onChange={(e) => setYear(+e.target.value || year)}
+                className="w-24"
+              />
+            </div>
           </div>
-          <Inp label="Year" type="number" value={year} onChange={(v) => setYear(+v || year)} width={100} />
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 6, alignItems: "end", minHeight: 120 }}>
-          {trend.map((m) => {
-            const max = Math.max(...trend.map((t) => t.expected), 1);
-            const h = Math.round((m.collected / max) * 100);
-            return (
-              <div key={m.month} style={{ textAlign: "center" }} title={`${m.label}: ${formatCurrency(m.collected)}`}>
-                <div style={{ height: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-                  <div style={{ width: "70%", height: `${Math.max(h, m.collected ? 4 : 0)}%`, background: "#15803d", borderRadius: "4px 4px 0 0" }} />
+          <div className="grid grid-cols-12 gap-1.5 items-end min-h-[120px]">
+            {trend.map((m) => {
+              const max = Math.max(...trend.map((t) => t.expected), 1);
+              const h = Math.round((m.collected / max) * 100);
+              return (
+                <div key={m.month} className="text-center" title={`${m.label}: ${formatCurrency(m.collected)}`}>
+                  <div className="h-24 flex items-end justify-center">
+                    <div
+                      style={{ height: `${Math.max(h, m.collected ? 4 : 0)}%` }}
+                      className="w-[70%] bg-green-700 rounded-t"
+                    />
+                  </div>
+                  <div className="text-[10px] font-bold mt-1">{m.label}</div>
                 </div>
-                <div style={{ fontSize: 10, fontWeight: 700, marginTop: 4 }}>{m.label}</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-      <div style={{ ...panel, padding: 16 }}>
-        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
-          <div style={{ fontWeight: 700, color: C.navy }}>Expenses by category</div>
-          <Inp
-            label="Month"
-            type="month"
-            value={monthValue}
-            onChange={(v) => {
-              const [y, month] = String(v).split("-").map(Number);
-              if (y && month) setPeriod({ year: y, month });
-            }}
-            width={150}
-          />
-        </div>
-        {byCat.length === 0 ? (
-          <div style={{ fontSize: 13, color: C.gray }}>No expenses recorded for this month.</div>
-        ) : (
-          <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
-            {byCat.map((row) => (
-              <li key={row.category} style={{ display: "flex", justifyContent: "space-between", padding: "8px 10px", background: "#f8fafc", borderRadius: 8, fontSize: 13 }}>
-                <span style={{ fontWeight: 600 }}>{row.category}</span>
-                <span style={{ fontWeight: 700 }}>{formatCurrency(row.amount)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      <div style={{ ...panel, padding: 16, fontSize: 12, color: C.gray }}>
-        Tip: use Collection to mark payments, Dues for follow-up lists, and Expenses to see net against fees.
-        Months: {getMonthsList().map((m) => m.label.slice(0, 3)).join(", ")}.
-      </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-none">
+        <CardContent className="p-4">
+          <div className="flex flex-wrap justify-between gap-3 mb-3">
+            <CardTitle>Expenses by category</CardTitle>
+            <div className="flex flex-col gap-1.5">
+              <Label>Month</Label>
+              <Input
+                type="month"
+                value={monthValue}
+                onChange={(e) => {
+                  const [y, month] = String(e.target.value).split("-").map(Number);
+                  if (y && month) setPeriod({ year: y, month });
+                }}
+                className="w-36"
+              />
+            </div>
+          </div>
+          {byCat.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No expenses recorded for this month.</div>
+          ) : (
+            <ul className="m-0 p-0 list-none grid gap-2">
+              {byCat.map((row) => (
+                <li key={row.category} className="flex justify-between px-2.5 py-2 bg-muted/30 rounded-lg text-sm">
+                  <span className="font-semibold">{row.category}</span>
+                  <span className="font-bold">{formatCurrency(row.amount)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-none">
+        <CardContent className="p-4 text-xs text-muted-foreground">
+          Tip: use Collection to mark payments, Dues for follow-up lists, and Expenses to see net against fees.
+          Months: {getMonthsList().map((m) => m.label.slice(0, 3)).join(", ")}.
+        </CardContent>
+      </Card>
     </div>
   );
 }

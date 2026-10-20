@@ -258,13 +258,17 @@ export async function syncStudentsFromPhotosFolder({
         } else {
           failed++
         }
-      } else if (s.photo) {
-        // File gone from folder → clear on this device + worldwide (via later cloud push)
+      } else if (s.photo && sigMap[s.id]) {
+        // Only clear when we previously applied a Photos-folder file that is now gone.
+        // Do NOT wipe photos captured/uploaded via Admission or Edit Student.
         updates[s.id] = null
         delete sigMap[s.id]
         removed++
-      } else {
+      } else if (!s.photo) {
         missing++
+      } else {
+        // Admission / manual photo present, no folder file — leave it alone
+        unchanged++
       }
     } catch {
       failed++

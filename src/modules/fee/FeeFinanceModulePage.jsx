@@ -10,7 +10,7 @@ import {
   FeeReportsPanel,
 } from "./FeeFinancePanels.jsx";
 import { FEE_FINANCE_TABS, getEffectiveFeeAmount, formatCurrency } from "./feeFinanceCore.js";
-import { C } from "@/shared/theme";
+import { ModulePageShell } from "@/components/ModulePageShell";
 
 function initialFeeTab() {
   const intent = consumeNavIntent();
@@ -39,70 +39,13 @@ export function FeeFinanceModulePage({
   }, [tab, setBarSubtitle, feeAmount]);
 
   return (
-    <div
-      className="psms-page"
-      style={{
-        maxWidth: 1200,
-        margin: "0 auto",
-        display: "flex",
-        flexDirection: "column",
-        gap: 16,
-        width: "100%",
-        minWidth: 0,
-        boxSizing: "border-box",
-      }}
+    <ModulePageShell
+      title="Fee & Financial Management"
+      description={`Monthly fee ${formatCurrency(feeAmount)} · Collection, dues, receipts, concessions & expenses`}
+      tabs={FEE_FINANCE_TABS}
+      tab={tab}
+      onTabChange={setTab}
     >
-      <div
-        className="no-print"
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-        }}
-      >
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 18, color: C.navy }}>Fee & Financial Management</div>
-          <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>
-            Monthly fee {formatCurrency(feeAmount)} · Collection, dues, receipts, concessions & expenses
-          </div>
-        </div>
-        <div
-          style={{
-            display: "inline-flex",
-            flexWrap: "wrap",
-            background: "#ecfdf5",
-            borderRadius: 10,
-            padding: 4,
-            gap: 4,
-            border: "1px solid #bbf7d0",
-            maxWidth: "100%",
-          }}
-        >
-          {FEE_FINANCE_TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              style={{
-                border: "none",
-                cursor: "pointer",
-                borderRadius: 8,
-                padding: "8px 12px",
-                fontSize: 12,
-                fontWeight: 700,
-                background: tab === t.id ? "#15803d" : "transparent",
-                color: tab === t.id ? "#fff" : "#15803d",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {t.l}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {tab === "overview" && (
         <FeeOverviewPanel
           settings={settings}
@@ -113,22 +56,12 @@ export function FeeFinanceModulePage({
       )}
 
       {tab === "collection" && (
-        <div
-          style={{
-            background: "#fff",
-            border: "1px solid #e5e7eb",
-            borderRadius: 12,
-            boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
-            padding: 12,
-          }}
-        >
-          <FeePage
-            settings={settings}
-            students={students}
-            activeSchoolId={activeSchoolId}
-            setBarSubtitle={null}
-          />
-        </div>
+        <FeePage
+          settings={settings}
+          students={students}
+          activeSchoolId={activeSchoolId}
+          setBarSubtitle={null}
+        />
       )}
 
       {tab === "dues" && (
@@ -153,6 +86,6 @@ export function FeeFinanceModulePage({
       {tab === "reports" && (
         <FeeReportsPanel settings={settings} students={students} activeSchoolId={activeSchoolId} />
       )}
-    </div>
+    </ModulePageShell>
   );
 }

@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Btn, Sel, Inp } from "@/components/AppControls";
-import { C } from "@/shared/theme";
+import { cn } from "@/lib/utils";
 import * as H from "@/shared/helpers";
 import {
   STUDENT_STATUS,
@@ -21,15 +20,24 @@ import {
   summarizeStudentDirectory,
   isActiveStudent,
 } from "./studentsCore.js";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardAction } from "@/components/ui/card";
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 
 const { formatClassDisplay, resolveClass, maxRollInClass, isDisplayablePhotoSrc } = H;
 
-const panel = {
-  background: "#fff",
-  border: "1px solid #e5e7eb",
-  borderRadius: 12,
-  boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
-};
+function FieldWrap({ label, children, className }) {
+  return (
+    <div className={cn("flex flex-col gap-1", className)}>
+      <Label>{label}</Label>
+      {children}
+    </div>
+  );
+}
 
 function StudentPicker({ settings, students, value, onChange, statusMode = "active", label = "Student" }) {
   const [classId, setClassId] = useState("all");
@@ -47,25 +55,28 @@ function StudentPicker({ settings, students, value, onChange, statusMode = "acti
   );
 
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end", marginBottom: 14 }}>
-      <Sel
-        label="Class"
-        value={classId}
-        onChange={setClassId}
-        options={[{ value: "all", label: "All classes" }, ...(settings.classes || []).map((c) => ({ value: c.id, label: formatClassDisplay(c) }))]}
-        width={160}
-      />
-      <Inp label="Search" value={query} onChange={setQuery} placeholder="Name, admission, roll…" width={200} />
-      <Sel
-        label={label}
-        value={value || ""}
-        onChange={onChange}
-        options={[{ value: "", label: "Select student…" }, ...options.map((s) => ({
-          value: s.id,
-          label: `${s.name || "Student"} · Adm ${s.admissionNo || "—"} · Roll ${s.rollNo || "—"}`,
-        }))]}
-        width={280}
-      />
+    <div className="flex flex-wrap gap-2.5 items-end mb-3.5">
+      <FieldWrap label="Class">
+        <NativeSelect value={classId} onChange={(e) => setClassId(e.target.value)} style={{ width: 160 }}>
+          <NativeSelectOption value="all">All classes</NativeSelectOption>
+          {(settings.classes || []).map((c) => (
+            <NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>
+          ))}
+        </NativeSelect>
+      </FieldWrap>
+      <FieldWrap label="Search">
+        <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, admission, roll…" style={{ width: 200 }} />
+      </FieldWrap>
+      <FieldWrap label={label}>
+        <NativeSelect value={value || ""} onChange={(e) => onChange(e.target.value)} style={{ width: 280 }}>
+          <NativeSelectOption value="">Select student…</NativeSelectOption>
+          {options.map((s) => (
+            <NativeSelectOption key={s.id} value={s.id}>
+              {`${s.name || "Student"} · Adm ${s.admissionNo || "—"} · Roll ${s.rollNo || "—"}`}
+            </NativeSelectOption>
+          ))}
+        </NativeSelect>
+      </FieldWrap>
     </div>
   );
 }
@@ -75,20 +86,20 @@ function SelectedStudentCard({ student, settings }) {
   const cls = resolveClass(settings.classes, student.classId);
   const status = getStudentStatus(student);
   return (
-    <div style={{ display: "flex", gap: 12, alignItems: "center", padding: 12, background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0", marginBottom: 14 }}>
-      <div style={{ width: 48, height: 60, borderRadius: 6, border: "1px solid #d1d5db", overflow: "hidden", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+    <div className="flex gap-3 items-center p-3 bg-muted/30 rounded-lg border mb-3.5">
+      <div className="w-12 h-16 rounded border overflow-hidden bg-white flex items-center justify-center shrink-0">
         {isDisplayablePhotoSrc(student.photo) ? (
-          <img src={student.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <img src={student.photo} alt="" className="w-full h-full object-cover" />
         ) : (
-          <span style={{ fontSize: 10, color: C.gray }}>Photo</span>
+          <span className="text-[10px] text-muted-foreground">Photo</span>
         )}
       </div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontWeight: 700, color: C.navy }}>{student.name || "Student"}</div>
-        <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>
+      <div className="min-w-0">
+        <div className="font-bold text-foreground">{student.name || "Student"}</div>
+        <div className="text-xs text-muted-foreground mt-0.5">
           {formatClassDisplay(cls) || "—"} · Adm {student.admissionNo || "—"} · Roll {student.rollNo || "—"} · {STUDENT_STATUS_LABELS[status] || status}
         </div>
-        {student.fatherName ? <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>S/O {student.fatherName}</div> : null}
+        {student.fatherName ? <div className="text-xs text-slate-500 mt-0.5">S/O {student.fatherName}</div> : null}
       </div>
     </div>
   );
@@ -164,78 +175,78 @@ export function PromotionPanel({ settings, students, setStudents, currentSession
   };
 
   return (
-    <div style={{ ...panel, padding: 16 }}>
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ fontWeight: 700, color: C.navy, fontSize: 15 }}>Class Promotion</div>
-        <p style={{ margin: "4px 0 0", fontSize: 13, color: C.gray }}>
-          Move students to the next grade/section or mark retention for the current session.
-        </p>
-      </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-        <Sel
-          label="Class"
-          value={classId}
-          onChange={setClassId}
-          options={(settings.classes || []).map((c) => ({ value: c.id, label: formatClassDisplay(c) }))}
-          width={180}
-        />
-        <Inp label="Search" value={query} onChange={setQuery} placeholder="Name or admission…" width={200} />
-      </div>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-          <thead>
-            <tr style={{ background: "#1B5E20", color: "#fff" }}>
-              {["Roll", "Adm#", "Name", "Father", "Next class", "Actions"].map((h) => (
-                <th key={h} style={{ padding: "8px 10px", textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
+    <Card size="sm" className="shadow-none">
+      <CardHeader>
+        <CardTitle>Class Promotion</CardTitle>
+        <CardDescription>Move students to the next grade/section or mark retention for the current session.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-wrap gap-2.5 mb-3.5">
+          <FieldWrap label="Class">
+            <NativeSelect value={classId} onChange={(e) => setClassId(e.target.value)} style={{ width: 180 }}>
+              {(settings.classes || []).map((c) => (
+                <NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </NativeSelect>
+          </FieldWrap>
+          <FieldWrap label="Search">
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name or admission…" style={{ width: 200 }} />
+          </FieldWrap>
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
+              {["Roll", "Adm#", "Name", "Father", "Next class", "Actions"].map((h) => (
+                <TableHead key={h}>{h}</TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {list.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ padding: 16, color: C.gray, textAlign: "center" }}>No active students in this filter.</td>
-              </tr>
+              <TableRow>
+                <TableCell colSpan={6} className="py-4 text-center text-muted-foreground">No active students in this filter.</TableCell>
+              </TableRow>
             ) : (
-              list.map((s, i) => {
+              list.map((s) => {
                 const options = getNextGradeClassOptions(settings.classes, s.classId);
                 return (
-                  <tr key={s.id} style={{ background: i % 2 ? "#fff" : "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                    <td style={{ padding: "8px 10px", fontWeight: 700 }}>{s.rollNo || "—"}</td>
-                    <td style={{ padding: "8px 10px" }}>{s.admissionNo || "—"}</td>
-                    <td style={{ padding: "8px 10px", fontWeight: 600 }}>{s.name || "—"}</td>
-                    <td style={{ padding: "8px 10px", color: "#64748b" }}>{s.fatherName || "—"}</td>
-                    <td style={{ padding: "8px 10px" }}>
+                  <TableRow key={s.id}>
+                    <TableCell className="font-bold">{s.rollNo || "—"}</TableCell>
+                    <TableCell>{s.admissionNo || "—"}</TableCell>
+                    <TableCell className="font-semibold">{s.name || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{s.fatherName || "—"}</TableCell>
+                    <TableCell>
                       {options.length > 1 ? (
-                        <select
+                        <NativeSelect
                           value={targets[s.id] || ""}
                           onChange={(e) => setTargets((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                          style={{ padding: "4px 6px", fontSize: 11, border: "1px solid #cbd5e1", borderRadius: 4, minWidth: 140 }}
+                          style={{ minWidth: 140 }}
                         >
-                          <option value="">Select section</option>
+                          <NativeSelectOption value="">Select section</NativeSelectOption>
                           {options.map((c) => (
-                            <option key={c.id} value={c.id}>{formatClassDisplay(c)}</option>
+                            <NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>
                           ))}
-                        </select>
+                        </NativeSelect>
                       ) : options.length === 1 ? (
-                        <span style={{ fontWeight: 600 }}>{formatClassDisplay(options[0])}</span>
+                        <span className="font-semibold">{formatClassDisplay(options[0])}</span>
                       ) : (
-                        <span style={{ color: C.gray }}>No next grade</span>
+                        <span className="text-muted-foreground">No next grade</span>
                       )}
-                    </td>
-                    <td style={{ padding: "8px 10px" }}>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        <Btn small onClick={() => promote(s)} disabled={!options.length}>Promote</Btn>
-                        <Btn small outline onClick={() => retain(s)}>Retain</Btn>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1.5 flex-wrap">
+                        <Button size="xs" onClick={() => promote(s)} disabled={!options.length}>Promote</Button>
+                        <Button size="xs" variant="outline" onClick={() => retain(s)}>Retain</Button>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })
             )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -271,54 +282,57 @@ export function DocumentsPanel({ settings, students, setStudents }) {
   };
 
   return (
-    <div style={{ ...panel, padding: 16 }}>
-      <div style={{ fontWeight: 700, color: C.navy, fontSize: 15, marginBottom: 4 }}>Student Documents</div>
-      <p style={{ margin: "0 0 12px", fontSize: 13, color: C.gray }}>Attach Form-B, certificates, and other records to a student profile.</p>
-      <StudentPicker settings={settings} students={students} value={studentId} onChange={setStudentId} />
-      <SelectedStudentCard student={student} settings={settings} />
-      {student && (
-        <>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end", marginBottom: 14 }}>
-            <Inp label="Document name" value={docName} onChange={setDocName} placeholder="e.g. Form B copy" width={200} />
-            <Sel
-              label="Type"
-              value={docType}
-              onChange={setDocType}
-              options={["Birth Certificate", "Form B / Bay Form", "Transfer Certificate", "Medical Report", "Other"].map((t) => ({ value: t, label: t }))}
-              width={180}
-            />
-            <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: C.navy }}>Upload file</span>
-              <input type="file" accept="image/*,.pdf,.doc,.docx" onChange={(e) => void onFile(e)} style={{ fontSize: 12 }} />
-            </label>
-          </div>
-          {docs.length === 0 ? (
-            <div style={{ padding: 16, color: C.gray, fontSize: 13, textAlign: "center", border: "1px dashed #cbd5e1", borderRadius: 8 }}>No documents attached yet.</div>
-          ) : (
-            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
-              {docs.map((d) => (
-                <li key={d.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", padding: "10px 12px", border: "1px solid #e2e8f0", borderRadius: 8 }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>{d.name}</div>
-                    <div style={{ fontSize: 11, color: C.gray }}>{d.docType} · {d.uploadedAt ? new Date(d.uploadedAt).toLocaleString() : ""}</div>
-                  </div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    {d.dataUrl ? (
-                      <a href={d.dataUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 700, color: C.navy }}>
-                        Open
-                      </a>
-                    ) : null}
-                    <Btn small danger onClick={() => setStudents((prev) => prev.map((st) => (st.id === student.id ? removeStudentDocument(st, d.id) : st)))}>
-                      Remove
-                    </Btn>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
-      )}
-    </div>
+    <Card size="sm" className="shadow-none">
+      <CardHeader>
+        <CardTitle>Student Documents</CardTitle>
+        <CardDescription>Attach Form-B, certificates, and other records to a student profile.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <StudentPicker settings={settings} students={students} value={studentId} onChange={setStudentId} />
+        <SelectedStudentCard student={student} settings={settings} />
+        {student && (
+          <>
+            <div className="flex flex-wrap gap-2.5 items-end mb-3.5">
+              <FieldWrap label="Document name">
+                <Input value={docName} onChange={(e) => setDocName(e.target.value)} placeholder="e.g. Form B copy" style={{ width: 200 }} />
+              </FieldWrap>
+              <FieldWrap label="Type">
+                <NativeSelect value={docType} onChange={(e) => setDocType(e.target.value)} style={{ width: 180 }}>
+                  {["Birth Certificate", "Form B / Bay Form", "Transfer Certificate", "Medical Report", "Other"].map((t) => (
+                    <NativeSelectOption key={t} value={t}>{t}</NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </FieldWrap>
+              <FieldWrap label="Upload file">
+                <input type="file" accept="image/*,.pdf,.doc,.docx" onChange={(e) => void onFile(e)} className="text-sm" />
+              </FieldWrap>
+            </div>
+            {docs.length === 0 ? (
+              <div className="p-4 text-muted-foreground text-sm text-center border border-dashed rounded-lg">No documents attached yet.</div>
+            ) : (
+              <ul className="m-0 p-0 list-none grid gap-2">
+                {docs.map((d) => (
+                  <li key={d.id} className="flex justify-between gap-2.5 items-center p-3 border rounded-lg">
+                    <div>
+                      <div className="font-bold text-sm">{d.name}</div>
+                      <div className="text-xs text-muted-foreground">{d.docType} · {d.uploadedAt ? new Date(d.uploadedAt).toLocaleString() : ""}</div>
+                    </div>
+                    <div className="flex gap-1.5 items-center">
+                      {d.dataUrl ? (
+                        <a href={d.dataUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-primary hover:underline">Open</a>
+                      ) : null}
+                      <Button size="xs" variant="destructive" onClick={() => setStudents((prev) => prev.map((st) => (st.id === student.id ? removeStudentDocument(st, d.id) : st)))}>
+                        Remove
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -329,45 +343,51 @@ export function HealthPanel({ settings, students, setStudents }) {
   const notes = Array.isArray(student?.healthNotes) ? student.healthNotes : [];
 
   return (
-    <div style={{ ...panel, padding: 16 }}>
-      <div style={{ fontWeight: 700, color: C.navy, fontSize: 15, marginBottom: 4 }}>Health Records</div>
-      <p style={{ margin: "0 0 12px", fontSize: 13, color: C.gray }}>Log allergies, medical conditions, and care notes for staff awareness.</p>
-      <StudentPicker settings={settings} students={students} value={studentId} onChange={setStudentId} />
-      <SelectedStudentCard student={student} settings={settings} />
-      {student && (
-        <>
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 14 }}>
-            <Inp label="Health note" value={note} onChange={setNote} placeholder="e.g. Allergy to peanuts" width={320} />
-            <Btn
-              onClick={() => {
-                if (!note.trim()) return;
-                setStudents((prev) => prev.map((st) => (st.id === student.id ? addHealthNote(st, note) : st)));
-                setNote("");
-              }}
-            >
-              Add Note
-            </Btn>
-          </div>
-          {notes.length === 0 ? (
-            <div style={{ padding: 16, color: C.gray, fontSize: 13, textAlign: "center", border: "1px dashed #cbd5e1", borderRadius: 8 }}>No health notes yet.</div>
-          ) : (
-            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
-              {notes.map((n) => (
-                <li key={n.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "10px 12px", border: "1px solid #e2e8f0", borderRadius: 8 }}>
-                  <div>
-                    <div style={{ fontSize: 13 }}>{n.note}</div>
-                    <div style={{ fontSize: 11, color: C.gray, marginTop: 2 }}>{n.createdAt ? new Date(n.createdAt).toLocaleString() : ""}</div>
-                  </div>
-                  <Btn small danger onClick={() => setStudents((prev) => prev.map((st) => (st.id === student.id ? removeHealthNote(st, n.id) : st)))}>
-                    Remove
-                  </Btn>
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
-      )}
-    </div>
+    <Card size="sm" className="shadow-none">
+      <CardHeader>
+        <CardTitle>Health Records</CardTitle>
+        <CardDescription>Log allergies, medical conditions, and care notes for staff awareness.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <StudentPicker settings={settings} students={students} value={studentId} onChange={setStudentId} />
+        <SelectedStudentCard student={student} settings={settings} />
+        {student && (
+          <>
+            <div className="flex gap-2.5 items-end flex-wrap mb-3.5">
+              <FieldWrap label="Health note">
+                <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Allergy to peanuts" style={{ width: 320 }} />
+              </FieldWrap>
+              <Button
+                onClick={() => {
+                  if (!note.trim()) return;
+                  setStudents((prev) => prev.map((st) => (st.id === student.id ? addHealthNote(st, note) : st)));
+                  setNote("");
+                }}
+              >
+                Add Note
+              </Button>
+            </div>
+            {notes.length === 0 ? (
+              <div className="p-4 text-muted-foreground text-sm text-center border border-dashed rounded-lg">No health notes yet.</div>
+            ) : (
+              <ul className="m-0 p-0 list-none grid gap-2">
+                {notes.map((n) => (
+                  <li key={n.id} className="flex justify-between gap-2.5 p-3 border rounded-lg">
+                    <div>
+                      <div className="text-sm">{n.note}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{n.createdAt ? new Date(n.createdAt).toLocaleString() : ""}</div>
+                    </div>
+                    <Button size="xs" variant="destructive" onClick={() => setStudents((prev) => prev.map((st) => (st.id === student.id ? removeHealthNote(st, n.id) : st)))}>
+                      Remove
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -381,62 +401,78 @@ export function DisciplinePanel({ settings, students, setStudents }) {
   const records = Array.isArray(student?.disciplineRecords) ? student.disciplineRecords : [];
 
   return (
-    <div style={{ ...panel, padding: 16 }}>
-      <div style={{ fontWeight: 700, color: C.navy, fontSize: 15, marginBottom: 4 }}>Discipline Tracking</div>
-      <p style={{ margin: "0 0 12px", fontSize: 13, color: C.gray }}>Record incidents, warnings, and follow-up actions.</p>
-      <StudentPicker settings={settings} students={students} value={studentId} onChange={setStudentId} />
-      <SelectedStudentCard student={student} settings={settings} />
-      {student && (
-        <>
-          <div className="psms-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-            <Sel label="Type" value={type} onChange={setType} options={DISCIPLINE_TYPES.map((t) => ({ value: t, label: t }))} width="100%" />
-            <Inp label="Follow-up" value={followUp} onChange={setFollowUp} placeholder="Optional follow-up date/note" width="100%" />
-            <Inp label="Detail" value={detail} onChange={setDetail} placeholder="What happened?" width="100%" />
-            <Inp label="Action taken" value={action} onChange={setAction} placeholder="Counseling, warning…" width="100%" />
-          </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
-            <Btn
-              onClick={() => {
-                if (!detail.trim()) {
-                  alert("Please enter incident detail.");
-                  return;
-                }
-                setStudents((prev) =>
-                  prev.map((st) => (st.id === student.id ? addDisciplineRecord(st, { type, detail, action, followUp }) : st)),
-                );
-                setDetail("");
-                setAction("");
-                setFollowUp("");
-              }}
-            >
-              Add Record
-            </Btn>
-          </div>
-          {records.length === 0 ? (
-            <div style={{ padding: 16, color: C.gray, fontSize: 13, textAlign: "center", border: "1px dashed #cbd5e1", borderRadius: 8 }}>No discipline records yet.</div>
-          ) : (
-            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
-              {records.map((r) => (
-                <li key={r.id} style={{ padding: "10px 12px", border: "1px solid #e2e8f0", borderRadius: 8 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 13 }}>{r.type}</div>
-                      <div style={{ fontSize: 12, marginTop: 4 }}>{r.detail}</div>
-                      {r.action ? <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>Action: {r.action}</div> : null}
-                      {r.followUp ? <div style={{ fontSize: 12, color: "#64748b" }}>Follow-up: {r.followUp}</div> : null}
-                      <div style={{ fontSize: 11, color: C.gray, marginTop: 4 }}>{r.createdAt ? new Date(r.createdAt).toLocaleString() : ""}</div>
+    <Card size="sm" className="shadow-none">
+      <CardHeader>
+        <CardTitle>Discipline Tracking</CardTitle>
+        <CardDescription>Record incidents, warnings, and follow-up actions.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <StudentPicker settings={settings} students={students} value={studentId} onChange={setStudentId} />
+        <SelectedStudentCard student={student} settings={settings} />
+        {student && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-3">
+              <FieldWrap label="Type">
+                <NativeSelect value={type} onChange={(e) => setType(e.target.value)} className="w-full">
+                  {DISCIPLINE_TYPES.map((t) => (
+                    <NativeSelectOption key={t} value={t}>{t}</NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </FieldWrap>
+              <FieldWrap label="Follow-up">
+                <Input value={followUp} onChange={(e) => setFollowUp(e.target.value)} placeholder="Optional follow-up date/note" className="w-full" />
+              </FieldWrap>
+              <FieldWrap label="Detail">
+                <Input value={detail} onChange={(e) => setDetail(e.target.value)} placeholder="What happened?" className="w-full" />
+              </FieldWrap>
+              <FieldWrap label="Action taken">
+                <Input value={action} onChange={(e) => setAction(e.target.value)} placeholder="Counseling, warning…" className="w-full" />
+              </FieldWrap>
+            </div>
+            <div className="flex justify-end mb-3.5">
+              <Button
+                onClick={() => {
+                  if (!detail.trim()) {
+                    alert("Please enter incident detail.");
+                    return;
+                  }
+                  setStudents((prev) =>
+                    prev.map((st) => (st.id === student.id ? addDisciplineRecord(st, { type, detail, action, followUp }) : st)),
+                  );
+                  setDetail("");
+                  setAction("");
+                  setFollowUp("");
+                }}
+              >
+                Add Record
+              </Button>
+            </div>
+            {records.length === 0 ? (
+              <div className="p-4 text-muted-foreground text-sm text-center border border-dashed rounded-lg">No discipline records yet.</div>
+            ) : (
+              <ul className="m-0 p-0 list-none grid gap-2">
+                {records.map((r) => (
+                  <li key={r.id} className="p-3 border rounded-lg">
+                    <div className="flex justify-between gap-2.5">
+                      <div>
+                        <div className="font-bold text-sm">{r.type}</div>
+                        <div className="text-xs mt-1">{r.detail}</div>
+                        {r.action ? <div className="text-xs text-slate-500 mt-1">Action: {r.action}</div> : null}
+                        {r.followUp ? <div className="text-xs text-slate-500">Follow-up: {r.followUp}</div> : null}
+                        <div className="text-xs text-muted-foreground mt-1">{r.createdAt ? new Date(r.createdAt).toLocaleString() : ""}</div>
+                      </div>
+                      <Button size="xs" variant="destructive" onClick={() => setStudents((prev) => prev.map((st) => (st.id === student.id ? removeDisciplineRecord(st, r.id) : st)))}>
+                        Remove
+                      </Button>
                     </div>
-                    <Btn small danger onClick={() => setStudents((prev) => prev.map((st) => (st.id === student.id ? removeDisciplineRecord(st, r.id) : st)))}>
-                      Remove
-                    </Btn>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
-      )}
-    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -450,60 +486,70 @@ export function LeavingPanel({ settings, students, setStudents }) {
   const student = students.find((s) => s.id === studentId) || null;
 
   return (
-    <div style={{ ...panel, padding: 16 }}>
-      <div style={{ fontWeight: 700, color: C.navy, fontSize: 15, marginBottom: 4 }}>Leaving & Certificates</div>
-      <p style={{ margin: "0 0 12px", fontSize: 13, color: C.gray }}>
-        Issue school leaving / transfer certificates and update the student lifecycle status.
-      </p>
-      <StudentPicker settings={settings} students={students} value={studentId} onChange={setStudentId} statusMode="active" />
-      <SelectedStudentCard student={student} settings={settings} />
-      {student && (
-        <>
-          <div className="psms-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-            <Sel label="Certificate type" value={type} onChange={setType} options={LEAVING_CERTIFICATE_TYPES.map((t) => ({ value: t, label: t }))} width="100%" />
-            <Inp label="Issue date" value={issueDate} onChange={setIssueDate} type="date" width="100%" />
-            <Inp label="Reason" value={reason} onChange={setReason} placeholder="Transfer, withdrawal…" width="100%" />
-            <Sel
-              label="New status"
-              value={nextStatus}
-              onChange={setNextStatus}
-              options={[
-                { value: STUDENT_STATUS.WITHDRAWN, label: "Withdrawn" },
-                { value: STUDENT_STATUS.TRANSFERRED, label: "Transferred" },
-                { value: STUDENT_STATUS.GRADUATED, label: "Graduated" },
-                { value: STUDENT_STATUS.ALUMNI, label: "Alumni" },
-              ]}
-              width="100%"
-            />
-            <Inp label="Remarks" value={remarks} onChange={setRemarks} placeholder="Optional remarks" width="100%" />
-          </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-            <Btn
-              onClick={() => {
-                if (!confirm(`Issue ${type} for ${student.name || "student"} and mark as ${STUDENT_STATUS_LABELS[nextStatus]}?`)) return;
-                setStudents((prev) =>
-                  prev.map((st) =>
-                    st.id === student.id ? setLeavingInfo(st, { type, issueDate, reason, remarks, nextStatus }) : st,
-                  ),
-                );
-                alert("Leaving information saved. Student moved out of the active directory.");
-                setStudentId("");
-              }}
-            >
-              Issue & Update Status
-            </Btn>
-          </div>
-          {student.leavingInfo ? (
-            <div style={{ marginTop: 14, padding: 12, background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }}>
-              <div style={{ fontWeight: 700 }}>Existing leaving record</div>
-              <div style={{ marginTop: 4, color: "#64748b" }}>
-                {student.leavingInfo.type} · {student.leavingInfo.issueDate || "—"} · {student.leavingInfo.reason || "—"}
-              </div>
+    <Card size="sm" className="shadow-none">
+      <CardHeader>
+        <CardTitle>Leaving & Certificates</CardTitle>
+        <CardDescription>Issue school leaving / transfer certificates and update the student lifecycle status.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <StudentPicker settings={settings} students={students} value={studentId} onChange={setStudentId} statusMode="active" />
+        <SelectedStudentCard student={student} settings={settings} />
+        {student && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-3">
+              <FieldWrap label="Certificate type">
+                <NativeSelect value={type} onChange={(e) => setType(e.target.value)} className="w-full">
+                  {LEAVING_CERTIFICATE_TYPES.map((t) => (
+                    <NativeSelectOption key={t} value={t}>{t}</NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </FieldWrap>
+              <FieldWrap label="Issue date">
+                <Input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} className="w-full" />
+              </FieldWrap>
+              <FieldWrap label="Reason">
+                <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Transfer, withdrawal…" className="w-full" />
+              </FieldWrap>
+              <FieldWrap label="New status">
+                <NativeSelect value={nextStatus} onChange={(e) => setNextStatus(e.target.value)} className="w-full">
+                  <NativeSelectOption value={STUDENT_STATUS.WITHDRAWN}>Withdrawn</NativeSelectOption>
+                  <NativeSelectOption value={STUDENT_STATUS.TRANSFERRED}>Transferred</NativeSelectOption>
+                  <NativeSelectOption value={STUDENT_STATUS.GRADUATED}>Graduated</NativeSelectOption>
+                  <NativeSelectOption value={STUDENT_STATUS.ALUMNI}>Alumni</NativeSelectOption>
+                </NativeSelect>
+              </FieldWrap>
+              <FieldWrap label="Remarks">
+                <Input value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Optional remarks" className="w-full" />
+              </FieldWrap>
             </div>
-          ) : null}
-        </>
-      )}
-    </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                onClick={() => {
+                  if (!confirm(`Issue ${type} for ${student.name || "student"} and mark as ${STUDENT_STATUS_LABELS[nextStatus]}?`)) return;
+                  setStudents((prev) =>
+                    prev.map((st) =>
+                      st.id === student.id ? setLeavingInfo(st, { type, issueDate, reason, remarks, nextStatus }) : st,
+                    ),
+                  );
+                  alert("Leaving information saved. Student moved out of the active directory.");
+                  setStudentId("");
+                }}
+              >
+                Issue & Update Status
+              </Button>
+            </div>
+            {student.leavingInfo ? (
+              <div className="mt-3.5 p-3 bg-muted/30 rounded-lg border text-xs">
+                <div className="font-bold">Existing leaving record</div>
+                <div className="mt-1 text-muted-foreground">
+                  {student.leavingInfo.type} · {student.leavingInfo.issueDate || "—"} · {student.leavingInfo.reason || "—"}
+                </div>
+              </div>
+            ) : null}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -535,74 +581,73 @@ export function AlumniPanel({ settings, students, setStudents }) {
   };
 
   return (
-    <div style={{ ...panel, padding: 16 }}>
-      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
-        <div>
-          <div style={{ fontWeight: 700, color: C.navy, fontSize: 15 }}>Alumni & Former Students</div>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: C.gray }}>
-            Withdrawn, transferred, graduated, and alumni records ({summary.alumni} total).
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <div style={{ padding: "8px 12px", background: "#f0fdf4", borderRadius: 8, border: "1px solid #bbf7d0", fontSize: 12 }}>
-            <strong>{summary.active}</strong> active
+    <Card size="sm" className="shadow-none">
+      <CardHeader>
+        <CardTitle>Alumni & Former Students</CardTitle>
+        <CardDescription>Withdrawn, transferred, graduated, and alumni records ({summary.alumni} total).</CardDescription>
+        <CardAction>
+          <div className="flex gap-2">
+            <Badge variant="secondary"><strong>{summary.active}</strong>&nbsp;active</Badge>
+            <Badge variant="outline"><strong>{summary.alumni}</strong>&nbsp;former</Badge>
           </div>
-          <div style={{ padding: "8px 12px", background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }}>
-            <strong>{summary.alumni}</strong> former
-          </div>
-        </div>
-      </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-        <Sel
-          label="Class (last)"
-          value={classId}
-          onChange={setClassId}
-          options={[{ value: "all", label: "All classes" }, ...(settings.classes || []).map((c) => ({ value: c.id, label: formatClassDisplay(c) }))]}
-          width={180}
-        />
-        <Inp label="Search" value={query} onChange={setQuery} placeholder="Name or admission…" width={220} />
-      </div>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-          <thead>
-            <tr style={{ background: "#0f172a", color: "#fff" }}>
-              {["Name", "Father", "Adm#", "Last class", "Status", "Leaving", "Actions"].map((h) => (
-                <th key={h} style={{ padding: "8px 10px", textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-wrap gap-2.5 mb-3.5">
+          <FieldWrap label="Class (last)">
+            <NativeSelect value={classId} onChange={(e) => setClassId(e.target.value)} style={{ width: 180 }}>
+              <NativeSelectOption value="all">All classes</NativeSelectOption>
+              {(settings.classes || []).map((c) => (
+                <NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </NativeSelect>
+          </FieldWrap>
+          <FieldWrap label="Search">
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name or admission…" style={{ width: 220 }} />
+          </FieldWrap>
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
+              {["Name", "Father", "Adm#", "Last class", "Status", "Leaving", "Actions"].map((h) => (
+                <TableHead key={h}>{h}</TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {list.length === 0 ? (
-              <tr>
-                <td colSpan={7} style={{ padding: 16, color: C.gray, textAlign: "center" }}>No alumni / former students match this filter.</td>
-              </tr>
+              <TableRow>
+                <TableCell colSpan={7} className="py-4 text-center text-muted-foreground">No alumni / former students match this filter.</TableCell>
+              </TableRow>
             ) : (
-              list.map((s, i) => {
+              list.map((s) => {
                 const cls = resolveClass(settings.classes, s.classId);
                 const status = getStudentStatus(s);
                 return (
-                  <tr key={s.id} style={{ background: i % 2 ? "#fff" : "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                    <td style={{ padding: "8px 10px", fontWeight: 600 }}>{s.name || "—"}</td>
-                    <td style={{ padding: "8px 10px", color: "#64748b" }}>{s.fatherName || "—"}</td>
-                    <td style={{ padding: "8px 10px" }}>{s.admissionNo || "—"}</td>
-                    <td style={{ padding: "8px 10px" }}>{formatClassDisplay(cls) || "—"}</td>
-                    <td style={{ padding: "8px 10px" }}>{STUDENT_STATUS_LABELS[status] || status}</td>
-                    <td style={{ padding: "8px 10px", color: "#64748b" }}>
+                  <TableRow key={s.id}>
+                    <TableCell className="font-semibold">{s.name || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{s.fatherName || "—"}</TableCell>
+                    <TableCell>{s.admissionNo || "—"}</TableCell>
+                    <TableCell>{formatClassDisplay(cls) || "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{STUDENT_STATUS_LABELS[status] || status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
                       {s.leavingInfo?.type || "—"}
                       {s.leavingInfo?.issueDate ? ` · ${s.leavingInfo.issueDate}` : ""}
-                    </td>
-                    <td style={{ padding: "8px 10px" }}>
+                    </TableCell>
+                    <TableCell>
                       {!isActiveStudent(s) ? (
-                        <Btn small outline onClick={() => restore(s)}>Restore Active</Btn>
+                        <Button size="xs" variant="outline" onClick={() => restore(s)}>Restore Active</Button>
                       ) : null}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })
             )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }

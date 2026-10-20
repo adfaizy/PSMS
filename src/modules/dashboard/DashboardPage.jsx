@@ -16,7 +16,8 @@ import {
 import * as feeCore from "@/modules/fee/feeCore";
 import { feeService, dashboardService } from "@/services";
 import { loadAttendanceFromLocal, hydrateAttendanceFromCloud } from "@/modules/attendance/AttendancePage";
-import { Sel } from "@/components/AppControls";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardAction } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -558,21 +559,34 @@ export function DashboardPage({
           </CardHeader>
           <CardContent className="space-y-4 pt-(--card-spacing)">
             <div className="grid grid-cols-1 gap-3 sm:max-w-xl sm:grid-cols-2">
-              <Sel label="Exam" value={dashExam} onChange={setDashExam} options={dashExamOptions} width="100%" />
+              <div className="space-y-1.5">
+                <Label htmlFor="dash-exam">Exam</Label>
+                <NativeSelect
+                  id="dash-exam"
+                  value={dashExam}
+                  onChange={(e) => setDashExam(e.target.value)}
+                  className="w-full"
+                >
+                  {dashExamOptions.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </NativeSelect>
+              </div>
               {dashView === "subject" && (
-                <Sel
-                  label="Class"
-                  value={dashSubjClass}
-                  onChange={setDashSubjClass}
-                  options={[
-                    { value: "all", label: "All Classes" },
-                    ...(settings.classes || []).map((c) => ({
-                      value: c.id,
-                      label: formatClassDisplay(c),
-                    })),
-                  ]}
-                  width="100%"
-                />
+                <div className="space-y-1.5">
+                  <Label htmlFor="dash-subj-class">Class</Label>
+                  <NativeSelect
+                    id="dash-subj-class"
+                    value={dashSubjClass}
+                    onChange={(e) => setDashSubjClass(e.target.value)}
+                    className="w-full"
+                  >
+                    <option value="all">All Classes</option>
+                    {(settings.classes || []).map((c) => (
+                      <option key={c.id} value={c.id}>{formatClassDisplay(c)}</option>
+                    ))}
+                  </NativeSelect>
+                </div>
               )}
             </div>
 
