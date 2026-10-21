@@ -343,17 +343,53 @@ export function buildReport(sheet, { schoolName, schoolCode, classLabel, monthKe
   };
 }
 
+function gradeKey(grade) {
+  const raw = String(grade || "").trim();
+  if (!raw) return "";
+  const n = raw.match(/\d{1,2}/);
+  if (n) return String(parseInt(n[0], 10));
+  return raw.toLowerCase();
+}
+
+/** Section letter for Daily Register (A, B, C…). */
+export function sectionDisplayLabel(cls) {
+  if (!cls) return "—";
+  const sec = String(cls.section || "").trim().toUpperCase();
+  if (sec && sec !== "-") return sec;
+  const fromName = String(cls.name || "").match(/(?:^|[\s\-_/])([A-Za-z])\s*$/);
+  if (fromName) return fromName[1].toUpperCase();
+  return "—";
+}
+
 export function uniqueGrades(classes = []) {
-  const set = new Set();
+  const map = new Map();
   (classes || []).forEach((c) => {
-    const g = String(c.grade || c.name || "").trim();
-    if (g) set.add(g);
+    const raw = String(c.grade || "").trim() || String(c.name || "").trim();
+    if (!raw) return;
+    const key = gradeKey(raw);
+    if (!key || map.has(key)) return;
+    map.set(key, raw);
   });
-  return [...set];
+  return [...map.entries()]
+    .sort((a, b) => {
+      const na = parseInt(a[0], 10);
+      const nb = parseInt(b[0], 10);
+      if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+      return String(a[1]).localeCompare(String(b[1]));
+    })
+    .map(([, raw]) => raw);
 }
 
 export function sectionsForGrade(classes = [], grade) {
-  return (classes || []).filter((c) => String(c.grade || c.name || "").trim() === String(grade || "").trim());
+  const want = gradeKey(grade);
+  if (!want) return [];
+  const list = (classes || []).filter((c) => gradeKey(c.grade || c.name) === want);
+  return list.slice().sort((a, b) => {
+    const sa = sectionDisplayLabel(a);
+    const sb = sectionDisplayLabel(b);
+    if (sa !== "—" && sb !== "—" && sa !== sb) return sa.localeCompare(sb);
+    return String(a.name || a.id || "").localeCompare(String(b.name || b.id || ""));
+  });
 }
 
 export function resolveClassId(classes = [], grade, sectionIdOrName) {
@@ -361,7 +397,8 @@ export function resolveClassId(classes = [], grade, sectionIdOrName) {
   if (!list.length) return "";
   const byId = list.find((c) => c.id === sectionIdOrName);
   if (byId) return byId.id;
-  const bySec = list.find((c) => String(c.section || "").trim() === String(sectionIdOrName || "").trim());
+  const wantSec = String(sectionIdOrName || "").trim().toUpperCase();
+  const bySec = list.find((c) => sectionDisplayLabel(c) === wantSec || String(c.section || "").trim().toUpperCase() === wantSec);
   if (bySec) return bySec.id;
   return list[0].id;
 }

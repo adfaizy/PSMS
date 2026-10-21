@@ -17,6 +17,7 @@ import {
   setLeavingInfo,
   setStudentLifecycleStatus,
   getNextGradeClassOptions,
+  formatClassSectionLabel,
   summarizeStudentDirectory,
   isActiveStudent,
 } from "./studentsCore.js";
@@ -131,10 +132,19 @@ export function PromotionPanel({ settings, students, setStudents, currentSession
     const selectedId = targets[student.id];
     let nextClass = selectedId ? options.find((c) => c.id === selectedId) : null;
     if (!nextClass) {
-      if (options.length === 1) nextClass = options[0];
-      else {
-        alert("Please select a target section before promotion.");
-        return;
+      if (options.length === 1) {
+        nextClass = options[0];
+      } else {
+        // Prefer same section letter (A→A, B→B) when user hasn't picked yet
+        const from = resolveClass(settings.classes, student.classId);
+        const fromSec = String(from?.section || "").trim().toUpperCase();
+        nextClass = fromSec
+          ? options.find((c) => String(c.section || "").trim().toUpperCase() === fromSec) || null
+          : null;
+        if (!nextClass) {
+          alert("Please select a target section (A, B, C…) before promotion.");
+          return;
+        }
       }
     }
     if (!confirm(`Promote ${student.name || "student"} to ${formatClassDisplay(nextClass)}?`)) return;
@@ -176,11 +186,7 @@ export function PromotionPanel({ settings, students, setStudents, currentSession
 
   return (
     <Card size="sm" className="shadow-none">
-      <CardHeader>
-        <CardTitle>Class Promotion</CardTitle>
-        <CardDescription>Move students to the next grade/section or mark retention for the current session.</CardDescription>
-      </CardHeader>
-      <CardContent>
+      <CardContent className="pt-(--card-spacing)">
         <div className="flex flex-wrap gap-2.5 mb-3.5">
           <FieldWrap label="Class">
             <NativeSelect value={classId} onChange={(e) => setClassId(e.target.value)} style={{ width: 180 }}>
@@ -220,11 +226,13 @@ export function PromotionPanel({ settings, students, setStudents, currentSession
                         <NativeSelect
                           value={targets[s.id] || ""}
                           onChange={(e) => setTargets((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                          style={{ minWidth: 140 }}
+                          className="min-w-[7rem]"
                         >
                           <NativeSelectOption value="">Select section</NativeSelectOption>
                           {options.map((c) => (
-                            <NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>
+                            <NativeSelectOption key={c.id} value={c.id}>
+                              {formatClassSectionLabel(c)}
+                            </NativeSelectOption>
                           ))}
                         </NativeSelect>
                       ) : options.length === 1 ? (

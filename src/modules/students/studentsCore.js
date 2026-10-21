@@ -191,14 +191,34 @@ export function setStudentLifecycleStatus(student, status, extra = {}) {
   }
 }
 
+function gradeNumber(grade) {
+  const m = String(grade || '').match(/\d{1,2}/)
+  return m ? parseInt(m[0], 10) : NaN
+}
+
+/** Section letter for UI (A, B, C…) — falls back to full class label if empty. */
+export function formatClassSectionLabel(cls) {
+  if (!cls) return ''
+  const sec = String(cls.section || '').trim().toUpperCase()
+  if (sec && sec !== '-') return sec
+  return formatClassDisplay(cls) || String(cls.grade || cls.name || '').trim()
+}
+
 export function getNextGradeClassOptions(classes, fromClassId) {
   const list = Array.isArray(classes) ? classes : []
   const from = resolveClass(list, fromClassId)
   if (!from) return []
-  const gradeNum = parseInt(String(from.grade || '').match(/\d{1,2}/)?.[0] || '', 10)
+  const gradeNum = gradeNumber(from.grade)
   if (Number.isNaN(gradeNum)) return []
-  const nextGrade = String(gradeNum + 1)
-  return list.filter((c) => String(c.grade || '').includes(nextGrade) || String(c.grade || '') === nextGrade)
+  const nextGrade = gradeNum + 1
+  const next = list.filter((c) => gradeNumber(c.grade) === nextGrade)
+  // Prefer A, B, C order when sections are letters
+  return next.slice().sort((a, b) => {
+    const sa = String(a.section || '').trim().toUpperCase()
+    const sb = String(b.section || '').trim().toUpperCase()
+    if (sa && sb && sa !== sb) return sa.localeCompare(sb)
+    return formatClassDisplay(a).localeCompare(formatClassDisplay(b))
+  })
 }
 
 export function summarizeStudentDirectory(students, classes) {

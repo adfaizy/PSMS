@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getClassLabel, getClassSubjects, resolveClass } from "@/shared/helpers";
+import { formatGradeLabel, getClassLabel, getClassSubjects, resolveClass } from "@/shared/helpers";
 import {
   DAY_SLOTS,
   MARK_MAX,
@@ -13,6 +13,7 @@ import {
   loadSheet,
   resolveClassId,
   saveSheet,
+  sectionDisplayLabel,
   sectionsForGrade,
   studentTotals,
   uniqueGrades,
@@ -23,7 +24,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
 import "./dailyRegister.css";
 
@@ -36,6 +37,17 @@ const TABS = [
 /** Flat grid cell inputs — shadcn defaults overridden to match .daily-register table CSS */
 const GRID_INPUT =
   "h-auto min-h-[1.7em] rounded-none border-0 bg-transparent shadow-none focus-visible:border-0 focus-visible:ring-0 px-1 py-1 text-[0.68rem] leading-snug";
+
+/** Read-only date from month working days (e.g. 06/04/2026). */
+function formatSummaryDate(isoDate, dayNum) {
+  const iso = String(isoDate || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const [y, m, d] = iso.split("-");
+    return `${d}/${m}/${y}`;
+  }
+  const n = String(dayNum || "").padStart(2, "0").slice(-2);
+  return n && n !== "00" ? n : "—";
+}
 
 function BandTable({ bands }) {
   return (
@@ -170,62 +182,68 @@ function DailyRegisterSheet({
   return (
     <div className="card space-y-3">
       <Card size="sm" className="no-print shadow-none">
-        <CardContent className="grid gap-3 pt-(--card-spacing) sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          <div className="space-y-1.5">
-            <Label>School Name</Label>
-            <div className="text-sm font-medium">{schoolName}</div>
+        <CardContent className="flex flex-nowrap items-end gap-3 overflow-x-auto pt-(--card-spacing) pb-0.5">
+          <div className="flex min-w-[9rem] shrink-0 flex-col gap-1.5">
+            <Label className="text-xs">School Name</Label>
+            <div className="flex h-8 items-center text-sm font-medium whitespace-nowrap">{schoolName}</div>
           </div>
-          <div className="space-y-1.5">
-            <Label>EMIS Code</Label>
-            <div className="text-sm font-medium">{schoolCode}</div>
+          <div className="flex min-w-[5.5rem] shrink-0 flex-col gap-1.5">
+            <Label className="text-xs">EMIS Code</Label>
+            <div className="flex h-8 items-center text-sm font-medium tabular-nums">{schoolCode}</div>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="dr-grade">Class</Label>
+          <div className="flex w-[8.5rem] shrink-0 flex-col gap-1.5">
+            <Label htmlFor="dr-grade" className="text-xs">Class</Label>
             <NativeSelect
               id="dr-grade"
               aria-label="Class"
+              size="sm"
               value={grade}
               onChange={(e) => onGradeChange(e.target.value)}
               className="w-full"
             >
-              {grades.length === 0 && <option value="">No classes</option>}
+              {grades.length === 0 && <NativeSelectOption value="">No classes</NativeSelectOption>}
               {grades.map((g) => (
-                <option key={g} value={g}>{g}</option>
+                <NativeSelectOption key={g} value={g}>
+                  {formatGradeLabel(g) || g}
+                </NativeSelectOption>
               ))}
             </NativeSelect>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="dr-section">Section</Label>
+          <div className="flex w-[5.5rem] shrink-0 flex-col gap-1.5">
+            <Label htmlFor="dr-section" className="text-xs">Section</Label>
             <NativeSelect
               id="dr-section"
               aria-label="Section"
+              size="sm"
               value={classId}
               onChange={(e) => onClassChange(e.target.value)}
               className="w-full"
+              disabled={!sectionOptions.length}
             >
-              {sectionOptions.length === 0 && <option value="">—</option>}
+              {sectionOptions.length === 0 && <NativeSelectOption value="">—</NativeSelectOption>}
               {sectionOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.section || c.name || "—"}
-                </option>
+                <NativeSelectOption key={c.id} value={c.id}>
+                  {sectionDisplayLabel(c)}
+                </NativeSelectOption>
               ))}
             </NativeSelect>
           </div>
-          <div className="space-y-1.5">
-            <Label>On Roll</Label>
-            <div className="text-sm font-medium">{sheet.students.length}</div>
+          <div className="flex w-[4.5rem] shrink-0 flex-col gap-1.5">
+            <Label className="text-xs">On Roll</Label>
+            <div className="flex h-8 items-center text-sm font-medium tabular-nums">{sheet.students.length}</div>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="dr-month">Month</Label>
+          <div className="flex w-[10.5rem] shrink-0 flex-col gap-1.5">
+            <Label htmlFor="dr-month" className="text-xs">Month</Label>
             <NativeSelect
               id="dr-month"
               aria-label="Month"
+              size="sm"
               className={cn("w-full", "month-select")}
               value={monthKey}
               onChange={(e) => onMonthChange(e.target.value)}
             >
               {monthOptions.map((m) => (
-                <option key={m} value={m}>{formatMonthLabel(m)}</option>
+                <NativeSelectOption key={m} value={m}>{formatMonthLabel(m)}</NativeSelectOption>
               ))}
             </NativeSelect>
           </div>
@@ -364,16 +382,12 @@ function DailyRegisterSheet({
                 {Array.from({ length: DAY_SLOTS }, (_, i) => {
                   const d = sheet.dayMeta[i] || {};
                   const sum = daySummary(sheet.students, sheet.dayMeta, i);
+                  const dateShow = formatSummaryDate(d.date, d.dayNum);
                   return (
                     <tr key={i}>
                       <td className="c">{i + 1}</td>
-                      <td className="date-cell">
-                        <Input
-                          className={cn("day-date", GRID_INPUT, "max-w-[8.6rem] font-bold text-center mx-auto")}
-                          type="date"
-                          value={d.date || ""}
-                          onChange={(e) => updateDayMeta(i, { date: e.target.value })}
-                        />
+                      <td className="date-cell c whitespace-nowrap font-bold" title={d.date || undefined}>
+                        {dateShow}
                       </td>
                       <td className="subject-cell">
                         <NativeSelect
@@ -408,7 +422,7 @@ function DailyRegisterSheet({
             </table>
           </div>
           <p className="note">
-            Enter the date, choose subject from the list, and type the topic for each working day.
+            Days follow the selected month (Mon–Fri). Choose subject and type the topic for each working day.
             Present / Absent / Average update from marks on Student Record.
           </p>
         </div>

@@ -21,6 +21,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { consumeNavIntent } from "@/lib/navIntent.js";
 import { ModulePageShell } from "@/components/ModulePageShell";
 import * as H from "@/shared/helpers";
@@ -2463,36 +2464,25 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
 
   return <div>
     {embedded&&<div className="print-only" style={{display:"none",marginBottom:10}}><SchoolHeader settings={settings} subtitle={printSubtitle}/></div>}
-    <div className="no-print students-record-toolbar" style={{display:"flex",gap:12,marginBottom:14,flexWrap:"wrap",alignItems:"flex-end"}}>
-      <div className="flex flex-col gap-1.5" style={{width:180}}>
+    <div className="no-print students-record-toolbar mb-3.5 flex flex-nowrap items-end gap-2 overflow-x-auto pb-0.5">
+      <div className="flex w-[160px] shrink-0 flex-col gap-1.5">
         <Label className="text-xs">Filter by Class</Label>
-        <NativeSelect value={filterCls} onChange={e=>setFilterCls(e.target.value)} className="!h-9 !min-h-9 !py-1.5 !text-sm">
+        <NativeSelect value={filterCls} onChange={e=>setFilterCls(e.target.value)} className="w-full" size="sm">
           <NativeSelectOption value="all">All Classes</NativeSelectOption>
           {settings.classes.map(c=><NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>)}
         </NativeSelect>
       </div>
-      <div className="flex flex-col gap-1.5 students-record-search" style={{width:200}}>
+      <div className="students-record-search flex w-[180px] shrink-0 flex-col gap-1.5">
         <Label className="text-xs">Search</Label>
-        <Input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Name or Adm No…" className="!h-9 !min-h-9"/>
+        <Input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Name or Adm No…" className="h-8" />
       </div>
-      <div style={{marginLeft:"auto",display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+      <div className="flex shrink-0 items-center gap-2 pl-1">
+        <Button size="sm" onClick={openAdd}>Add Student</Button>
+        <Button size="sm" variant="outline" onClick={()=>void doExportStudents("pdf").catch(()=>alert("PDF export failed."))}>Export PDF</Button>
         <Button
-          onClick={openAdd}
-          className="!h-9 !min-h-9 !px-3 !text-sm"
-          style={{ height: 36, minHeight: 36 }}
-        >
-          Add Student
-        </Button>
-        <Button
+          size="sm"
           variant="outline"
-          onClick={()=>void doExportStudents("pdf").catch(()=>alert("PDF export failed."))}
-          className="!h-9 !min-h-9 !px-3 !text-sm"
-          style={{ height: 36, minHeight: 36 }}
-        >
-          Export PDF
-        </Button>
-        <Button
-          variant="outline"
+          title="Create Photos/<Class>/ folders on the local workstation"
           onClick={async ()=>{
             const classes=settings.classes||[];
             if(!classes.length){ alert("No classes found for this school login."); return; }
@@ -2514,14 +2504,13 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
             }
             alert("Could not create folders automatically. Use the project Photos/ directory on the main PC.");
           }}
-          className="!h-9 !min-h-9 !px-3 !text-sm"
-          style={{ height: 36, minHeight: 36 }}
-          title="Create Photos/<Class>/ folders on the local workstation"
         >
           Create Photo Folders
         </Button>
         <Button
+          size="sm"
           variant="outline"
+          title="Import photos from Photos folder (PC) or select images (mobile)"
           onClick={async ()=>{
             const classes=settings.classes||[];
             if(!classes.length){ alert("No classes found for this school login."); return; }
@@ -2546,23 +2535,23 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
             }catch(err){
               console.warn("Photos-api check failed", err);
             }
-            // Mobile / Vercel / no local Photos folder API → open device photo picker
             openPhotoPickerForSync();
           }}
-          className="!h-9 !min-h-9 !px-3 !text-sm"
-          style={{ height: 36, minHeight: 36 }}
-          title="Import photos from Photos folder (PC) or select images (mobile)"
         >
           Import Photos
         </Button>
-        <span style={{fontSize:11,color:C.gray,whiteSpace:"nowrap"}} title="Workstation: watches Photos/<Class>/. Mobile: use Import Photos.">
+        <Badge
+          variant="secondary"
+          className="h-8 shrink-0 whitespace-nowrap px-2.5 font-normal"
+          title="Workstation: watches Photos/<Class>/. Mobile: use Import Photos."
+        >
           {autoPhotoSyncStatus==="syncing"?"Importing…":autoPhotoSyncStatus==="picker"?"Select images to import":"Folder watch active"}
-        </span>
+        </Badge>
         <input
           ref={photosDirRef}
           type="file"
           accept="image/*,.jpg,.jpeg,.jpe,.jfif,.png,.webp,.bmp,.gif,.heic,.heif,.avif,.tif,.tiff,.ico,.svg"
-          style={{display:"none"}}
+          className="hidden"
           multiple
           webkitdirectory=""
           directory=""
@@ -2573,12 +2562,11 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
             await importPickedPhotoFiles(files);
           }}
         />
-        {/* Mobile: multi-select images (folder picker is unreliable on phones) */}
         <input
           ref={photosFilesRef}
           type="file"
           accept="image/*,.jpg,.jpeg,.jpe,.jfif,.png,.webp,.bmp,.gif,.heic,.heif,.avif,.tif,.tiff,.ico,.svg"
-          style={{display:"none"}}
+          className="hidden"
           multiple
           onChange={async e=>{
             const files=Array.from(e.target.files||[]);
@@ -2589,7 +2577,7 @@ export function StudentsPage({settings:settingsProp,students:studentsProp,setStu
         />
       </div>
     </div>
-    <div className="no-print" style={{fontSize:12,color:C.gray,marginBottom:8}}>Showing {filtered.length} of {students.length} students</div>
+    <p className="no-print mb-2 text-xs text-muted-foreground">Showing {filtered.length} of {students.length} students</p>
     <div ref={studentsTableRef} className="students-record-print" style={{overflowX:"auto",width:"100%"}}>
       <table style={{borderCollapse:"collapse",fontSize:13,minWidth:"100%"}}>
         <thead><tr style={{background:C.navy,color:"#fff"}}>{["Photo","Adm#","Roll#","Student Name","Father's Name","Form B","DOB","WhatsApp","Class","Action"].map(h=><th key={h} style={{padding:"7px 10px",textAlign:"left",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
