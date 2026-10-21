@@ -191,15 +191,8 @@ function DailyRegisterSheet({
   return (
     <div className="card space-y-3">
       <Card size="sm" className="no-print shadow-none">
-        <CardContent className="dr-meta flex flex-nowrap items-end gap-3 overflow-x-auto pt-(--card-spacing) pb-0.5">
-          <div className="flex min-w-[9rem] shrink-0 flex-col gap-1.5">
-            <Label className="text-xs">School Name</Label>
-            <div className="dr-val flex h-8 items-center text-sm font-medium whitespace-nowrap">{schoolName}</div>
-          </div>
-          <div className="flex min-w-[5.5rem] shrink-0 flex-col gap-1.5">
-            <Label className="text-xs">EMIS Code</Label>
-            <div className="dr-val flex h-8 items-center text-sm font-medium tabular-nums">{schoolCode}</div>
-          </div>
+        <CardContent className="dr-meta flex flex-col gap-3 pt-(--card-spacing) pb-2 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex min-w-0 flex-nowrap items-end gap-3 overflow-x-auto">
           <div className="flex w-[8.5rem] shrink-0 flex-col gap-1.5">
             <Label htmlFor="dr-grade" className="text-xs">Class</Label>
             <NativeSelect
@@ -270,10 +263,8 @@ function DailyRegisterSheet({
               title="Maximum marks for each daily test"
             />
           </div>
-        </CardContent>
-      </Card>
-
-      <div className="no-print flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          </div>
+          <div className="flex min-w-0 shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
         <Tabs value={tab} onValueChange={setTab} className="dr-tabs min-w-0">
           <TabsList className="h-auto flex-wrap">
             {TABS.map((t) => (
@@ -291,7 +282,9 @@ function DailyRegisterSheet({
             <Button type="button" size="sm" onClick={printReport}>Print report</Button>
           )}
         </div>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {tab === "student" && (
         <div className="panel active panel-student">
@@ -453,16 +446,8 @@ function DailyRegisterSheet({
 
       {tab === "report" && (
         <div className="panel active panel-report">
-          <div className="report-toolbar no-print">
-            <Button type="button" onClick={printReport}>
-              Print / Save as PDF
-            </Button>
-          </div>
           <div className="report-sheet">
             <div className="report-doc-head">
-              <p className="report-school">{report.schoolName}</p>
-              <h2>Daily Quick Test — Performance Report</h2>
-              <p className="sub">Monthly student grouping by average marks</p>
               <div className="report-meta">
                 <div className="m"><label>EMIS</label><strong>{report.schoolCode}</strong></div>
                 <div className="m"><label>Class</label><strong>{report.classLabel}</strong></div>
@@ -550,8 +535,7 @@ export function DailyRegisterPage({
 
   return (
     <ModulePageShell
-      title="Daily Quick Test Register"
-      description="Marks entry, day summary, and printable performance report"
+      hideTitle
       bareContent
       className="daily-register"
       maxWidthClassName="max-w-[1600px]"
