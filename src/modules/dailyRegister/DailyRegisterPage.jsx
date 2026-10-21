@@ -191,14 +191,14 @@ function DailyRegisterSheet({
   return (
     <div className="card space-y-3">
       <Card size="sm" className="no-print shadow-none">
-        <CardContent className="flex flex-nowrap items-end gap-3 overflow-x-auto pt-(--card-spacing) pb-0.5">
+        <CardContent className="dr-meta flex flex-nowrap items-end gap-3 overflow-x-auto pt-(--card-spacing) pb-0.5">
           <div className="flex min-w-[9rem] shrink-0 flex-col gap-1.5">
             <Label className="text-xs">School Name</Label>
-            <div className="flex h-8 items-center text-sm font-medium whitespace-nowrap">{schoolName}</div>
+            <div className="dr-val flex h-8 items-center text-sm font-medium whitespace-nowrap">{schoolName}</div>
           </div>
           <div className="flex min-w-[5.5rem] shrink-0 flex-col gap-1.5">
             <Label className="text-xs">EMIS Code</Label>
-            <div className="flex h-8 items-center text-sm font-medium tabular-nums">{schoolCode}</div>
+            <div className="dr-val flex h-8 items-center text-sm font-medium tabular-nums">{schoolCode}</div>
           </div>
           <div className="flex w-[8.5rem] shrink-0 flex-col gap-1.5">
             <Label htmlFor="dr-grade" className="text-xs">Class</Label>
@@ -239,7 +239,7 @@ function DailyRegisterSheet({
           </div>
           <div className="flex w-[4.5rem] shrink-0 flex-col gap-1.5">
             <Label className="text-xs">On Roll</Label>
-            <div className="flex h-8 items-center text-sm font-medium tabular-nums">{sheet.students.length}</div>
+            <div className="dr-val flex h-8 items-center text-sm font-medium tabular-nums">{sheet.students.length}</div>
           </div>
           <div className="flex w-[10.5rem] shrink-0 flex-col gap-1.5">
             <Label htmlFor="dr-month" className="text-xs">Month</Label>
@@ -274,7 +274,7 @@ function DailyRegisterSheet({
       </Card>
 
       <div className="no-print flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <Tabs value={tab} onValueChange={setTab} className="min-w-0">
+        <Tabs value={tab} onValueChange={setTab} className="dr-tabs min-w-0">
           <TabsList className="h-auto flex-wrap">
             {TABS.map((t) => (
               <TabsTrigger key={t.id} value={t.id} className="text-xs sm:text-sm">
@@ -283,7 +283,7 @@ function DailyRegisterSheet({
             ))}
           </TabsList>
         </Tabs>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="dr-actions flex flex-wrap items-center gap-2">
           <span id="status" className="text-xs text-muted-foreground">{status}</span>
           <Button type="button" size="sm" onClick={() => persist(sheet, "Saved")}>Save</Button>
           <Button type="button" size="sm" variant="outline" onClick={resetMonth}>Reset month</Button>
