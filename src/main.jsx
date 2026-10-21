@@ -29,25 +29,54 @@ const base = import.meta.env.BASE_URL || "/";
 const withSlash = base.endsWith("/") ? base : `${base}/`;
 const swUrl = `${withSlash}sw.js`;
 
-if ("serviceWorker" in navigator) {
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+
   window.addEventListener("load", () => {
-    if (isProduction) {
+    // Dev: clear any leftover production SW so HMR stays clean
+    if (!isProduction) {
       navigator.serviceWorker
-        .register(swUrl, { updateViaCache: "none" })
-        .catch(() => {
-          // ignore registration errors in unsupported environments
-        });
+        .getRegistrations()
+        .then((regs) => regs.forEach((reg) => reg.unregister()))
+        .catch(() => undefined);
       return;
     }
 
-    // Avoid stale production cache while developing locally.
-    navigator.serviceWorker.getRegistrations().then((regs) => {
-      regs.forEach((reg) => reg.unregister());
-    }).catch(() => {
-      // ignore cleanup failures in unsupported environments
-    });
+    navigator.serviceWorker
+      .register(swUrl, { scope: withSlash, updateViaCache: "none" })
+      .then((reg) => {
+        // Check for updates when tab regains focus
+        const check = () => {
+          try {
+            void reg.update();
+          } catch {
+            /* ignore */
+          }
+        };
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") check();
+        });
+        // Activate waiting worker ASAP
+        if (reg.waiting) {
+          reg.waiting.postMessage({ type: "SKIP_WAITING" });
+        }
+        reg.addEventListener("updatefound", () => {
+          const worker = reg.installing;
+          if (!worker) return;
+          worker.addEventListener("statechange", () => {
+            if (worker.state === "installed" && navigator.serviceWorker.controller) {
+              worker.postMessage({ type: "SKIP_WAITING" });
+            }
+          });
+        });
+      })
+      .catch((err) => {
+        console.warn("[PWA] Service worker registration failed", err);
+      });
   });
 }
+
+registerServiceWorker();
 
 async function boot() {
   // Ensure public/psms-config.js (or JSON) is applied before React mounts

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { formatGradeLabel, getClassLabel, getClassSubjects, resolveClass } from "@/shared/helpers";
 import {
   DAY_SLOTS,
-  MARK_MAX,
+  DEFAULT_MARK_MAX,
   PERFORMANCE_BANDS,
   blankSheet,
   buildReport,
@@ -11,6 +11,8 @@ import {
   formatMonthLabel,
   listSessionMonthOptions,
   loadSheet,
+  normalizeMarkMax,
+  performanceBandsForMax,
   resolveClassId,
   saveSheet,
   sectionDisplayLabel,
@@ -49,12 +51,12 @@ function formatSummaryDate(isoDate, dayNum) {
   return n && n !== "00" ? n : "—";
 }
 
-function BandTable({ bands }) {
+function BandTable({ bands, bandDefs = PERFORMANCE_BANDS }) {
   return (
     <table className="report-band-table">
       <thead>
         <tr>
-          {PERFORMANCE_BANDS.map((b) => (
+          {bandDefs.map((b) => (
             <th key={b.id} className={b.id}>
               {b.label}
               <span className="rng">{b.range}</span>
@@ -64,7 +66,7 @@ function BandTable({ bands }) {
       </thead>
       <tbody>
         <tr>
-          {PERFORMANCE_BANDS.map((b) => {
+          {bandDefs.map((b) => {
             const list = bands?.[b.id] || [];
             return (
               <td key={b.id}>
@@ -118,6 +120,8 @@ function DailyRegisterSheet({
   const classLabel = classId ? getClassLabel(settings, classId) : "—";
   const schoolName = settings?.schoolName || "School";
   const schoolCode = settings?.schoolCode || "—";
+  const markMax = normalizeMarkMax(sheet.markMax ?? DEFAULT_MARK_MAX);
+  const bandDefs = performanceBandsForMax(markMax);
   const report = buildReport(sheet, { schoolName, schoolCode, classLabel, monthKey });
 
   const persist = (next, msg = "Saved") => {
@@ -125,6 +129,11 @@ function DailyRegisterSheet({
     if (!activeSchoolId || !classId) return;
     const at = saveSheet(activeSchoolId, classId, monthKey, next);
     setStatus(`${msg} · ${new Date(at).toLocaleTimeString()}`);
+  };
+
+  const setMarkMax = (raw) => {
+    const next = normalizeMarkMax(raw);
+    persist({ ...sheet, markMax: next }, `Max marks set to ${next}`);
   };
 
   const updateStudent = (id, patch) => {
@@ -143,7 +152,7 @@ function DailyRegisterSheet({
     if (raw !== "") {
       const n = Number(raw);
       if (!Number.isFinite(n)) return;
-      nextVal = Math.max(0, Math.min(MARK_MAX, n));
+      nextVal = Math.max(0, Math.min(markMax, n));
     }
     persist(
       {
@@ -247,6 +256,20 @@ function DailyRegisterSheet({
               ))}
             </NativeSelect>
           </div>
+          <div className="flex w-[5.5rem] shrink-0 flex-col gap-1.5">
+            <Label htmlFor="dr-mark-max" className="text-xs">Max Marks</Label>
+            <Input
+              id="dr-mark-max"
+              type="number"
+              min={1}
+              max={100}
+              step={0.5}
+              className="h-8"
+              value={markMax}
+              onChange={(e) => setMarkMax(e.target.value)}
+              title="Maximum marks for each daily test"
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -304,7 +327,7 @@ function DailyRegisterSheet({
                   </tr>
                 ) : (
                   sheet.students.map((s) => {
-                    const t = studentTotals(s);
+                    const t = studentTotals(s, markMax);
                     return (
                       <tr key={s.id}>
                         <td className="roll-cell">
@@ -332,7 +355,7 @@ function DailyRegisterSheet({
                               className={cn("mark", GRID_INPUT, "text-center")}
                               type="number"
                               min={0}
-                              max={MARK_MAX}
+                              max={markMax}
                               step={0.5}
                               value={s.marks?.[i] ?? ""}
                               onChange={(e) => updateMark(s.id, i, e.target.value)}
@@ -356,7 +379,7 @@ function DailyRegisterSheet({
           </div>
           <p className="note">
             Select <strong>Class</strong>, <strong>Section</strong> and <strong>Month</strong> above.
-            Enter marks (0–{MARK_MAX}); Total / Average calculate automatically.
+            Enter marks (0–{markMax}); Total / Average calculate automatically.
             Headers show working days (Mon–Fri) as day-of-month for the selected month. Set Subject / Topic on Summary.
             Students come from the Students module for this class.
           </p>
@@ -381,7 +404,7 @@ function DailyRegisterSheet({
               <tbody>
                 {Array.from({ length: DAY_SLOTS }, (_, i) => {
                   const d = sheet.dayMeta[i] || {};
-                  const sum = daySummary(sheet.students, sheet.dayMeta, i);
+                  const sum = daySummary(sheet.students, sheet.dayMeta, i, markMax);
                   const dateShow = formatSummaryDate(d.date, d.dayNum);
                   return (
                     <tr key={i}>
@@ -447,11 +470,12 @@ function DailyRegisterSheet({
                 <div className="m"><label>On Roll</label><strong>{report.onRoll}</strong></div>
                 <div className="m"><label>With averages</label><strong>{report.students.filter((s) => s.count > 0).length}</strong></div>
                 <div className="m"><label>Subjects set</label><strong>{report.bySubject.length}</strong></div>
+                <div className="m"><label>Max marks</label><strong>{report.markMax ?? markMax}</strong></div>
               </div>
             </div>
 
             <div className="report-legend">
-              {PERFORMANCE_BANDS.map((b) => (
+              {(report.bands || bandDefs).map((b) => (
                 <span key={b.id} className={`chip ${b.id}`}>{b.label} {b.range}</span>
               ))}
             </div>
@@ -459,9 +483,9 @@ function DailyRegisterSheet({
             <div className="report-section">
               <h3 className="report-section-title">
                 Overall
-                <span>All tests this month</span>
+                <span>All tests this month · max {report.markMax ?? markMax}</span>
               </h3>
-              <BandTable bands={report.overall} />
+              <BandTable bands={report.overall} bandDefs={report.bands || bandDefs} />
             </div>
 
             {report.bySubject.length === 0 ? (
@@ -473,7 +497,7 @@ function DailyRegisterSheet({
                     {block.subject}
                     <span>{block.total} students with marks</span>
                   </h3>
-                  <BandTable bands={block.bands} />
+                  <BandTable bands={block.bands} bandDefs={report.bands || bandDefs} />
                 </div>
               ))
             )}

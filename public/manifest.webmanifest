@@ -2,13 +2,18 @@
   "id": "/",
   "name": "Punjab-SMS",
   "short_name": "Punjab-SMS",
-  "description": "Punjab-SMS — local-first school management dashboard",
-  "start_url": "/",
+  "description": "Punjab-SMS — school management for desktop, Android, and iOS",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
   "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#0B3A6E",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["education", "business", "productivity"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/pwa-icon-192.png",
@@ -27,6 +32,26 @@
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "type": "image/png",
+      "sizes": "180x180",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Admit Student",
+      "short_name": "Admit",
+      "url": "/?nav=students&tab=admission",
+      "icons": [{ "src": "/pwa-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Home",
+      "url": "/?nav=dashboard",
+      "icons": [{ "src": "/pwa-icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

@@ -1,15 +1,43 @@
 /** Daily Quick Test Register — data helpers & local persistence. */
 
 export const DAY_SLOTS = 20;
-export const MARK_MAX = 10;
+/** Default max marks per daily test (legacy sheets without markMax). */
+export const DEFAULT_MARK_MAX = 10;
+/** @deprecated use DEFAULT_MARK_MAX / sheet.markMax */
+export const MARK_MAX = DEFAULT_MARK_MAX;
 
-export const PERFORMANCE_BANDS = [
-  { id: "best", label: "Best", min: 9, max: 10, range: "9–10" },
-  { id: "better", label: "Better", min: 7.5, max: 8.9, range: "7.5–8.9" },
-  { id: "good", label: "Good", min: 6, max: 7.4, range: "6–7.4" },
-  { id: "normal", label: "Normal", min: 4, max: 5.9, range: "4–5.9" },
-  { id: "weak", label: "Weak", min: 0, max: 3.99, range: "below 4" },
-];
+export function normalizeMarkMax(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_MARK_MAX;
+  // Allow half-marks; clamp 1–100
+  const rounded = Math.round(n * 2) / 2;
+  return Math.min(100, Math.max(1, rounded));
+}
+
+function fmtBandNum(n) {
+  const r = Math.round(Number(n) * 10) / 10;
+  if (!Number.isFinite(r)) return "—";
+  return Number.isInteger(r) ? String(r) : r.toFixed(1);
+}
+
+/** Performance bands scaled to the sheet's max marks (based on 10-mark ratios). */
+export function performanceBandsForMax(markMax = DEFAULT_MARK_MAX) {
+  const max = normalizeMarkMax(markMax);
+  const s = max / 10;
+  const bestMin = 9 * s;
+  const betterMin = 7.5 * s;
+  const goodMin = 6 * s;
+  const normalMin = 4 * s;
+  return [
+    { id: "best", label: "Best", min: bestMin, max, range: `${fmtBandNum(bestMin)}–${fmtBandNum(max)}` },
+    { id: "better", label: "Better", min: betterMin, max: bestMin - 0.05, range: `${fmtBandNum(betterMin)}–${fmtBandNum(bestMin - 0.1)}` },
+    { id: "good", label: "Good", min: goodMin, max: betterMin - 0.05, range: `${fmtBandNum(goodMin)}–${fmtBandNum(betterMin - 0.1)}` },
+    { id: "normal", label: "Normal", min: normalMin, max: goodMin - 0.05, range: `${fmtBandNum(normalMin)}–${fmtBandNum(goodMin - 0.1)}` },
+    { id: "weak", label: "Weak", min: 0, max: normalMin - 0.01, range: `below ${fmtBandNum(normalMin)}` },
+  ];
+}
+
+export const PERFORMANCE_BANDS = performanceBandsForMax(DEFAULT_MARK_MAX);
 
 export const STORAGE_KEY = "psms_daily_quick_register";
 
@@ -139,9 +167,10 @@ export function seedStudentsFromRoster(roster = []) {
     );
 }
 
-export function blankSheet(monthKey, roster = []) {
+export function blankSheet(monthKey, roster = [], markMax = DEFAULT_MARK_MAX) {
   return {
     monthKey,
+    markMax: normalizeMarkMax(markMax),
     dayMeta: defaultDayMeta(monthKey),
     students: seedStudentsFromRoster(roster),
     updatedAt: new Date().toISOString(),
@@ -184,6 +213,7 @@ export function loadSheet(schoolId, classId, monthKey, roster = []) {
   const students = savedStudents.length ? savedStudents : seedStudentsFromRoster(roster);
   return {
     monthKey,
+    markMax: normalizeMarkMax(saved.markMax ?? DEFAULT_MARK_MAX),
     dayMeta: syncDayMetaToWorkingDays(monthKey, saved.dayMeta),
     students,
     updatedAt: saved.updatedAt || null,
@@ -195,6 +225,7 @@ export function saveSheet(schoolId, classId, monthKey, sheet) {
   const id = sheetStorageId(schoolId, classId, monthKey);
   root[id] = {
     monthKey,
+    markMax: normalizeMarkMax(sheet.markMax ?? DEFAULT_MARK_MAX),
     dayMeta: sheet.dayMeta,
     students: sheet.students,
     updatedAt: new Date().toISOString(),
@@ -213,18 +244,20 @@ export function saveSheet(schoolId, classId, monthKey, sheet) {
   return root[id].updatedAt;
 }
 
-export function parseMark(value) {
+export function parseMark(value, markMax = DEFAULT_MARK_MAX) {
   if (value === "" || value == null) return null;
   const n = Number(value);
   if (!Number.isFinite(n)) return null;
+  const max = normalizeMarkMax(markMax);
   if (n < 0) return 0;
-  if (n > MARK_MAX) return MARK_MAX;
+  if (n > max) return max;
   return n;
 }
 
-export function studentTotals(student) {
+export function studentTotals(student, markMax = DEFAULT_MARK_MAX) {
+  const max = normalizeMarkMax(markMax);
   const marks = (student?.marks || [])
-    .map(parseMark)
+    .map((v) => parseMark(v, max))
     .filter((n) => n != null);
   const total = marks.reduce((s, n) => s + n, 0);
   const avg = marks.length ? total / marks.length : 0;
@@ -243,14 +276,15 @@ export function dayIsActive(dayMeta, index) {
   return Boolean(String(d.date || "").trim() || String(d.subject || "").trim() || String(d.topic || "").trim());
 }
 
-export function daySummary(students, dayMeta, index) {
+export function daySummary(students, dayMeta, index, markMax = DEFAULT_MARK_MAX) {
   const active = dayIsActive(dayMeta, index);
+  const max = normalizeMarkMax(markMax);
   let present = 0;
   let absent = 0;
   let sum = 0;
   let marked = 0;
   (students || []).forEach((s) => {
-    const m = parseMark(s.marks?.[index]);
+    const m = parseMark(s.marks?.[index], max);
     if (m != null) {
       present += 1;
       sum += m;
@@ -266,23 +300,26 @@ export function daySummary(students, dayMeta, index) {
   };
 }
 
-export function bandForAverage(avg) {
+export function bandForAverage(avg, markMax = DEFAULT_MARK_MAX) {
   if (!Number.isFinite(avg)) return null;
-  if (avg >= 9) return PERFORMANCE_BANDS[0];
-  if (avg >= 7.5) return PERFORMANCE_BANDS[1];
-  if (avg >= 6) return PERFORMANCE_BANDS[2];
-  if (avg >= 4) return PERFORMANCE_BANDS[3];
-  return PERFORMANCE_BANDS[4];
+  const bands = performanceBandsForMax(markMax);
+  if (avg >= bands[0].min) return bands[0];
+  if (avg >= bands[1].min) return bands[1];
+  if (avg >= bands[2].min) return bands[2];
+  if (avg >= bands[3].min) return bands[3];
+  return bands[4];
 }
 
 export function buildReport(sheet, { schoolName, schoolCode, classLabel, monthKey } = {}) {
+  const markMax = normalizeMarkMax(sheet?.markMax ?? DEFAULT_MARK_MAX);
+  const bandsDef = performanceBandsForMax(markMax);
   const students = (sheet?.students || []).map((s) => {
-    const t = studentTotals(s);
-    return { ...s, ...t, band: bandForAverage(t.count ? t.avg : NaN) };
+    const t = studentTotals(s, markMax);
+    return { ...s, ...t, band: bandForAverage(t.count ? t.avg : NaN, markMax) };
   });
 
   const overall = {};
-  PERFORMANCE_BANDS.forEach((b) => {
+  bandsDef.forEach((b) => {
     overall[b.id] = students
       .filter((s) => s.band?.id === b.id)
       .sort((a, b) => b.avg - a.avg || String(a.roll).localeCompare(String(b.roll), undefined, { numeric: true }));
@@ -305,7 +342,7 @@ export function buildReport(sheet, { schoolName, schoolCode, classLabel, monthKe
   const bySubject = subjects.map(({ subject, indices }) => {
     const rows = (sheet?.students || [])
       .map((s) => {
-        const marks = indices.map((i) => parseMark(s.marks?.[i])).filter((n) => n != null);
+        const marks = indices.map((i) => parseMark(s.marks?.[i], markMax)).filter((n) => n != null);
         if (!marks.length) return null;
         const total = marks.reduce((a, b) => a + b, 0);
         const avg = total / marks.length;
@@ -317,13 +354,13 @@ export function buildReport(sheet, { schoolName, schoolCode, classLabel, monthKe
           avg,
           avgDisplay: avg.toFixed(1),
           count: marks.length,
-          band: bandForAverage(avg),
+          band: bandForAverage(avg, markMax),
         };
       })
       .filter(Boolean);
 
     const bands = {};
-    PERFORMANCE_BANDS.forEach((b) => {
+    bandsDef.forEach((b) => {
       bands[b.id] = rows
         .filter((r) => r.band?.id === b.id)
         .sort((a, b) => b.avg - a.avg || String(a.roll).localeCompare(String(b.roll), undefined, { numeric: true }));
@@ -336,6 +373,8 @@ export function buildReport(sheet, { schoolName, schoolCode, classLabel, monthKe
     schoolCode: schoolCode || "—",
     classLabel: classLabel || "—",
     monthLabel: formatMonthLabel(monthKey || sheet?.monthKey),
+    markMax,
+    bands: bandsDef,
     onRoll: students.length,
     overall,
     bySubject,

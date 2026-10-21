@@ -25,8 +25,11 @@ function patchHtmlPublicLinks(base) {
       if (base === "/") return html;
       return html
         .replaceAll('href="/favicon.png"', `href="${base}favicon.png"`)
+        .replaceAll('href="/favicon.svg"', `href="${base}favicon.svg"`)
         .replaceAll('href="/apple-touch-icon.png"', `href="${base}apple-touch-icon.png"`)
-        .replaceAll('href="/manifest.webmanifest"', `href="${base}manifest.webmanifest"`);
+        .replaceAll('href="/manifest.webmanifest"', `href="${base}manifest.webmanifest"`)
+        .replaceAll('href="/pwa-icon-192.png"', `href="${base}pwa-icon-192.png"`)
+        .replaceAll('href="/pwa-icon-512.png"', `href="${base}pwa-icon-512.png"`);
     },
   };
 }
@@ -39,16 +42,27 @@ function patchManifestScope(base) {
       const file = path.resolve("dist/manifest.webmanifest");
       if (!fs.existsSync(file)) return;
       const data = JSON.parse(fs.readFileSync(file, "utf8"));
-      data.start_url = base;
+      data.start_url = base === "/" ? "/?source=pwa" : `${base}?source=pwa`;
       data.scope = base;
       data.id = base;
       const root = base === "/" ? "" : base.replace(/\/$/, "");
+      const prefixSrc = (src) => {
+        if (typeof src !== "string" || !src.startsWith("/") || (root && src.startsWith(root + "/"))) return src;
+        return `${root}${src}`;
+      };
       if (Array.isArray(data.icons)) {
-        data.icons = data.icons.map((icon) => {
-          const src = icon.src;
-          if (typeof src !== "string" || !src.startsWith("/") || src.startsWith(root + "/")) return icon;
-          return { ...icon, src: `${root}${src}` };
-        });
+        data.icons = data.icons.map((icon) => ({ ...icon, src: prefixSrc(icon.src) }));
+      }
+      if (Array.isArray(data.shortcuts)) {
+        data.shortcuts = data.shortcuts.map((s) => ({
+          ...s,
+          url: typeof s.url === "string" && s.url.startsWith("/")
+            ? `${root}${s.url}`
+            : s.url,
+          icons: Array.isArray(s.icons)
+            ? s.icons.map((icon) => ({ ...icon, src: prefixSrc(icon.src) }))
+            : s.icons,
+        }));
       }
       fs.writeFileSync(file, JSON.stringify(data, null, 2));
     },
