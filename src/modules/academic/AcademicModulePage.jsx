@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { consumeNavIntent } from "@/lib/navIntent.js";
 import {
   AcademicOverviewPanel,
@@ -9,7 +9,7 @@ import {
   AcademicPeriodsPanel,
   AcademicSchemePanel,
 } from "./AcademicToolPanels.jsx";
-import { ACADEMIC_TABS, summarizeAcademicStructure } from "./academicCore.js";
+import { ACADEMIC_TABS, summarizeAcademicStructure, withPunjabSessionCalendar } from "./academicCore.js";
 import { ModulePageShell } from "@/components/ModulePageShell";
 
 function initialAcademicTab() {
@@ -40,6 +40,13 @@ export function AcademicModulePage({
 }) {
   const [tab, setTab] = useState(initialAcademicTab);
   const summary = summarizeAcademicStructure(settings, sessions, currentSession);
+  const calendarSeeded = useRef(false);
+
+  useEffect(() => {
+    if (calendarSeeded.current || !setSettings || settings?.punjabSession2026Seeded) return;
+    calendarSeeded.current = true;
+    setSettings((prev) => withPunjabSessionCalendar(prev));
+  }, [setSettings, settings?.punjabSession2026Seeded]);
 
   useEffect(() => {
     if (!setBarSubtitle) return;

@@ -18,6 +18,64 @@ export const ACADEMIC_TABS = [
 
 export const CALENDAR_EVENT_TYPES = ['Holiday', 'Event', 'Exam', 'Meeting', 'Other']
 
+/** Punjab public-school session 2026-27. Unannounced items stay labeled as such. */
+export const PUNJAB_SESSION_2026_EVENTS = [
+  {
+    id: 'pb-2026-session-start',
+    title: 'Session start',
+    date: '2026-04-01',
+    endDate: '2026-04-01',
+    type: 'Event',
+    notes: 'Academic year began on 1 April 2026.',
+  },
+  {
+    id: 'pb-2026-summer-vacation',
+    title: 'Summer vacation',
+    date: '2026-05-22',
+    endDate: '2026-08-23',
+    type: 'Holiday',
+    notes: 'Schools reopen on 24 August 2026.',
+  },
+  {
+    id: 'pb-2026-winter-timings',
+    title: 'Winter school timings',
+    date: '2026-10-16',
+    endDate: '2027-03-31',
+    type: 'Other',
+    notes: 'Single-shift schools: 8:45 AM to 1:30 PM, Monday to Thursday.',
+  },
+  {
+    id: 'pb-2026-winter-vacation',
+    title: 'Winter vacation 2026-27 (not announced)',
+    date: '2026-12-15',
+    endDate: '2026-12-15',
+    type: 'Other',
+    notes: 'Dates are not announced. Last year, public and private schools closed from 22 December 2025 to 10 January 2026. Expect this year’s notice around mid-December.',
+  },
+  {
+    id: 'pb-2027-annual-exams',
+    title: 'Annual exams 2027 (dates not published)',
+    date: '2027-03-01',
+    endDate: '2027-03-01',
+    type: 'Exam',
+    notes: '2027 dates are not published. Last cycle: classes 1–7 had exams 10–22 March with results on 31 March; Class 8 had a board assessment from 3 February; matric started 3 March.',
+  },
+]
+
+export function withPunjabSessionCalendar(settings) {
+  if (!settings || settings.punjabSession2026Seeded) return settings
+  const prev = Array.isArray(settings.academicCalendar) ? settings.academicCalendar : []
+  const ids = new Set(prev.map((e) => e.id))
+  const added = PUNJAB_SESSION_2026_EVENTS.filter((e) => !ids.has(e.id)).map((e) => ({
+    ...e,
+    createdAt: '2026-04-01T00:00:00.000Z',
+  }))
+  const academicCalendar = added.length
+    ? [...prev, ...added].sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    : prev
+  return { ...settings, academicCalendar, punjabSession2026Seeded: true }
+}
+
 function newId() {
   return `acad_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
 }
