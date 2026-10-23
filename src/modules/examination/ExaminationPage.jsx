@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { consumeNavIntent } from "@/lib/navIntent.js";
 import { ModulePageShell } from "@/components/ModulePageShell";
 import * as H from "@/shared/helpers";
+import { EXAM_TERMS, SCHOOL_EXAM_TERMS, classHasBiseAnnual, examTermLabel, examsForClassId } from "@/modules/examination/examinationCore.js";
 
 const {
   formatGradeLabel, formatClassDisplay, resolveClass, getClassLabel, normKey,
@@ -423,7 +424,16 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
   const setDsCols=(updater)=>{ if(!setDatesheet) return; const next=typeof updater==="function"?updater(dsCols):updater; setDatesheet(prev=>({...prev,cols:next})); };
   const setDsSubs=(updater)=>{ if(!setDatesheet) return; const next=typeof updater==="function"?updater(dsSubs):updater; setDatesheet(prev=>({...prev,subs:next})); };
   const setDsNote=(v)=>{ if(setDatesheet) setDatesheet(prev=>({...prev,note:v})); };
-  const exams=["1st Term","Mid Term","Final Term","Annual"];
+  const markExams=useMemo(()=>examsForClassId(settings.classes, selCls),[settings.classes, selCls]);
+  const cardExams=useMemo(()=>examsForClassId(settings.classes, rcCls),[settings.classes, rcCls]);
+  const datesheetExams=useMemo(()=>{
+    const hasBoard=(settings.classes||[]).some((c)=>classHasBiseAnnual(c));
+    return hasBoard ? EXAM_TERMS : SCHOOL_EXAM_TERMS;
+  },[settings.classes]);
+  useEffect(()=>{
+    if(tab!=="marks"&&tab!=="consolidated") return;
+    if(exam&&!markExams.includes(exam)) setExam(markExams[0]||"1st Term");
+  },[tab, markExams, exam]);
   const subjs=(cls)=>getClassSubjects(settings,cls,"exam");
   const cs=(clsId)=>{
     if(!clsId) return [];
@@ -500,27 +510,11 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
     },
   };
   const [rcExam,setRcExam]=useState("overall");
+  useEffect(()=>{
+    if(rcExam!=="overall"&&!cardExams.includes(rcExam)) setRcExam(cardExams[0]||"1st Term");
+  },[cardExams, rcExam]);
   const tm=exam_tmProp&&typeof exam_tmProp==="object"?exam_tmProp:{};
   const om=exam_omProp&&typeof exam_omProp==="object"?exam_omProp:{};
-  const examsWithData = useMemo(() => {
-    const classIds = (settings.classes || []).map((c) => String(c.id || "")).filter(Boolean);
-    const discovered = new Set();
-    const addFromKey = (key) => {
-      const k = String(key || "");
-      for (const classId of classIds) {
-        const marker = `_${classId}_`;
-        const idx = k.indexOf(marker);
-        if (idx > 0) {
-          const examName = k.slice(0, idx).trim();
-          if (examName) discovered.add(examName);
-          break;
-        }
-      }
-    };
-    Object.keys(tm || {}).forEach(addFromKey);
-    Object.keys(om || {}).forEach(addFromKey);
-    return discovered.size ? Array.from(discovered) : exams;
-  }, [tm, om, settings.classes]);
   const gtm=(e,c,s)=>tm[`${e}_${c}_${s}`]||"";
   const stm=(e,c,s,v)=>{ if(!setExamMarks) return; setExamMarks(prevTM=>({...prevTM,[`${e}_${c}_${s}`]:v}),null); };
   const gom=(e,c,id,s)=>om[`${e}_${c}_${id}_${s}`]||"";
@@ -796,7 +790,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
   const subjectStat=(mode,classId,studentId,subj)=>{
     let tot=0,obt=0;
     if(mode==="overall"){
-      examsWithData.forEach(e=>{
+      examsForClassId(settings.classes, classId).forEach(e=>{
         const t=parseFloat(gtm(e,classId,subj));
         const o=parseFloat(gom(e,classId,studentId,subj));
         if(!isNaN(t)) tot+=t;
@@ -836,14 +830,15 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
   const presentExamsForCard=(mode,classId,studentId)=>{
     if(mode!=="overall") return [String(mode||"").trim()].filter(Boolean);
     const subjects=subjs(classId);
-    const matches=examsWithData.filter(ex=>{
+    const classExams=examsForClassId(settings.classes, classId);
+    const matches=classExams.filter(ex=>{
       return subjects.some(subj=>{
         const t=parseFloat(gtm(ex,classId,subj));
         const o=parseFloat(gom(ex,classId,studentId,subj));
         return !isNaN(t)||!isNaN(o);
       });
     });
-    return matches.length?matches:examsWithData;
+    return matches.length?matches:classExams;
   };
   const extractGradeNumber = (cls) => {
     if (!cls) return null;
@@ -1271,7 +1266,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
         <div>
           <div className={toolbarCls}>
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
-              <div className="flex flex-col gap-1.5"><Label className="text-xs">Exam</Label><NativeSelect size="sm" value={exam} onChange={(e) => setExam(e.target.value)} style={{ width: ctrlW }}>{exams.map((e) => <NativeSelectOption key={e} value={e}>{e}</NativeSelectOption>)}</NativeSelect></div>
+              <div className="flex flex-col gap-1.5"><Label className="text-xs">Exam</Label><NativeSelect size="sm" value={exam} onChange={(e) => setExam(e.target.value)} style={{ width: ctrlW }}>{markExams.map((e) => <NativeSelectOption key={e} value={e}>{examTermLabel(e)}</NativeSelectOption>)}</NativeSelect></div>
               <div className="flex flex-col gap-1.5"><Label className="text-xs">Class</Label><NativeSelect size="sm" value={selCls} onChange={(e) => setSelCls(e.target.value)} style={{ width: ctrlW }}>{settings.classes.map((c) => <NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>)}</NativeSelect></div>
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -1373,7 +1368,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
         <div>
           <div className={toolbarCls}>
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
-              <div className="flex flex-col gap-1.5"><Label className="text-xs">Exam</Label><NativeSelect size="sm" value={exam} onChange={(e) => setExam(e.target.value)} style={{ width: ctrlW }}>{exams.map((e) => <NativeSelectOption key={e} value={e}>{e}</NativeSelectOption>)}</NativeSelect></div>
+              <div className="flex flex-col gap-1.5"><Label className="text-xs">Exam</Label><NativeSelect size="sm" value={exam} onChange={(e) => setExam(e.target.value)} style={{ width: ctrlW }}>{markExams.map((e) => <NativeSelectOption key={e} value={e}>{examTermLabel(e)}</NativeSelectOption>)}</NativeSelect></div>
               <div className="flex flex-col gap-1.5"><Label className="text-xs">Class</Label><NativeSelect size="sm" value={selCls} onChange={(e) => setSelCls(e.target.value)} style={{ width: ctrlW }}>{settings.classes.map((c) => <NativeSelectOption key={c.id} value={c.id}>{formatClassDisplay(c)}</NativeSelectOption>)}</NativeSelect></div>
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -1522,7 +1517,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
               <Label className="text-xs">Exam</Label>
               <NativeSelect value={rcExam} onChange={(e) => setRcExam(e.target.value)} style={{ width: 140 }}>
                 <NativeSelectOption value="overall">Overall (All Terms)</NativeSelectOption>
-                {exams.map((e) => <NativeSelectOption key={e} value={e}>{e}</NativeSelectOption>)}
+                {cardExams.map((e) => <NativeSelectOption key={e} value={e}>{examTermLabel(e)}</NativeSelectOption>)}
               </NativeSelect>
             </div>
             <div className="flex flex-col gap-1.5 shrink-0">
@@ -1627,7 +1622,7 @@ export function ExaminationPage({settings:settingsProp,setSettings,students:stud
         <div>
           <div className={`no-print ${toolbarCls}`}>
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
-              <div className="flex flex-col gap-1.5"><Label className="text-xs">Exam</Label><NativeSelect size="sm" value={exam} onChange={(e) => setExam(e.target.value)} style={{ width: ctrlW }}>{exams.map((e) => <NativeSelectOption key={e} value={e}>{e}</NativeSelectOption>)}</NativeSelect></div>
+              <div className="flex flex-col gap-1.5"><Label className="text-xs">Exam</Label><NativeSelect size="sm" value={exam} onChange={(e) => setExam(e.target.value)} style={{ width: ctrlW }}>{datesheetExams.map((e) => <NativeSelectOption key={e} value={e}>{examTermLabel(e)}</NativeSelectOption>)}</NativeSelect></div>
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               <Button size="sm" onClick={() => setDsDates((rows) => [...rows, { id: genId(), date: new Date().toISOString().split("T")[0] }])}>Add Date</Button>

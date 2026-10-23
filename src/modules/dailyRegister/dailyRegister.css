@@ -118,7 +118,7 @@
 .daily-register table.sr {
   border-collapse: collapse;
   width: 100%;
-  min-width: 56rem;
+  min-width: 78rem;
   font-size: .68rem;
   background: #fff;
   table-layout: fixed;
@@ -183,15 +183,26 @@
   padding: 2px 0;
 }
 .daily-register .th-date input.day-num:focus { background: transparent; }
-.daily-register .th-total, .daily-register .th-avg, .daily-register .th-sba { white-space: nowrap; width: 4.2%; }
+.daily-register .th-total, .daily-register .th-avg { white-space: nowrap; width: 4.2%; }
 .daily-register .th-total { background: var(--total); }
 .daily-register .th-avg { background: var(--avg); }
-.daily-register .th-sba { background: var(--sba); }
+.daily-register .th-sba {
+  white-space: normal;
+  background: var(--sba);
+  width: 4.6rem;
+  line-height: 1.15;
+  padding: 3px 2px;
+}
+.daily-register .sba-kicker {
+  display: block;
+  font-size: .55rem;
+  letter-spacing: .04em;
+  opacity: .75;
+}
 .daily-register .th-remarks { background: var(--remarks); width: 6%; }
 /* Flat inputs fill the cell; row height follows tallest content */
 td.mark-cell,
 td.roll-cell,
-td.sba-cell,
 td.remarks-cell,
 td.name-cell,
 .daily-register td.father-cell {
@@ -211,6 +222,14 @@ td.name-cell,
   text-align: left;
 }
 .daily-register td.remarks-cell { width: 6%; }
+.daily-register td.sba-cell {
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  padding: 4px 6px;
+  background: color-mix(in srgb, var(--sba) 70%, white);
+}
 .daily-register td.mark-cell input.mark,
 .daily-register td.sba-cell input.sba,
 .daily-register td.remarks-cell input.remarks {

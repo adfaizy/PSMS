@@ -1998,6 +1998,8 @@ function App(){
               students={students}
               activeSchoolId={activeSchoolId}
               currentSession={curSession}
+              exam_tm={exam_tm}
+              exam_om={exam_om}
               setBarSubtitle={setBarSubtitle}
             />
           )}

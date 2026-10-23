@@ -1,5 +1,6 @@
 import { startTransition, useEffect, useMemo, useState } from "react";
 import { fetchPtbbBooks } from "./bookBankService.js";
+import ptbbFallbackData from "./ptbbFallback.json";
 import { ModulePageShell } from "@/components/ModulePageShell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ function normalize(text) {
 }
 
 const LAST_RESORT_THUMBNAIL = "https://placehold.co/320x420/e2e8f0/334155?text=Book";
+const BOOK_BANK_URL = ptbbFallbackData.source || "https://pectaa.edu.pk/books-and-publications/";
 
 function getThumbnailCandidates(book) {
   const candidates = [];
@@ -51,7 +53,7 @@ export function BookBankPage({ setBarSubtitle }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setBarSubtitle?.("PTBB class-wise textbook playlists");
+    setBarSubtitle?.("PECTAA books and publications");
     return () => setBarSubtitle?.("");
   }, [setBarSubtitle]);
 
@@ -63,7 +65,7 @@ export function BookBankPage({ setBarSubtitle }) {
       const failSafe = window.setTimeout(() => {
         if (cancelled) return;
         setLoading(false);
-        setError("Could not load PTBB books right now. Please try again later.");
+        setError("Could not load PECTAA books right now. Please try again later.");
       }, 18000);
       try {
         const data = await fetchPtbbBooks();
@@ -116,7 +118,7 @@ export function BookBankPage({ setBarSubtitle }) {
   return (
     <ModulePageShell
       title="Book Bank"
-      description="Punjab Textbook Board — class-wise playlists"
+      description="PECTAA books and publications"
       actions={
         <Input
           type="search"
@@ -156,9 +158,14 @@ export function BookBankPage({ setBarSubtitle }) {
             <Badge variant="secondary">
               {renderedBooks.length} / {visibleBooks.length}
             </Badge>
+            <Button asChild size="sm" variant="outline">
+              <a href={BOOK_BANK_URL} target="_blank" rel="noreferrer">
+                <BookOpen className="mr-1.5 size-3.5" />
+                PECTAA catalog
+              </a>
+            </Button>
             {currentClass?.books?.length > 0 ? (
               <Button type="button" size="sm" variant="outline" onClick={openClassPlaylist}>
-                <BookOpen className="mr-1.5 size-3.5" />
                 Open playlist
               </Button>
             ) : null}
@@ -166,7 +173,7 @@ export function BookBankPage({ setBarSubtitle }) {
         </div>
 
         {loading && (
-          <p className="m-0 text-sm text-muted-foreground">Loading PTBB class playlists…</p>
+          <p className="m-0 text-sm text-muted-foreground">Loading PECTAA class playlists…</p>
         )}
         {!loading && error && (
           <p className="m-0 text-sm text-destructive">{error}</p>

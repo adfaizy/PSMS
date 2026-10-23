@@ -1,4 +1,51 @@
-export const EXAM_TERMS = ['1st Term', 'Mid Term', 'Final Term', 'Annual']
+export const SCHOOL_EXAM_TERMS = ['1st Term', 'Mid Term', 'Final Term']
+export const BISE_ANNUAL_EXAM = 'Annual'
+export const EXAM_TERMS = [...SCHOOL_EXAM_TERMS, BISE_ANNUAL_EXAM]
+
+const GRADE_WORDS = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+}
+
+export function gradeNumberFromClass(cls) {
+  if (!cls) return null
+  const raw = String(cls.grade ?? cls.name ?? '').trim().toLowerCase()
+  if (!raw) return null
+  if (Object.prototype.hasOwnProperty.call(GRADE_WORDS, raw)) return GRADE_WORDS[raw]
+  const match = raw.match(/\d{1,2}/)
+  if (!match) return null
+  const n = parseInt(match[0], 10)
+  return Number.isNaN(n) ? null : n
+}
+
+/** Annual is the BISE Lahore result, used for class 9 and class 10 only. */
+export function classHasBiseAnnual(cls) {
+  const n = gradeNumberFromClass(cls)
+  return n === 9 || n === 10
+}
+
+export function examsForClassRecord(cls) {
+  return classHasBiseAnnual(cls) ? EXAM_TERMS : SCHOOL_EXAM_TERMS
+}
+
+export function examsForClassId(classes, classId) {
+  const list = Array.isArray(classes) ? classes : []
+  const id = String(classId ?? '')
+  const cls = list.find((c) => String(c?.id) === id) || list.find((c) => String(c?.grade) === id)
+  return examsForClassRecord(cls)
+}
+
+export function examTermLabel(exam) {
+  return exam === BISE_ANNUAL_EXAM ? 'Annual (BISE Lahore)' : exam
+}
 
 function toNumber(value) {
   const parsed = parseFloat(value)

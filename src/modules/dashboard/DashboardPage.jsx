@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { setNavIntent } from "@/lib/navIntent.js";
 import * as H from "@/shared/helpers";
+import { SCHOOL_EXAM_TERMS, classHasBiseAnnual, examTermLabel, examsForClassId } from "@/modules/examination/examinationCore.js";
 
 const {
   formatClassDisplay,
@@ -175,10 +176,12 @@ export function DashboardPage({
   );
 
   const passThreshold = Number(settings.passPercent) || 50;
-  const exams = ["1st Term", "Mid Term", "Final Term", "Annual"];
+  const exams = (settings.classes || []).some((c) => classHasBiseAnnual(c))
+    ? [...SCHOOL_EXAM_TERMS, "Annual"]
+    : SCHOOL_EXAM_TERMS;
   const dashExamOptions = [
     { value: "overall", label: "Overall (All Terms)" },
-    ...exams.map((e) => ({ value: e, label: e })),
+    ...exams.map((e) => ({ value: e, label: examTermLabel(e) })),
   ];
   const allowedDashExam = new Set(dashExamOptions.map((o) => o.value));
   const [dashExam, setDashExam] = useState(() => {
@@ -190,6 +193,10 @@ export function DashboardPage({
     }
     return "1st Term";
   });
+  const dashExamKey = exams.join("|");
+  useEffect(() => {
+    if (dashExam !== "overall" && !exams.includes(dashExam)) setDashExam("1st Term");
+  }, [dashExam, dashExamKey, exams]);
   useEffect(() => {
     try {
       window.localStorage.setItem(DASHBOARD_EXAM_LS, dashExam);
@@ -208,13 +215,16 @@ export function DashboardPage({
   const subjectStatDash = (mode, classId, studentId, subj) => {
     let tot = 0;
     let obt = 0;
+    const classExams = examsForClassId(settings.classes, classId);
     if (mode === "overall") {
-      exams.forEach((ex) => {
+      classExams.forEach((ex) => {
         const t = parseFloat(gtm(ex, classId, subj));
         const o = parseFloat(gom(ex, classId, studentId, subj));
         if (!Number.isNaN(t)) tot += t;
         if (!Number.isNaN(o)) obt += o;
       });
+    } else if (!classExams.includes(mode)) {
+      return { tot: 0, obt: 0 };
     } else {
       const t = parseFloat(gtm(mode, classId, subj));
       const o = parseFloat(gom(mode, classId, studentId, subj));

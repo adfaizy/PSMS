@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { formatGradeLabel, getClassLabel, getClassSubjects, resolveClass } from "@/shared/helpers";
+import { calculateExamTotals, examsForClassId } from "@/modules/examination/examinationCore.js";
 import {
   DAY_SLOTS,
   DEFAULT_MARK_MAX,
@@ -92,6 +93,25 @@ function BandTable({ bands, bandDefs = PERFORMANCE_BANDS }) {
   );
 }
 
+function examSbaValue(examTm, examOm, exam, classId, studentId, subjects) {
+  if (!studentId || !subjects.length) return "—";
+  const hasObtained = subjects.some((subject) => {
+    const raw = examOm?.[`${exam}_${classId}_${studentId}_${subject}`];
+    return raw !== "" && raw != null && Number.isFinite(Number(raw));
+  });
+  if (!hasObtained) return "—";
+  const { totalMarks, obtainedMarks } = calculateExamTotals({
+    examTm,
+    examOm,
+    exam,
+    classId,
+    studentId,
+    subjects,
+  });
+  if (!totalMarks) return String(obtainedMarks);
+  return `${obtainedMarks}/${totalMarks}`;
+}
+
 function DailyRegisterSheet({
   settings,
   students,
@@ -102,6 +122,8 @@ function DailyRegisterSheet({
   grade,
   grades,
   sectionOptions,
+  examTm = {},
+  examOm = {},
   onGradeChange,
   onClassChange,
   onMonthChange,
@@ -117,6 +139,7 @@ function DailyRegisterSheet({
   );
 
   const subjects = getClassSubjects(settings, classId, "exam") || [];
+  const sbaExams = examsForClassId(settings?.classes, classId);
   const classLabel = classId ? getClassLabel(settings, classId) : "—";
   const schoolName = settings?.schoolName || "School";
   const schoolCode = settings?.schoolCode || "—";
@@ -307,14 +330,18 @@ function DailyRegisterSheet({
                   })}
                   <th className="th-total">Total</th>
                   <th className="th-avg">Avg</th>
-                  <th className="th-sba">SBA</th>
-                  <th className="th-remarks">Remarks</th>
+                  {sbaExams.map((exam) => (
+                    <th key={exam} className="th-sba" title={exam === "Annual" ? "Annual · BISE Lahore result" : `SBA · ${exam}`}>
+                      <span className="sba-kicker">{exam === "Annual" ? "BISE" : "SBA"}</span>
+                      <span>{exam}</span>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {sheet.students.length === 0 ? (
                   <tr>
-                    <td colSpan={DAY_SLOTS + 6} className="empty">
+                    <td colSpan={DAY_SLOTS + 5 + sbaExams.length} className="empty">
                       No students in this class. Add them under Students first.
                     </td>
                   </tr>
@@ -357,12 +384,11 @@ function DailyRegisterSheet({
                         ))}
                         <td className="total c">{t.totalDisplay}</td>
                         <td className="avg c">{t.avgDisplay}</td>
-                        <td className="sba-cell">
-                          <Input className={cn("sba", GRID_INPUT, "text-center")} value={s.sba} onChange={(e) => updateStudent(s.id, { sba: e.target.value })} />
-                        </td>
-                        <td className="remarks-cell">
-                          <Input className={cn("remarks", GRID_INPUT, "text-left")} value={s.remarks} onChange={(e) => updateStudent(s.id, { remarks: e.target.value })} />
-                        </td>
+                        {sbaExams.map((exam) => (
+                          <td key={exam} className="sba-cell c">
+                            {examSbaValue(examTm, examOm, exam, classId, s.studentId, subjects)}
+                          </td>
+                        ))}
                       </tr>
                     );
                   })
@@ -373,6 +399,8 @@ function DailyRegisterSheet({
           <p className="note">
             Select <strong>Class</strong>, <strong>Section</strong> and <strong>Month</strong> above.
             Enter marks (0–{markMax}); Total / Average calculate automatically.
+            SBA columns are {sbaExams.join(", ")}, filled from Examination marks (obtained/total).
+            {sbaExams.includes("Annual") ? " Annual is the BISE Lahore result." : " Annual (BISE Lahore) is shown for class 9 and class 10."}
             Headers show working days (Mon–Fri) as day-of-month for the selected month. Set Subject / Topic on Summary.
             Students come from the Students module for this class.
           </p>
@@ -509,6 +537,8 @@ export function DailyRegisterPage({
   students = [],
   activeSchoolId,
   currentSession,
+  exam_tm = {},
+  exam_om = {},
   setBarSubtitle,
 }) {
   const classes = settings?.classes || [];
@@ -552,6 +582,8 @@ export function DailyRegisterPage({
           grade={grade}
           grades={grades}
           sectionOptions={sectionOptions}
+          examTm={exam_tm}
+          examOm={exam_om}
           onGradeChange={(g) => {
             setGradePick(g);
             setClassPick(resolveClassId(classes, g, ""));
